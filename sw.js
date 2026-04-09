@@ -1,4 +1,4 @@
-const CACHE_NAME = "md-editor-shell-v1";
+const CACHE_NAME = "md-editor-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -32,6 +32,29 @@ self.addEventListener("fetch", event => {
   }
 
   event.respondWith((async () => {
+    const requestUrl = new URL(event.request.url);
+    const isAppShellRequest =
+      event.request.mode === "navigate" ||
+      requestUrl.pathname.endsWith("/MD_Editor/") ||
+      requestUrl.pathname.endsWith("/index.html") ||
+      requestUrl.pathname.endsWith("/manifest.json");
+
+    if (isAppShellRequest) {
+      try {
+        const freshResponse = await fetch(event.request, { cache: "no-store" });
+        if (freshResponse && freshResponse.ok && requestUrl.origin === self.location.origin) {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(event.request, freshResponse.clone());
+        }
+        return freshResponse;
+      } catch {
+        const fallback = await caches.match(event.request) || await caches.match("./index.html");
+        if (fallback) {
+          return fallback;
+        }
+      }
+    }
+
     const cached = await caches.match(event.request);
     if (cached) {
       return cached;

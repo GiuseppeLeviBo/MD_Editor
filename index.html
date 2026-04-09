@@ -411,6 +411,19 @@
       background: rgba(255, 252, 247, 0.7);
     }
 
+    .build-badge {
+      display: inline-flex;
+      margin-top: 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(189, 169, 138, 0.45);
+      background: rgba(255, 253, 249, 0.9);
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
     @media (max-width: 1080px) {
       .workspace {
         grid-template-columns: 1fr;
@@ -513,6 +526,7 @@
     <footer class="footer" data-i18n="footerText">
       Supporta titoli, grassetto, corsivo, liste, citazioni, link, blocchi di codice e regole orizzontali.
       La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
+      <div class="build-badge" id="buildBadge">v0.018 beta</div>
     </footer>
   </main>
 
@@ -543,9 +557,11 @@
     const symbolSearch = document.getElementById("symbolSearch");
     const symbolCategorySelect = document.getElementById("symbolCategorySelect");
     const languageSelect = document.getElementById("languageSelect");
+    const buildBadge = document.getElementById("buildBadge");
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
+    const APP_VERSION = "v0.018 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -733,6 +749,7 @@
         statusLoadedSuffix: " con risoluzione risorse relative",
         statusLoadedHint: " - usa 'Collega cartella' per immagini e file locali",
         statusLoaded: "File Markdown caricato",
+        statusBlobImageWarning: "Attenzione: questo file Markdown contiene URL immagine temporanei blob:. Ripristina i path relativi originali prima di salvarlo.",
         statusOpenFirst: "Apri prima un file Markdown",
         statusFolderLinked: "Cartella documento collegata: i path relativi ora usano questa base",
         statusDocumentClosed: "Documento chiuso: schermata iniziale ripristinata",
@@ -813,6 +830,7 @@
         statusLoadedSuffix: " with relative resource resolution",
         statusLoadedHint: " - use 'Link folder' for local images and files",
         statusLoaded: "Markdown file loaded",
+        statusBlobImageWarning: "Warning: this Markdown file contains temporary blob image URLs. Restore the original relative image paths before saving.",
         statusOpenFirst: "Open a Markdown file first",
         statusFolderLinked: "Document folder linked: relative paths now use this base",
         statusDocumentClosed: "Document closed: initial screen restored",
@@ -1025,6 +1043,7 @@
       document.documentElement.lang = currentLanguage;
       languageSelect.value = currentLanguage;
       savePreference("language", currentLanguage);
+      buildBadge.textContent = APP_VERSION;
 
       document.querySelectorAll("[data-i18n]").forEach(node => {
         node.textContent = t(node.dataset.i18n);
@@ -1787,6 +1806,10 @@
         lastDownloadedMarkdown = lastLoadedMarkdown;
         markdownInput.value = lastLoadedMarkdown;
         await syncFromMarkdown();
+        if (/blob:null\//i.test(lastLoadedMarkdown)) {
+          setStatus(t("statusBlobImageWarning"));
+          return;
+        }
         const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
         const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
         setStatus(t("statusLoaded") + suffix + hint);
@@ -2081,7 +2104,9 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js");
+        void navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then(registration => {
+          void registration.update();
+        });
       });
     }
 
