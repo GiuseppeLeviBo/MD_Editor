@@ -60,6 +60,21 @@ The visual editor is reliable for normal writing, inline formatting, lists, link
 
 For complex structural changes across multiple selected lines, especially when switching between headings and lists, the Markdown panel is currently the most reliable editing surface.
 
+## Keyboard shortcuts
+
+These shortcuts apply to the visual editor on desktop systems.
+
+- `Ctrl/Cmd + B`: bold
+- `Ctrl/Cmd + I`: italic
+- `Ctrl/Cmd + Shift + E`: strikethrough
+- `Ctrl/Cmd + U`: unordered list
+- `Ctrl/Cmd + O`: ordered list
+- `Ctrl/Cmd + 0`: paragraph
+- `Ctrl/Cmd + 1`: heading 1
+- `Ctrl/Cmd + 2`: heading 2
+- `Ctrl/Cmd + 3`: heading 3
+- `Ctrl/Cmd + 9`: blockquote
+
 ## Development
 
 This project is intentionally simple and easy to inspect. Most of the application still lives in `index.html`, with a small set of extra files required by the PWA layer.
