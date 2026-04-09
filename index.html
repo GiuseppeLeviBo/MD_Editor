@@ -2015,7 +2015,7 @@
         button.classList.toggle("is-active", blockTag === tagName);
       });
 
-      document.getElementById("paragraphButton").classList.toggle("is-active", blockTag === "p");
+      document.getElementById("paragraphButton").classList.toggle("is-active", ["p", "li"].includes(blockTag));
       document.getElementById("codeBlockButton").classList.toggle("is-active", blockTag === "pre");
     }
 
