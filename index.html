@@ -1119,6 +1119,14 @@
       return normalized.join("/");
     }
 
+    function getMarkdownImageSource(node) {
+      if (!node || typeof node.getAttribute !== "function") {
+        return "";
+      }
+
+      return node.getAttribute("data-md-src") || node.getAttribute("src") || "";
+    }
+
     async function resolveResourcePath(path) {
       if (!path || isProbablyExternalUrl(path)) {
         return path;
@@ -1181,7 +1189,7 @@
         const alt = match[1];
         const originalPath = match[2];
         const resolvedPath = await resolveResourcePath(originalPath);
-        fragments.push('<img src="' + escapeHtml(resolvedPath) + '" alt="' + alt + '">');
+        fragments.push('<img src="' + escapeHtml(resolvedPath) + '" data-md-src="' + escapeHtml(originalPath) + '" alt="' + alt + '">');
         lastIndex = match.index + match[0].length;
       }
 
@@ -1298,8 +1306,9 @@
         if (image) {
           closeLists();
           const alt = escapeHtml(image[1]);
-          const src = escapeHtml(await resolveResourcePath(image[2]));
-          html += '<figure><img src="' + src + '" alt="' + alt + '">' + (alt ? "<figcaption>" + alt + "</figcaption>" : "") + "</figure>";
+          const originalSource = image[2];
+          const src = escapeHtml(await resolveResourcePath(originalSource));
+          html += '<figure><img src="' + src + '" data-md-src="' + escapeHtml(originalSource) + '" alt="' + alt + '">' + (alt ? "<figcaption>" + alt + "</figcaption>" : "") + "</figure>";
           continue;
         }
 
@@ -1345,6 +1354,9 @@
 
     function inlineHtmlToMarkdown(html) {
       return html
+        .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
+        .replace(/<img [^>]*alt="([^"]*)"[^>]*data-md-src="([^"]+)"[^>]*>/gi, "![$1]($2)")
+        .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*>/gi, "![]($1)")
         .replace(/<img [^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
         .replace(/<img [^>]*alt="([^"]*)"[^>]*src="([^"]+)"[^>]*>/gi, "![$1]($2)")
         .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
@@ -1416,7 +1428,7 @@
           case "pre":
             return "```" + (node.dataset.language || "") + "\n" + node.textContent.trim() + "\n```\n\n";
           case "img":
-            return "![" + (node.getAttribute("alt") || "") + "](" + (node.getAttribute("src") || "") + ")";
+            return "![" + (node.getAttribute("alt") || "") + "](" + getMarkdownImageSource(node) + ")";
           case "figure": {
             const image = node.querySelector("img");
             if (!image) {
@@ -1424,7 +1436,7 @@
             }
             const caption = node.querySelector("figcaption");
             const alt = image.getAttribute("alt") || (caption ? caption.textContent.trim() : "");
-            return "![" + alt + "](" + (image.getAttribute("src") || "") + ")\n\n";
+            return "![" + alt + "](" + getMarkdownImageSource(image) + ")\n\n";
           }
           case "figcaption":
             return "";
@@ -1660,7 +1672,7 @@
         document.execCommand(
           "insertHTML",
           false,
-          '<figure><img src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>"
+          '<figure><img src="' + source + '" data-md-src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>"
         );
         void syncFromVisual();
       };
