@@ -1,6 +1,6 @@
 # Markdown WYSIWYG Editor
 
-A lightweight Markdown/WYSIWYG editor that started as a single self-contained HTML file and later gained optional PWA support for installation, offline shell caching, and file handling where supported.
+A lightweight, free Markdown/WYSIWYG editor that started as a single self-contained HTML file and later gained optional PWA support for installation, offline shell caching, and file handling where supported.
 
 Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.github.io/MD_Editor/)
 
