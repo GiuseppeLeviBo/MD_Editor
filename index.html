@@ -154,6 +154,14 @@
       min-height: 68vh;
     }
 
+    .workspace.mode-write {
+      grid-template-columns: minmax(340px, 1.25fr) minmax(340px, 1fr);
+    }
+
+    .workspace.mode-preview {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .panel {
       display: flex;
       flex-direction: column;
@@ -1018,6 +1026,26 @@
       renderSymbolCategoryOptions();
     }
 
+    function detectPreferredLanguage() {
+      const browserLanguages = Array.isArray(navigator.languages) && navigator.languages.length
+        ? navigator.languages
+        : [navigator.language || navigator.userLanguage || "en"];
+
+      const normalized = browserLanguages
+        .filter(Boolean)
+        .map(language => String(language).toLowerCase());
+
+      if (normalized.some(language => language.startsWith("it"))) {
+        return "it";
+      }
+
+      if (normalized.some(language => language.startsWith("en"))) {
+        return "en";
+      }
+
+      return "en";
+    }
+
     function getInitialMarkdown() {
       return initialMarkdownByLanguage[currentLanguage] || initialMarkdownByLanguage.it;
     }
@@ -1783,9 +1811,10 @@
       currentDocumentName = "documento.md";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
-      currentLanguage = "it";
-      markdownInput.value = initialMarkdownByLanguage.it;
-      setLanguage("it");
+      const defaultLanguage = detectPreferredLanguage();
+      currentLanguage = defaultLanguage;
+      markdownInput.value = initialMarkdownByLanguage[defaultLanguage] || initialMarkdownByLanguage.en;
+      setLanguage(defaultLanguage);
       const defaultViewInput = document.querySelector('input[name="previewMode"][value="all"]');
       if (defaultViewInput) {
         defaultViewInput.checked = true;
@@ -1896,17 +1925,22 @@
     }
 
     function updateViewMode(mode) {
+      const workspace = document.querySelector(".workspace");
+
       visualPanel.classList.remove("panel-hidden");
       markdownPanel.classList.remove("panel-hidden");
       previewPanel.classList.remove("panel-hidden");
+      workspace.classList.remove("mode-write", "mode-preview");
 
       if (mode === "write") {
         previewPanel.classList.add("panel-hidden");
+        workspace.classList.add("mode-write");
       }
 
       if (mode === "preview") {
         visualPanel.classList.add("panel-hidden");
         markdownPanel.classList.add("panel-hidden");
+        workspace.classList.add("mode-preview");
       }
 
       savePreference("view_mode", mode);
@@ -2002,7 +2036,7 @@
       });
     });
 
-    const savedLanguage = loadPreference("language", "it");
+    const savedLanguage = loadPreference("language", detectPreferredLanguage());
     const savedDraft = loadSessionValue("draft_markdown", "");
     const savedViewMode = loadPreference("view_mode", "all");
 
