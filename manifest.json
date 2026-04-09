@@ -1,0 +1,41 @@
+{
+  "id": "./",
+  "name": "Markdown WYSIWYG Editor",
+  "short_name": "MD Editor",
+  "description": "Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and installable PWA shell.",
+  "lang": "en",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#b6572c",
+  "icons": [
+    {
+      "src": "./icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./index.html",
+      "accept": {
+        "text/markdown": [
+          ".md",
+          ".markdown"
+        ],
+        "text/plain": [
+          ".md",
+          ".markdown"
+        ]
+      }
+    }
+  ]
+}

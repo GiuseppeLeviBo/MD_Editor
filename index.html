@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#b6572c">
+  <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
     :root {
@@ -2010,6 +2014,30 @@
       updateViewMode(savedViewMode);
     }
     void syncFromMarkdown();
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        void navigator.serviceWorker.register("./sw.js");
+      });
+    }
+
+    if ("launchQueue" in window) {
+      window.launchQueue.setConsumer(async launchParams => {
+        const fileHandles = launchParams && Array.isArray(launchParams.files) ? launchParams.files : [];
+        if (!fileHandles.length) {
+          return;
+        }
+
+        try {
+          const [fileHandle] = fileHandles;
+          const file = await fileHandle.getFile();
+          currentFileHandle = fileHandle;
+          await openMarkdownFile(file, null);
+        } catch {
+          setStatus(t("statusOpenCancelled"));
+        }
+      });
+    }
   </script>
 </body>
 </html>
