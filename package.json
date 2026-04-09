@@ -1,0 +1,28 @@
+{
+  "name": "new-project",
+  "version": "1.0.0",
+  "description": "A lightweight, free Markdown/WYSIWYG editor that started as a single self-contained HTML file and later gained optional PWA support for installation, offline shell caching, and file handling where supported.",
+  "main": "sw.js",
+  "scripts": {
+    "serve:test": "python -m http.server 4173",
+    "test": "playwright test",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GiuseppeLeviBo/MD_Editor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/GiuseppeLeviBo/MD_Editor/issues"
+  },
+  "homepage": "https://github.com/GiuseppeLeviBo/MD_Editor#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
