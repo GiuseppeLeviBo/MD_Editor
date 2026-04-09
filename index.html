@@ -1988,6 +1988,11 @@
       return true;
     }
 
+    function prepareToolbarAction() {
+      visualEditor.focus();
+      restoreSavedSelection();
+    }
+
     function isCommandActive(command) {
       try {
         return document.queryCommandState(command);
@@ -2549,19 +2554,43 @@
     }
 
     document.querySelectorAll("[data-command]").forEach(button => {
+      button.addEventListener("mousedown", event => {
+        event.preventDefault();
+        saveCurrentSelection();
+      });
       button.addEventListener("click", () => {
+        prepareToolbarAction();
         execCommand(button.dataset.command, button.dataset.value || null);
       });
     });
 
     document.querySelectorAll("[data-block]").forEach(button => {
+      button.addEventListener("mousedown", event => {
+        event.preventDefault();
+        saveCurrentSelection();
+      });
       button.addEventListener("click", () => {
+        prepareToolbarAction();
         setBlock(button.dataset.block);
       });
     });
 
-    document.getElementById("paragraphButton").addEventListener("click", convertSelectionToParagraph);
-    document.getElementById("codeBlockButton").addEventListener("click", insertCodeBlock);
+    document.getElementById("paragraphButton").addEventListener("mousedown", event => {
+      event.preventDefault();
+      saveCurrentSelection();
+    });
+    document.getElementById("paragraphButton").addEventListener("click", () => {
+      prepareToolbarAction();
+      convertSelectionToParagraph();
+    });
+    document.getElementById("codeBlockButton").addEventListener("mousedown", event => {
+      event.preventDefault();
+      saveCurrentSelection();
+    });
+    document.getElementById("codeBlockButton").addEventListener("click", () => {
+      prepareToolbarAction();
+      insertCodeBlock();
+    });
     document.getElementById("linkButton").addEventListener("click", insertLink);
     document.getElementById("imageButton").addEventListener("click", () => imageInput.click());
     document.getElementById("symbolButton").addEventListener("click", openSymbolDialog);
