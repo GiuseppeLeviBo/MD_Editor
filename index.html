@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown WYSIWYG Editor</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --panel: rgba(255, 252, 247, 0.88);
+      --panel-strong: #fffdf9;
+      --border: #d7cfc2;
+      --border-strong: #bda98a;
+      --text: #2f2418;
+      --muted: #6f6355;
+      --accent: #b6572c;
+      --accent-soft: #f4d8cb;
+      --shadow: 0 18px 60px rgba(83, 57, 31, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(214, 149, 94, 0.2), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(101, 129, 92, 0.18), transparent 30%),
+        linear-gradient(135deg, #f7f3ec 0%, #ebe3d5 100%);
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 28px 32px 18px;
+      border-bottom: 1px solid rgba(189, 169, 138, 0.35);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 248, 240, 0.6)),
+        linear-gradient(90deg, rgba(244, 216, 203, 0.7), rgba(248, 236, 223, 0));
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 2.4vw, 3.2rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(189, 169, 138, 0.35);
+      background: rgba(255, 252, 247, 0.85);
+    }
+
+    .tool-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding-right: 12px;
+      margin-right: 4px;
+      border-right: 1px solid rgba(189, 169, 138, 0.35);
+    }
+
+    .tool-group:last-child {
+      border-right: 0;
+      padding-right: 0;
+      margin-right: 0;
+    }
+
+    .tool-group.mode-group {
+      margin-left: auto;
+      border-right: 0;
+      padding-right: 0;
+    }
+
+    button,
+    .mode-switch label {
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+
+    .tool-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .tool-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .lang-select {
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:hover,
+    .mode-switch label:hover {
+      transform: translateY(-1px);
+      border-color: var(--border-strong);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff9f5;
+      border-color: transparent;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(300px, 1.3fr) minmax(280px, 1fr) minmax(280px, 1fr);
+      min-height: 68vh;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid rgba(189, 169, 138, 0.35);
+      background: rgba(255, 252, 247, 0.62);
+    }
+
+    .panel:last-child {
+      border-right: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(189, 169, 138, 0.35);
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .hint,
+    .status {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .editor,
+    .preview,
+    textarea {
+      flex: 1;
+      min-height: 0;
+      padding: 20px;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 1rem;
+      line-height: 1.7;
+      resize: none;
+      overflow: auto;
+    }
+
+    .editor:empty::before {
+      content: attr(data-placeholder);
+      color: #948676;
+    }
+
+    .editor h1,
+    .preview h1 {
+      font-size: 2rem;
+      line-height: 1.1;
+      margin-top: 0;
+    }
+
+    .editor h2,
+    .preview h2 {
+      font-size: 1.5rem;
+      line-height: 1.2;
+      margin-top: 1.25em;
+    }
+
+    .editor h3,
+    .preview h3 {
+      font-size: 1.2rem;
+      line-height: 1.3;
+      margin-top: 1.2em;
+      letter-spacing: 0.01em;
+    }
+
+    .editor p,
+    .preview p,
+    .editor ul,
+    .preview ul,
+    .editor ol,
+    .preview ol,
+    .editor blockquote,
+    .preview blockquote {
+      margin-top: 0;
+      margin-bottom: 1em;
+    }
+
+    .editor blockquote,
+    .preview blockquote {
+      border-left: 4px solid var(--accent);
+      margin-left: 0;
+      padding-left: 16px;
+      color: var(--muted);
+    }
+
+    .editor pre,
+    .preview pre,
+    .editor code,
+    .preview code {
+      font-family: "Courier New", monospace;
+    }
+
+    .editor pre,
+    .preview pre {
+      background: #f5ede2;
+      border-radius: 16px;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .editor img,
+    .preview img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border-radius: 18px;
+      margin: 12px 0;
+      box-shadow: 0 10px 30px rgba(83, 57, 31, 0.14);
+    }
+
+    .editor figure,
+    .preview figure {
+      margin: 0 0 1.2em;
+    }
+
+    .editor figcaption,
+    .preview figcaption {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .mode-switch {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      background: rgba(244, 216, 203, 0.55);
+      border-radius: 999px;
+    }
+
+    .mode-switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mode-switch input:checked + label {
+      background: var(--accent);
+      color: #fff9f5;
+      border-color: transparent;
+    }
+
+    .panel-hidden {
+      display: none;
+    }
+
+    .dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(44, 31, 22, 0.42);
+      z-index: 20;
+    }
+
+    .dialog-backdrop.is-open {
+      display: flex;
+    }
+
+    .dialog {
+      width: min(720px, 100%);
+      max-height: 80vh;
+      overflow: auto;
+      background: #fffaf3;
+      border: 1px solid rgba(189, 169, 138, 0.5);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .dialog-title {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .symbol-search {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font: inherit;
+      background: #fff;
+      margin-bottom: 16px;
+    }
+
+    .symbol-controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .symbol-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 10px;
+    }
+
+    .symbol-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 76px;
+      border-radius: 18px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .symbol-char {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .symbol-name {
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+
+    .footer {
+      padding: 14px 24px 24px;
+      color: var(--muted);
+      border-top: 1px solid rgba(189, 169, 138, 0.35);
+      background: rgba(255, 252, 247, 0.7);
+    }
+
+    @media (max-width: 1080px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        border-right: 0;
+        border-bottom: 1px solid rgba(189, 169, 138, 0.35);
+        min-height: 32vh;
+      }
+
+      .panel:last-child {
+        border-bottom: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1 data-i18n="heroTitle">Editor Markdown WYSIWYG</h1>
+      <p data-i18n="heroText">
+        Una singola pagina HTML senza dipendenze esterne: scrivi in modo visuale, tieni il Markdown
+        sincronizzato in tempo reale e usa l'anteprima HTML per incorporarlo facilmente in altri progetti.
+      </p>
+    </section>
+
+    <section class="toolbar">
+      <div class="tool-group">
+        <button type="button" class="tool-button" data-command="bold" data-i18n-title="bold"><span class="tool-icon">𝐁</span><span data-i18n="bold">Grassetto</span></button>
+        <button type="button" class="tool-button" data-command="italic" data-i18n-title="italic"><span class="tool-icon">𝘐</span><span data-i18n="italic">Corsivo</span></button>
+        <button type="button" class="tool-button" data-command="insertUnorderedList" data-i18n-title="bulletList"><span class="tool-icon">•</span><span data-i18n="bulletList">Lista</span></button>
+        <button type="button" class="tool-button" data-command="insertOrderedList" data-i18n-title="numberedList"><span class="tool-icon">1.</span><span data-i18n="numberedList">Numerata</span></button>
+        <button type="button" class="tool-button" data-block="blockquote" data-i18n-title="quote"><span class="tool-icon">❞</span><span data-i18n="quote">Citazione</span></button>
+      </div>
+
+      <div class="tool-group">
+        <button type="button" class="tool-button" data-block="h1" data-i18n-title="heading1"><span class="tool-icon">H1</span><span data-i18n="heading1">Titolo 1</span></button>
+        <button type="button" class="tool-button" data-block="h2" data-i18n-title="heading2"><span class="tool-icon">H2</span><span data-i18n="heading2">Titolo 2</span></button>
+        <button type="button" class="tool-button" data-block="h3" data-i18n-title="heading3"><span class="tool-icon">H3</span><span data-i18n="heading3">Titolo 3</span></button>
+        <button type="button" class="tool-button" id="paragraphButton" data-i18n-title="paragraph"><span class="tool-icon">¶</span><span data-i18n="paragraph">Paragrafo</span></button>
+        <button type="button" class="tool-button" id="codeBlockButton" data-i18n-title="code"><span class="tool-icon">&lt;/&gt;</span><span data-i18n="code">Codice</span></button>
+        <button type="button" class="tool-button" id="linkButton" data-i18n-title="link"><span class="tool-icon">🔗</span><span data-i18n="link">Link</span></button>
+        <button type="button" class="tool-button" id="imageButton" data-i18n-title="image"><span class="tool-icon">🖼</span><span data-i18n="image">Immagine</span></button>
+        <button type="button" class="tool-button" id="symbolButton" data-i18n-title="symbols"><span class="tool-icon">☺</span><span data-i18n="symbols">Simboli</span></button>
+      </div>
+
+      <div class="tool-group">
+        <button type="button" class="tool-button" id="openMarkdownButton" data-i18n-title="openMarkdown"><span class="tool-icon">📂</span><span data-i18n="openMarkdown">Apri .md</span></button>
+        <button type="button" class="tool-button" id="linkFolderButton" data-i18n-title="linkFolder"><span class="tool-icon">📁</span><span data-i18n="linkFolder">Collega cartella</span></button>
+        <button type="button" class="tool-button" id="closeDocumentButton" data-i18n-title="closeDocument"><span class="tool-icon">✕</span><span data-i18n="closeDocument">Chiudi documento</span></button>
+        <button type="button" class="tool-button" id="resetPrivacyButton" data-i18n-title="resetPrivacy"><span class="tool-icon">🧼</span><span data-i18n="resetPrivacy">Reset privacy</span></button>
+        <button type="button" class="tool-button" id="copyMarkdownButton" data-i18n-title="copyMarkdown"><span class="tool-icon">📋</span><span data-i18n="copyMarkdown">Copia Markdown</span></button>
+        <button type="button" class="tool-button" id="saveAsButton" data-i18n-title="saveAs"><span class="tool-icon">📁</span><span data-i18n="saveAs">Salva come...</span></button>
+        <button type="button" class="tool-button primary" id="downloadButton" data-i18n-title="downloadMarkdown"><span class="tool-icon">💾</span><span data-i18n="downloadMarkdown">Scarica .md</span></button>
+      </div>
+
+      <div class="tool-group mode-group">
+        <select class="lang-select" id="languageSelect" aria-label="Language">
+          <option value="it">IT</option>
+          <option value="en">EN</option>
+        </select>
+        <div class="mode-switch" aria-label="Modalita vista">
+          <input type="radio" name="previewMode" id="mode-all" value="all" checked>
+          <label for="mode-all" data-i18n="viewAll">Tutto</label>
+          <input type="radio" name="previewMode" id="mode-write" value="write">
+          <label for="mode-write" data-i18n="viewWrite">Scrittura</label>
+          <input type="radio" name="previewMode" id="mode-preview" value="preview">
+          <label for="mode-preview" data-i18n="viewPreview">Preview</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <article class="panel" id="visualPanel">
+        <header class="panel-header">
+          <h2 data-i18n="visualEditor">Editor visuale</h2>
+          <span class="hint" data-i18n="visualHint">`contenteditable` + toolbar</span>
+        </header>
+        <div class="editor" id="visualEditor" contenteditable="true" spellcheck="true" data-placeholder="Inizia a scrivere qui..."></div>
+      </article>
+
+      <article class="panel" id="markdownPanel">
+        <header class="panel-header">
+          <h2 data-i18n="markdownPanel">Markdown</h2>
+          <span class="status" id="syncStatus">Sincronizzato</span>
+        </header>
+        <textarea id="markdownInput" spellcheck="false"></textarea>
+      </article>
+
+      <article class="panel" id="previewPanel">
+        <header class="panel-header">
+          <h2 data-i18n="previewPanel">Anteprima</h2>
+          <span class="hint" data-i18n="previewHint">HTML renderizzato</span>
+        </header>
+        <div class="preview" id="preview"></div>
+      </article>
+    </section>
+
+    <footer class="footer" data-i18n="footerText">
+      Supporta titoli, grassetto, corsivo, liste, citazioni, link, blocchi di codice e regole orizzontali.
+      La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
+    </footer>
+  </main>
+
+  <div class="dialog-backdrop" id="symbolDialog" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="symbolDialogTitle">
+      <div class="dialog-header">
+        <h3 class="dialog-title" id="symbolDialogTitle" data-i18n="symbolDialogTitle">Inserisci simboli speciali</h3>
+        <button type="button" id="closeSymbolDialogButton" data-i18n="close">Chiudi</button>
+      </div>
+      <div class="symbol-controls">
+        <input type="search" class="symbol-search" id="symbolSearch" placeholder="Cerca per nome o simbolo...">
+        <select class="lang-select" id="symbolCategorySelect" aria-label="Symbol category"></select>
+      </div>
+      <div class="symbol-grid" id="symbolGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    const visualEditor = document.getElementById("visualEditor");
+    const markdownInput = document.getElementById("markdownInput");
+    const preview = document.getElementById("preview");
+    const syncStatus = document.getElementById("syncStatus");
+    const visualPanel = document.getElementById("visualPanel");
+    const markdownPanel = document.getElementById("markdownPanel");
+    const previewPanel = document.getElementById("previewPanel");
+    const symbolDialog = document.getElementById("symbolDialog");
+    const symbolGrid = document.getElementById("symbolGrid");
+    const symbolSearch = document.getElementById("symbolSearch");
+    const symbolCategorySelect = document.getElementById("symbolCategorySelect");
+    const languageSelect = document.getElementById("languageSelect");
+    const imageInput = document.createElement("input");
+    const markdownFileInput = document.createElement("input");
+    const directoryInput = document.createElement("input");
+    const symbolCatalog = [
+      { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
+      { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
+      { symbol: "⚙", category: "tools", names: { it: "ingranaggio", en: "gear" } },
+      { symbol: "🛠", category: "tools", names: { it: "strumenti", en: "tools" } },
+      { symbol: "🧪", category: "tools", names: { it: "test", en: "test" } },
+      { symbol: "🧩", category: "tools", names: { it: "plugin", en: "plugin" } },
+      { symbol: "💾", category: "tools", names: { it: "salva", en: "save" } },
+      { symbol: "📋", category: "tools", names: { it: "appunti", en: "clipboard" } },
+      { symbol: "💻", category: "tools", names: { it: "laptop", en: "laptop" } },
+      { symbol: "🖥️", category: "tools", names: { it: "computer", en: "desktop computer" } },
+      { symbol: "⚙️", category: "tools", names: { it: "impostazioni", en: "settings gear" } },
+      { symbol: "✅", category: "symbols", names: { it: "conferma", en: "confirm" } },
+      { symbol: "❌", category: "symbols", names: { it: "errore", en: "error" } },
+      { symbol: "⚠", category: "symbols", names: { it: "attenzione", en: "warning" } },
+      { symbol: "🚀", category: "symbols", names: { it: "lancio", en: "launch" } },
+      { symbol: "📌", category: "symbols", names: { it: "pin", en: "pin" } },
+      { symbol: "💡", category: "symbols", names: { it: "idea", en: "idea" } },
+      { symbol: "🔍", category: "symbols", names: { it: "ricerca", en: "search" } },
+      { symbol: "🎯", category: "symbols", names: { it: "obiettivo", en: "target" } },
+      { symbol: "⭐", category: "symbols", names: { it: "stella", en: "star" } },
+      { symbol: "🔥", category: "symbols", names: { it: "fuoco", en: "fire" } },
+      { symbol: "🎉", category: "symbols", names: { it: "successo", en: "celebration" } },
+      { symbol: "©", category: "symbols", names: { it: "copyright", en: "copyright" } },
+      { symbol: "®", category: "symbols", names: { it: "registrato", en: "registered" } },
+      { symbol: "™", category: "symbols", names: { it: "marchio", en: "trademark" } },
+      { symbol: "🔹", category: "symbols", names: { it: "punto sezione", en: "section bullet" } },
+      { symbol: "⏩", category: "symbols", names: { it: "avanti veloce", en: "fast forward" } },
+      { symbol: "🔄", category: "symbols", names: { it: "ricarica", en: "refresh" } },
+      { symbol: "🔒", category: "symbols", names: { it: "lucchetto", en: "lock" } },
+      { symbol: "🔑", category: "symbols", names: { it: "chiave", en: "key" } },
+      { symbol: "🛑", category: "symbols", names: { it: "stop", en: "stop sign" } },
+      { symbol: "🔎", category: "symbols", names: { it: "lente", en: "magnifying glass" } },
+      { symbol: "➡", category: "symbols", names: { it: "freccia destra", en: "right arrow" } },
+      { symbol: "⬅", category: "symbols", names: { it: "freccia sinistra", en: "left arrow" } },
+      { symbol: "⬆", category: "symbols", names: { it: "freccia su", en: "up arrow" } },
+      { symbol: "⬇", category: "symbols", names: { it: "freccia giu", en: "down arrow" } },
+      { symbol: "•", category: "symbols", names: { it: "punto elenco", en: "bullet" } },
+      { symbol: "→", category: "symbols", names: { it: "freccia", en: "arrow" } },
+      { symbol: "←", category: "symbols", names: { it: "freccia sinistra", en: "left arrow" } },
+      { symbol: "↑", category: "symbols", names: { it: "freccia su", en: "up arrow" } },
+      { symbol: "↓", category: "symbols", names: { it: "freccia giu", en: "down arrow" } },
+      { symbol: "🔗", category: "objects", names: { it: "link", en: "link" } },
+      { symbol: "📎", category: "objects", names: { it: "allegato", en: "attachment" } },
+      { symbol: "📁", category: "objects", names: { it: "cartella", en: "folder" } },
+      { symbol: "📂", category: "objects", names: { it: "cartella aperta", en: "open folder" } },
+      { symbol: "📄", category: "objects", names: { it: "documento", en: "document" } },
+      { symbol: "📷", category: "objects", names: { it: "fotocamera", en: "camera" } },
+      { symbol: "🖼", category: "objects", names: { it: "immagine", en: "image" } },
+      { symbol: "🧼", category: "objects", names: { it: "privacy", en: "privacy" } },
+      { symbol: "🧹", category: "objects", names: { it: "scopa", en: "broom" } },
+      { symbol: "✕", category: "objects", names: { it: "chiudi", en: "close" } },
+      { symbol: "📡", category: "objects", names: { it: "rete", en: "network" } },
+      { symbol: "🏷️", category: "objects", names: { it: "etichetta", en: "tag" } },
+      { symbol: "📦", category: "objects", names: { it: "pacchetto", en: "package" } },
+      { symbol: "📢", category: "objects", names: { it: "annuncio", en: "announcement" } },
+      { symbol: "📬", category: "objects", names: { it: "posta", en: "inbox" } },
+      { symbol: "🔔", category: "objects", names: { it: "notifica", en: "bell" } },
+      { symbol: "🖱️", category: "objects", names: { it: "mouse", en: "mouse click" } },
+      { symbol: "☺", category: "emoji", names: { it: "sorriso", en: "smile" } },
+      { symbol: "😀", category: "emoji", names: { it: "felice", en: "grinning" } },
+      { symbol: "😄", category: "emoji", names: { it: "sorridente", en: "happy" } },
+      { symbol: "😉", category: "emoji", names: { it: "occhiolino", en: "wink" } },
+      { symbol: "😍", category: "emoji", names: { it: "innamorato", en: "heart eyes" } },
+      { symbol: "🤔", category: "emoji", names: { it: "pensieroso", en: "thinking" } },
+      { symbol: "😎", category: "emoji", names: { it: "cool", en: "cool" } },
+      { symbol: "🥳", category: "emoji", names: { it: "festa", en: "party" } },
+      { symbol: "😭", category: "emoji", names: { it: "pianto", en: "crying" } },
+      { symbol: "👍", category: "emoji", names: { it: "pollice su", en: "thumbs up" } },
+      { symbol: "👎", category: "emoji", names: { it: "pollice giu", en: "thumbs down" } },
+      { symbol: "👏", category: "emoji", names: { it: "applauso", en: "clap" } },
+      { symbol: "🙏", category: "emoji", names: { it: "grazie", en: "thanks" } },
+      { symbol: "❤️", category: "hearts", names: { it: "cuore rosso", en: "red heart" } },
+      { symbol: "🧡", category: "hearts", names: { it: "cuore arancione", en: "orange heart" } },
+      { symbol: "💛", category: "hearts", names: { it: "cuore giallo", en: "yellow heart" } },
+      { symbol: "💚", category: "hearts", names: { it: "cuore verde", en: "green heart" } },
+      { symbol: "💙", category: "hearts", names: { it: "cuore blu", en: "blue heart" } },
+      { symbol: "💜", category: "hearts", names: { it: "cuore viola", en: "purple heart" } },
+      { symbol: "🖤", category: "hearts", names: { it: "cuore nero", en: "black heart" } },
+      { symbol: "🤍", category: "hearts", names: { it: "cuore bianco", en: "white heart" } },
+      { symbol: "💔", category: "hearts", names: { it: "cuore spezzato", en: "broken heart" } },
+      { symbol: "🌸", category: "nature", names: { it: "fiore di ciliegio", en: "cherry blossom" } },
+      { symbol: "🌹", category: "nature", names: { it: "rosa", en: "rose" } },
+      { symbol: "🌻", category: "nature", names: { it: "girasole", en: "sunflower" } },
+      { symbol: "🌼", category: "nature", names: { it: "fiore", en: "blossom" } },
+      { symbol: "🍀", category: "nature", names: { it: "quadrifoglio", en: "clover" } },
+      { symbol: "🌳", category: "nature", names: { it: "albero", en: "tree" } },
+      { symbol: "🌈", category: "nature", names: { it: "arcobaleno", en: "rainbow" } },
+      { symbol: "☀️", category: "nature", names: { it: "sole", en: "sun" } },
+      { symbol: "🌙", category: "nature", names: { it: "luna", en: "moon" } },
+      { symbol: "🌐", category: "nature", names: { it: "globo", en: "globe" } },
+      { symbol: "⚽", category: "sports", names: { it: "calcio", en: "soccer" } },
+      { symbol: "🏀", category: "sports", names: { it: "basket", en: "basketball" } },
+      { symbol: "🏈", category: "sports", names: { it: "football", en: "football" } },
+      { symbol: "🎾", category: "sports", names: { it: "tennis", en: "tennis" } },
+      { symbol: "🏐", category: "sports", names: { it: "volley", en: "volleyball" } },
+      { symbol: "🏓", category: "sports", names: { it: "ping pong", en: "table tennis" } },
+      { symbol: "🥊", category: "sports", names: { it: "boxe", en: "boxing" } },
+      { symbol: "🏆", category: "sports", names: { it: "trofeo", en: "trophy" } },
+      { symbol: "❞", category: "writing", names: { it: "citazione", en: "quote" } },
+      { symbol: "¶", category: "writing", names: { it: "paragrafo", en: "paragraph" } },
+      { symbol: "✍️", category: "writing", names: { it: "scrittura", en: "writing" } },
+      { symbol: "📝", category: "writing", names: { it: "appunti", en: "notes" } },
+      { symbol: "📖", category: "writing", names: { it: "libro", en: "book" } },
+      { symbol: "✏️", category: "writing", names: { it: "matita", en: "pencil" } },
+      { symbol: "📜", category: "writing", names: { it: "pergamena", en: "scroll" } },
+      { symbol: "📚", category: "writing", names: { it: "libri", en: "books" } },
+      { symbol: "📰", category: "writing", names: { it: "giornale", en: "newspaper" } },
+      { symbol: "🎨", category: "writing", names: { it: "design", en: "palette" } },
+      { symbol: "🏗️", category: "writing", names: { it: "costruzione", en: "construction" } },
+      { symbol: "📐", category: "writing", names: { it: "layout", en: "layout" } },
+      { symbol: "📅", category: "writing", names: { it: "calendario", en: "calendar" } },
+      { symbol: "⏳", category: "writing", names: { it: "attesa", en: "hourglass" } },
+      { symbol: "📊", category: "writing", names: { it: "grafico", en: "chart" } },
+      { symbol: "🤝", category: "writing", names: { it: "collaborazione", en: "collaboration" } },
+      { symbol: "🧭", category: "writing", names: { it: "bussola", en: "compass" } }
+    ];
+    const symbolCategories = {
+      all: { it: "Tutte", en: "All" },
+      emoji: { it: "Emoticon", en: "Emoji" },
+      hearts: { it: "Cuori", en: "Hearts" },
+      nature: { it: "Natura", en: "Nature" },
+      sports: { it: "Sport", en: "Sports" },
+      tools: { it: "Strumenti", en: "Tools" },
+      objects: { it: "Oggetti", en: "Objects" },
+      symbols: { it: "Simboli", en: "Symbols" },
+      writing: { it: "Scrittura", en: "Writing" }
+    };
+    let savedSelection = null;
+    let currentDocumentName = "documento.md";
+    let currentFileHandle = null;
+    let currentDirectoryHandle = null;
+    let currentDirectoryFiles = new Map();
+    let currentDirectoryCache = new Map();
+    let currentObjectUrls = [];
+    let lastLoadedMarkdown = "";
+    let lastDownloadedMarkdown = "";
+    let currentLanguage = "it";
+    let syncVersion = 0;
+    const translations = {
+      it: {
+        heroTitle: "Editor Markdown WYSIWYG",
+        heroText: "Una singola pagina HTML senza dipendenze esterne: scrivi in modo visuale, tieni il Markdown sincronizzato in tempo reale e usa l'anteprima HTML per incorporarlo facilmente in altri progetti.",
+        bold: "Grassetto",
+        italic: "Corsivo",
+        bulletList: "Lista",
+        numberedList: "Numerata",
+        quote: "Citazione",
+        heading1: "Titolo 1",
+        heading2: "Titolo 2",
+        heading3: "Titolo 3",
+        paragraph: "Paragrafo",
+        code: "Codice",
+        link: "Link",
+        image: "Immagine",
+        symbols: "Simboli",
+        openMarkdown: "Apri .md",
+        linkFolder: "Collega cartella",
+        closeDocument: "Chiudi documento",
+        resetPrivacy: "Reset privacy",
+        copyMarkdown: "Copia Markdown",
+        saveAs: "Salva come...",
+        downloadMarkdown: "Scarica .md",
+        viewAll: "Tutto",
+        viewWrite: "Scrittura",
+        viewPreview: "Preview",
+        visualEditor: "Editor visuale",
+        visualHint: "`contenteditable` + toolbar",
+        markdownPanel: "Markdown",
+        previewPanel: "Anteprima",
+        previewHint: "HTML renderizzato",
+        footerText: "Supporta titoli, grassetto, corsivo, liste, citazioni, link, blocchi di codice e regole orizzontali. La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.",
+        symbolDialogTitle: "Inserisci simboli speciali",
+        symbolSearchPlaceholder: "Cerca per nome o simbolo...",
+        symbolCategoryLabel: "Categoria simboli",
+        close: "Chiudi",
+        editorPlaceholder: "Inizia a scrivere qui...",
+        statusSynced: "Sincronizzato",
+        statusFromMarkdown: "Aggiornato dal Markdown",
+        statusFromVisual: "Aggiornato dall'editor visuale",
+        statusBrowserNoFolder: "Questo browser non supporta la selezione di cartelle",
+        statusFolderCancelled: "Selezione cartella annullata",
+        statusFolderFallback: "La selezione diretta della cartella e stata rifiutata: provo una modalita compatibile",
+        statusOpenCancelled: "Apertura file annullata",
+        statusLoadedSuffix: " con risoluzione risorse relative",
+        statusLoadedHint: " - usa 'Collega cartella' per immagini e file locali",
+        statusLoaded: "File Markdown caricato",
+        statusOpenFirst: "Apri prima un file Markdown",
+        statusFolderLinked: "Cartella documento collegata: i path relativi ora usano questa base",
+        statusDocumentClosed: "Documento chiuso: schermata iniziale ripristinata",
+        statusPrivacyReset: "Reset privacy completato: editor riportato allo stato iniziale",
+        statusCleared: "Contenuto svuotato",
+        statusCopied: "Markdown copiato negli appunti",
+        statusCopyFailed: "Copia non riuscita",
+        statusDownloaded: "File Markdown scaricato",
+        promptInsertUrl: "Inserisci l'URL del link",
+        promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
+        promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero fare il reset privacy completo?",
+        promptFolderHelp: "I browser non espongono automaticamente la cartella del file scelto. Usa 'Collega cartella' dopo l'apertura per risolvere immagini e file locali.",
+        boldTitle: "Applica il grassetto",
+        italicTitle: "Applica il corsivo",
+        bulletListTitle: "Inserisci una lista puntata",
+        numberedListTitle: "Inserisci una lista numerata",
+        quoteTitle: "Trasforma in citazione",
+        heading1Title: "Titolo di primo livello",
+        heading2Title: "Titolo di secondo livello",
+        heading3Title: "Titolo di terzo livello",
+        paragraphTitle: "Trasforma in paragrafo",
+        codeTitle: "Inserisci o rimuovi un blocco codice",
+        linkTitle: "Inserisci un collegamento",
+        imageTitle: "Carica un'immagine",
+        symbolsTitle: "Apri il pannello simboli",
+        openMarkdownTitle: "Apri un file Markdown",
+        linkFolderTitle: "Collega la cartella delle risorse locali",
+        closeDocumentTitle: "Chiudi il documento corrente e torna alla schermata iniziale",
+        resetPrivacyTitle: "Cancella documenti, preferenze e dati locali di questa postazione",
+        copyMarkdownTitle: "Copia il Markdown negli appunti",
+        saveAsTitle: "Salva con un nuovo nome o in una nuova posizione",
+        downloadMarkdownTitle: "Scarica il file Markdown"
+      },
+      en: {
+        heroTitle: "Markdown WYSIWYG Editor",
+        heroText: "A single HTML page with no external dependencies: write visually, keep Markdown in sync in real time, and use the HTML preview to embed it easily into web projects.",
+        bold: "Bold",
+        italic: "Italic",
+        bulletList: "Bullets",
+        numberedList: "Numbered",
+        quote: "Quote",
+        heading1: "Heading 1",
+        heading2: "Heading 2",
+        heading3: "Heading 3",
+        paragraph: "Paragraph",
+        code: "Code",
+        link: "Link",
+        image: "Image",
+        symbols: "Symbols",
+        openMarkdown: "Open .md",
+        linkFolder: "Link folder",
+        closeDocument: "Close document",
+        resetPrivacy: "Privacy reset",
+        copyMarkdown: "Copy Markdown",
+        saveAs: "Save as...",
+        downloadMarkdown: "Download .md",
+        viewAll: "All",
+        viewWrite: "Write",
+        viewPreview: "Preview",
+        visualEditor: "Visual editor",
+        visualHint: "`contenteditable` + toolbar",
+        markdownPanel: "Markdown",
+        previewPanel: "Preview",
+        previewHint: "Rendered HTML",
+        footerText: "Supports headings, bold, italic, lists, blockquotes, links, code blocks, and horizontal rules. The HTML/Markdown conversion is intentionally lightweight to keep the file simple and portable.",
+        symbolDialogTitle: "Insert special symbols",
+        symbolSearchPlaceholder: "Search by name or symbol...",
+        symbolCategoryLabel: "Symbol category",
+        close: "Close",
+        editorPlaceholder: "Start writing here...",
+        statusSynced: "Synced",
+        statusFromMarkdown: "Updated from Markdown",
+        statusFromVisual: "Updated from visual editor",
+        statusBrowserNoFolder: "This browser does not support folder selection",
+        statusFolderCancelled: "Folder selection canceled",
+        statusFolderFallback: "Direct folder selection was rejected: trying a compatible mode",
+        statusOpenCancelled: "File opening canceled",
+        statusLoadedSuffix: " with relative resource resolution",
+        statusLoadedHint: " - use 'Link folder' for local images and files",
+        statusLoaded: "Markdown file loaded",
+        statusOpenFirst: "Open a Markdown file first",
+        statusFolderLinked: "Document folder linked: relative paths now use this base",
+        statusDocumentClosed: "Document closed: initial screen restored",
+        statusPrivacyReset: "Privacy reset completed: editor restored to its initial state",
+        statusCleared: "Content cleared",
+        statusCopied: "Markdown copied to clipboard",
+        statusCopyFailed: "Copy failed",
+        statusDownloaded: "Markdown file downloaded",
+        promptInsertUrl: "Enter the link URL",
+        promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
+        promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to perform a full privacy reset?",
+        promptFolderHelp: "Browsers do not automatically expose the folder of the selected file. Use 'Link folder' after opening the file to resolve local images and files.",
+        boldTitle: "Apply bold",
+        italicTitle: "Apply italic",
+        bulletListTitle: "Insert a bulleted list",
+        numberedListTitle: "Insert a numbered list",
+        quoteTitle: "Turn into quote",
+        heading1Title: "First-level heading",
+        heading2Title: "Second-level heading",
+        heading3Title: "Third-level heading",
+        paragraphTitle: "Turn into paragraph",
+        codeTitle: "Insert or remove a code block",
+        linkTitle: "Insert a link",
+        imageTitle: "Upload an image",
+        symbolsTitle: "Open the symbols panel",
+        openMarkdownTitle: "Open a Markdown file",
+        linkFolderTitle: "Link the local resources folder",
+        closeDocumentTitle: "Close the current document and return to the initial screen",
+        resetPrivacyTitle: "Erase documents, preferences, and local data on this workstation",
+        copyMarkdownTitle: "Copy Markdown to clipboard",
+        saveAsTitle: "Save with a new name or to a new location",
+        downloadMarkdownTitle: "Download the Markdown file"
+      }
+    };
+
+    imageInput.type = "file";
+    imageInput.accept = "image/*";
+    imageInput.hidden = true;
+
+    directoryInput.type = "file";
+    directoryInput.multiple = true;
+    directoryInput.hidden = true;
+    directoryInput.setAttribute("webkitdirectory", "");
+    directoryInput.setAttribute("directory", "");
+
+    markdownFileInput.type = "file";
+    markdownFileInput.accept = ".md,.markdown,text/markdown";
+    markdownFileInput.hidden = true;
+
+    document.body.append(imageInput, directoryInput, markdownFileInput);
+
+    const seedMarkdown = [
+      "# Benvenuto",
+      "",
+      "Questo editor funziona in tre modi contemporanei:",
+      "",
+      "- scrittura visuale",
+      "- Markdown modificabile",
+      "- anteprima HTML",
+      "",
+      "> Pensato per essere semplice da installare e facile da incorporare.",
+      "",
+      "## Esempio",
+      "",
+      "Puoi scrivere in **grassetto**, in *corsivo* oppure aggiungere un [link](https://example.com).",
+      "",
+      "### Sezione di terzo livello",
+      "",
+      "Ora anche i titoli con tre cancelletti vengono renderizzati correttamente.",
+      "",
+      "![Esempio immagine](https://placehold.co/900x420/e9dac7/5c4630?text=Immagine+Markdown)",
+      "",
+      "```js",
+      "console.log('Ciao Markdown');",
+      "```"
+    ].join("\n");
+
+    const initialMarkdownByLanguage = {
+      it: [
+        "# Editor Markdown WYSIWYG",
+        "",
+        "Benvenuto. Questa e la schermata iniziale dell'editor.",
+        "",
+        "## Come iniziare",
+        "",
+        "1. Usa **Collega cartella** per impostare la cartella del progetto.",
+        "2. Usa **Apri .md** per aprire un file Markdown esistente.",
+        "3. Scrivi nell'editor visuale o nel pannello Markdown: i due lati restano sincronizzati.",
+        "",
+        "## Funzioni principali",
+        "",
+        "- toolbar visuale",
+        "- anteprima HTML live",
+        "- immagini nel documento",
+        "- simboli speciali",
+        "- interfaccia IT/EN",
+        "",
+        "> Suggerimento: se apri un README con immagini locali, collega prima la cartella del progetto."
+      ].join("\n"),
+      en: [
+        "# Markdown WYSIWYG Editor",
+        "",
+        "Welcome. This is the editor's initial screen.",
+        "",
+        "## Getting started",
+        "",
+        "1. Use **Link folder** to set the project folder.",
+        "2. Use **Open .md** to open an existing Markdown file.",
+        "3. Write in the visual editor or in the Markdown panel: both sides stay in sync.",
+        "",
+        "## Main features",
+        "",
+        "- visual toolbar",
+        "- live HTML preview",
+        "- images inside the document",
+        "- special symbols",
+        "- IT/EN interface",
+        "",
+        "> Tip: if you open a README with local images, link the project folder first."
+      ].join("\n")
+    };
+
+    function escapeHtml(value) {
+      return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function t(key) {
+      return translations[currentLanguage][key] || translations.it[key] || key;
+    }
+
+    function getStorageKey(key) {
+      return "wysiwyg_markdown_editor_" + key;
+    }
+
+    function getSessionKey(key) {
+      return "wysiwyg_markdown_editor_session_" + key;
+    }
+
+    function savePreference(key, value) {
+      try {
+        localStorage.setItem(getStorageKey(key), value);
+      } catch {}
+    }
+
+    function loadPreference(key, fallback = "") {
+      try {
+        return localStorage.getItem(getStorageKey(key)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveSessionValue(key, value) {
+      try {
+        sessionStorage.setItem(getSessionKey(key), value);
+      } catch {}
+    }
+
+    function loadSessionValue(key, fallback = "") {
+      try {
+        return sessionStorage.getItem(getSessionKey(key)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function clearSessionValue(key) {
+      try {
+        sessionStorage.removeItem(getSessionKey(key));
+      } catch {}
+    }
+
+    function clearAllPreferences() {
+      try {
+        Object.keys(localStorage)
+          .filter(key => key.startsWith("wysiwyg_markdown_editor_"))
+          .forEach(key => localStorage.removeItem(key));
+      } catch {}
+
+      try {
+        Object.keys(sessionStorage)
+          .filter(key => key.startsWith("wysiwyg_markdown_editor_session_"))
+          .forEach(key => sessionStorage.removeItem(key));
+      } catch {}
+    }
+
+    function setLanguage(language) {
+      currentLanguage = translations[language] ? language : "it";
+      document.documentElement.lang = currentLanguage;
+      languageSelect.value = currentLanguage;
+      savePreference("language", currentLanguage);
+
+      document.querySelectorAll("[data-i18n]").forEach(node => {
+        node.textContent = t(node.dataset.i18n);
+      });
+
+      document.querySelectorAll("[data-i18n-title]").forEach(node => {
+        node.title = t(node.dataset.i18nTitle + "Title");
+        node.setAttribute("aria-label", t(node.dataset.i18nTitle));
+      });
+
+      symbolSearch.placeholder = t("symbolSearchPlaceholder");
+      symbolCategorySelect.setAttribute("aria-label", t("symbolCategoryLabel"));
+      visualEditor.dataset.placeholder = t("editorPlaceholder");
+      if (!syncStatus.textContent || syncStatus.textContent === translations.it.statusSynced || syncStatus.textContent === translations.en.statusSynced) {
+        syncStatus.textContent = t("statusSynced");
+      }
+      renderSymbolCategoryOptions();
+    }
+
+    function getInitialMarkdown() {
+      return initialMarkdownByLanguage[currentLanguage] || initialMarkdownByLanguage.it;
+    }
+
+    function hasUndownloadedChanges() {
+      return Boolean(lastLoadedMarkdown || markdownInput.value.trim()) && markdownInput.value !== lastDownloadedMarkdown;
+    }
+
+    function clearResolvedResources() {
+      currentObjectUrls.forEach(url => URL.revokeObjectURL(url));
+      currentObjectUrls = [];
+      currentDirectoryCache = new Map();
+    }
+
+    function clearDirectoryContext() {
+      currentDirectoryHandle = null;
+      currentDirectoryFiles = new Map();
+    }
+
+    function hasLinkedDirectoryContext() {
+      return Boolean(currentDirectoryHandle) || currentDirectoryFiles.size > 0;
+    }
+
+    function isProbablyExternalUrl(path) {
+      return /^(https?:|data:|blob:|mailto:|tel:|#)/i.test(path);
+    }
+
+    function splitResourcePath(path) {
+      return path
+        .split(/[\\/]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeResourcePath(path) {
+      const parts = splitResourcePath(path);
+      const normalized = [];
+
+      for (const part of parts) {
+        if (!part || part === ".") {
+          continue;
+        }
+        if (part === "..") {
+          if (!normalized.length) {
+            return null;
+          }
+          normalized.pop();
+          continue;
+        }
+        normalized.push(part);
+      }
+
+      return normalized.join("/");
+    }
+
+    async function resolveResourcePath(path) {
+      if (!path || isProbablyExternalUrl(path)) {
+        return path;
+      }
+
+      if (!hasLinkedDirectoryContext()) {
+        return path;
+      }
+
+      if (currentDirectoryCache.has(path)) {
+        return currentDirectoryCache.get(path);
+      }
+
+      try {
+        const normalizedPath = normalizeResourcePath(path);
+        if (!normalizedPath) {
+          throw new Error("Invalid relative path.");
+        }
+
+        if (currentDirectoryFiles.size > 0) {
+          const selectedFile = currentDirectoryFiles.get(normalizedPath);
+          if (!selectedFile) {
+            throw new Error("File not found in selected project directory.");
+          }
+          const url = URL.createObjectURL(selectedFile);
+          currentObjectUrls.push(url);
+          currentDirectoryCache.set(path, url);
+          return url;
+        }
+
+        const parts = normalizedPath.split("/");
+        let directoryHandle = currentDirectoryHandle;
+
+        for (let index = 0; index < parts.length - 1; index += 1) {
+          directoryHandle = await directoryHandle.getDirectoryHandle(parts[index]);
+        }
+
+        const targetName = parts[parts.length - 1];
+        const fileHandle = await directoryHandle.getFileHandle(targetName);
+        const file = await fileHandle.getFile();
+        const url = URL.createObjectURL(file);
+        currentObjectUrls.push(url);
+        currentDirectoryCache.set(path, url);
+        return url;
+      } catch {
+        currentDirectoryCache.set(path, path);
+        return path;
+      }
+    }
+
+    async function applyInlineMarkdown(text) {
+      const escaped = escapeHtml(text);
+      const fragments = [];
+      let lastIndex = 0;
+      const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
+      let match;
+
+      while ((match = imagePattern.exec(escaped)) !== null) {
+        fragments.push(escaped.slice(lastIndex, match.index));
+        const alt = match[1];
+        const originalPath = match[2];
+        const resolvedPath = await resolveResourcePath(originalPath);
+        fragments.push('<img src="' + escapeHtml(resolvedPath) + '" alt="' + alt + '">');
+        lastIndex = match.index + match[0].length;
+      }
+
+      fragments.push(escaped.slice(lastIndex));
+
+      return fragments.join("")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    }
+
+    async function markdownToHtml(markdown) {
+      const lines = markdown.replace(/\r/g, "").split("\n");
+      let html = "";
+      let inCode = false;
+      let codeLanguage = "";
+      let inUl = false;
+      let inOl = false;
+      let inBlockquote = false;
+
+      function closeLists() {
+        if (inUl) {
+          html += "</ul>";
+          inUl = false;
+        }
+        if (inOl) {
+          html += "</ol>";
+          inOl = false;
+        }
+      }
+
+      function closeQuote() {
+        if (inBlockquote) {
+          html += "</blockquote>";
+          inBlockquote = false;
+        }
+      }
+
+      for (const line of lines) {
+        if (line.startsWith("```")) {
+          closeLists();
+          closeQuote();
+          if (inCode) {
+            html += "</code></pre>";
+          } else {
+            codeLanguage = line.slice(3).trim();
+            const languageAttr = codeLanguage ? ' data-language="' + escapeHtml(codeLanguage) + '"' : "";
+            html += "<pre" + languageAttr + "><code>";
+          }
+          inCode = !inCode;
+          continue;
+        }
+
+        if (inCode) {
+          html += escapeHtml(line) + "\n";
+          continue;
+        }
+
+        if (!line.trim()) {
+          closeLists();
+          closeQuote();
+          continue;
+        }
+
+        if (/^---+$/.test(line.trim())) {
+          closeLists();
+          closeQuote();
+          html += "<hr>";
+          continue;
+        }
+
+        const h1 = line.match(/^# (.+)$/);
+        const h2 = line.match(/^## (.+)$/);
+        const h3 = line.match(/^### (.+)$/);
+        const ul = line.match(/^- (.+)$/);
+        const ol = line.match(/^\d+\. (.+)$/);
+        const quote = line.match(/^> (.+)$/);
+
+        if (h1) {
+          closeLists();
+          closeQuote();
+          html += "<h1>" + await applyInlineMarkdown(h1[1]) + "</h1>";
+          continue;
+        }
+
+        if (h2) {
+          closeLists();
+          closeQuote();
+          html += "<h2>" + await applyInlineMarkdown(h2[1]) + "</h2>";
+          continue;
+        }
+
+        if (h3) {
+          closeLists();
+          closeQuote();
+          html += "<h3>" + await applyInlineMarkdown(h3[1]) + "</h3>";
+          continue;
+        }
+
+        if (quote) {
+          closeLists();
+          if (!inBlockquote) {
+            html += "<blockquote>";
+            inBlockquote = true;
+          }
+          html += "<p>" + await applyInlineMarkdown(quote[1]) + "</p>";
+          continue;
+        }
+
+        closeQuote();
+
+        const image = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        if (image) {
+          closeLists();
+          const alt = escapeHtml(image[1]);
+          const src = escapeHtml(await resolveResourcePath(image[2]));
+          html += '<figure><img src="' + src + '" alt="' + alt + '">' + (alt ? "<figcaption>" + alt + "</figcaption>" : "") + "</figure>";
+          continue;
+        }
+
+        if (ul) {
+          if (inOl) {
+            html += "</ol>";
+            inOl = false;
+          }
+          if (!inUl) {
+            html += "<ul>";
+            inUl = true;
+          }
+          html += "<li>" + await applyInlineMarkdown(ul[1]) + "</li>";
+          continue;
+        }
+
+        if (ol) {
+          if (inUl) {
+            html += "</ul>";
+            inUl = false;
+          }
+          if (!inOl) {
+            html += "<ol>";
+            inOl = true;
+          }
+          html += "<li>" + await applyInlineMarkdown(ol[1]) + "</li>";
+          continue;
+        }
+
+        closeLists();
+        html += "<p>" + await applyInlineMarkdown(line) + "</p>";
+      }
+
+      closeLists();
+      closeQuote();
+
+      if (inCode) {
+        html += "</code></pre>";
+      }
+
+      return html;
+    }
+
+    function inlineHtmlToMarkdown(html) {
+      return html
+        .replace(/<img [^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
+        .replace(/<img [^>]*alt="([^"]*)"[^>]*src="([^"]+)"[^>]*>/gi, "![$1]($2)")
+        .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
+        .replace(/<b>(.*?)<\/b>/gi, "**$1**")
+        .replace(/<em>(.*?)<\/em>/gi, "*$1*")
+        .replace(/<i>(.*?)<\/i>/gi, "*$1*")
+        .replace(/<code>(.*?)<\/code>/gi, "`$1`")
+        .replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
+    }
+
+    function normalizeNodeText(value) {
+      return value.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    }
+
+    function htmlToMarkdown(html) {
+      const doc = new DOMParser().parseFromString(html.replace(/\r/g, ""), "text/html");
+
+      function nodeToMarkdown(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node.textContent;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return "";
+        }
+
+        const tag = node.tagName.toLowerCase();
+        const content = Array.from(node.childNodes).map(child => nodeToMarkdown(child)).join("");
+        const clean = content.replace(/\n{3,}/g, "\n\n");
+
+        switch (tag) {
+          case "h1":
+            return "# " + clean.trim() + "\n\n";
+          case "h2":
+            return "## " + clean.trim() + "\n\n";
+          case "h3":
+            return "### " + clean.trim() + "\n\n";
+          case "p":
+            return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML)) + "\n\n";
+          case "strong":
+          case "b":
+          case "em":
+          case "i":
+          case "code":
+          case "a":
+            return inlineHtmlToMarkdown(node.outerHTML);
+          case "blockquote":
+            return clean
+              .trim()
+              .split("\n")
+              .filter(Boolean)
+              .map(line => "> " + line.replace(/^> /, "").trim())
+              .join("\n") + "\n\n";
+          case "ul":
+            return Array.from(node.children)
+              .map(item => "- " + normalizeNodeText(nodeToMarkdown(item)))
+              .join("\n") + "\n\n";
+          case "ol":
+            return Array.from(node.children)
+              .map((item, index) => (index + 1) + ". " + normalizeNodeText(nodeToMarkdown(item)))
+              .join("\n") + "\n\n";
+          case "li":
+            return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
+          case "pre":
+            return "```" + (node.dataset.language || "") + "\n" + node.textContent.trim() + "\n```\n\n";
+          case "img":
+            return "![" + (node.getAttribute("alt") || "") + "](" + (node.getAttribute("src") || "") + ")";
+          case "figure": {
+            const image = node.querySelector("img");
+            if (!image) {
+              return clean;
+            }
+            const caption = node.querySelector("figcaption");
+            const alt = image.getAttribute("alt") || (caption ? caption.textContent.trim() : "");
+            return "![" + alt + "](" + (image.getAttribute("src") || "") + ")\n\n";
+          }
+          case "figcaption":
+            return "";
+          case "hr":
+            return "---\n\n";
+          case "br":
+            return "\n";
+          case "div":
+          case "section":
+          case "article":
+          case "body":
+            return clean;
+          default:
+            return clean;
+        }
+      }
+
+      return nodeToMarkdown(doc.body)
+        .replace(/• /g, "- ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+
+    function setStatus(text) {
+      syncStatus.textContent = text;
+    }
+
+    async function pickDocumentDirectory() {
+      if (window.showDirectoryPicker) {
+        try {
+          const directoryHandle = await window.showDirectoryPicker({
+            mode: "read"
+          });
+          clearDirectoryContext();
+          currentDirectoryHandle = directoryHandle;
+          return directoryHandle;
+        } catch {
+          setStatus(t("statusFolderFallback"));
+        }
+      }
+
+      const selectedFiles = await pickDirectoryByFiles();
+      if (!selectedFiles) {
+        setStatus(t("statusFolderCancelled"));
+        return null;
+      }
+
+      clearDirectoryContext();
+      currentDirectoryFiles = selectedFiles;
+      return { kind: "virtual-directory" };
+    }
+
+    function pickDirectoryByFiles() {
+      return new Promise(resolve => {
+        let settled = false;
+
+        function finish(value) {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          directoryInput.value = "";
+          directoryInput.onchange = null;
+          window.removeEventListener("focus", handleWindowFocus, true);
+          resolve(value);
+        }
+
+        function handleChange() {
+          const files = Array.from(directoryInput.files || []);
+          const fileMap = new Map();
+
+          files.forEach(file => {
+            const relativePath = file.webkitRelativePath || file.name;
+            const parts = splitResourcePath(relativePath);
+            const relativeParts = parts.length > 1 ? parts.slice(1) : parts;
+            const normalizedPath = normalizeResourcePath(relativeParts.join("/"));
+            if (normalizedPath) {
+              fileMap.set(normalizedPath, file);
+            }
+          });
+
+          finish(fileMap.size ? fileMap : null);
+        }
+
+        function handleWindowFocus() {
+          window.setTimeout(() => {
+            if (!directoryInput.files || directoryInput.files.length === 0) {
+              finish(null);
+            }
+          }, 400);
+        }
+
+        directoryInput.onchange = handleChange;
+        window.addEventListener("focus", handleWindowFocus, true);
+        directoryInput.click();
+      });
+    }
+
+    async function syncFromMarkdown() {
+      const version = ++syncVersion;
+      clearResolvedResources();
+      const html = await markdownToHtml(markdownInput.value);
+      if (version !== syncVersion) {
+        return;
+      }
+      visualEditor.innerHTML = html;
+      preview.innerHTML = html;
+      saveSessionValue("draft_markdown", markdownInput.value);
+      setStatus(t("statusFromMarkdown"));
+    }
+
+    async function syncFromVisual() {
+      const version = ++syncVersion;
+      const markdown = htmlToMarkdown(visualEditor.innerHTML);
+      markdownInput.value = markdown;
+      clearResolvedResources();
+      const html = await markdownToHtml(markdown);
+      if (version !== syncVersion) {
+        return;
+      }
+      preview.innerHTML = html;
+      saveSessionValue("draft_markdown", markdown);
+      setStatus(t("statusFromVisual"));
+    }
+
+    function getSelectionBlock() {
+      const selection = window.getSelection();
+      if (!selection.rangeCount) {
+        return null;
+      }
+      let node = selection.anchorNode;
+      if (!node) {
+        return null;
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentElement;
+      }
+      return node ? node.closest("p, h1, h2, h3, pre, blockquote, li") : null;
+    }
+
+    function saveCurrentSelection() {
+      const selection = window.getSelection();
+      if (!selection.rangeCount) {
+        savedSelection = null;
+        return;
+      }
+      savedSelection = selection.getRangeAt(0).cloneRange();
+    }
+
+    function restoreSavedSelection() {
+      if (!savedSelection) {
+        return false;
+      }
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(savedSelection);
+      return true;
+    }
+
+    function execCommand(command, value = null) {
+      visualEditor.focus();
+      document.execCommand(command, false, value);
+      void syncFromVisual();
+    }
+
+    function setBlock(tagName) {
+      visualEditor.focus();
+      document.execCommand("formatBlock", false, tagName);
+      void syncFromVisual();
+    }
+
+    function convertSelectionToParagraph() {
+      const block = getSelectionBlock();
+      if (!block) {
+        setBlock("p");
+        return;
+      }
+
+      if (block.tagName === "PRE") {
+        const paragraph = document.createElement("p");
+        paragraph.textContent = block.textContent;
+        block.replaceWith(paragraph);
+      } else if (block.tagName === "BLOCKQUOTE") {
+        const paragraph = document.createElement("p");
+        paragraph.innerHTML = block.innerHTML.replace(/<\/?p>/gi, " ").trim();
+        block.replaceWith(paragraph);
+      } else if (block.tagName === "LI") {
+        const paragraph = document.createElement("p");
+        paragraph.innerHTML = block.innerHTML;
+        block.closest("ul, ol").replaceWith(paragraph);
+      } else {
+        setBlock("p");
+        return;
+      }
+
+      void syncFromVisual();
+    }
+
+    function insertCodeBlock() {
+      const block = getSelectionBlock();
+      if (block && block.tagName === "PRE") {
+        convertSelectionToParagraph();
+        return;
+      }
+
+      visualEditor.focus();
+      const selectedText = window.getSelection().toString().trim() || "const esempio = true;";
+      document.execCommand("insertHTML", false, "<pre data-language=\"\"><code>" + escapeHtml(selectedText) + "</code></pre><p><br></p>");
+      void syncFromVisual();
+    }
+
+    function insertLink() {
+      const selection = window.getSelection().toString().trim();
+      const url = window.prompt(t("promptInsertUrl"), "https://");
+      if (!url) {
+        return;
+      }
+      visualEditor.focus();
+      if (selection) {
+        document.execCommand("createLink", false, url);
+      } else {
+        document.execCommand("insertHTML", false, '<a href="' + url + '">' + url + "</a>");
+      }
+      void syncFromVisual();
+    }
+
+    function insertImageFromFile(file) {
+      const reader = new FileReader();
+      reader.onload = event => {
+        const source = event.target.result;
+        const alt = file.name.replace(/\.[^.]+$/, "");
+        visualEditor.focus();
+        document.execCommand(
+          "insertHTML",
+          false,
+          '<figure><img src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>"
+        );
+        void syncFromVisual();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderSymbolCategoryOptions() {
+      const previousValue = symbolCategorySelect.value || "all";
+      symbolCategorySelect.innerHTML = "";
+
+      Object.entries(symbolCategories).forEach(([value, names]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = names[currentLanguage] || names.it;
+        symbolCategorySelect.appendChild(option);
+      });
+
+      symbolCategorySelect.value = symbolCategories[previousValue] ? previousValue : "all";
+    }
+
+    function renderSymbolGrid(filter = "") {
+      const normalizedFilter = filter.trim().toLowerCase();
+      const activeCategory = symbolCategorySelect.value || "all";
+      symbolGrid.innerHTML = "";
+
+      symbolCatalog
+        .filter(item => {
+          const localizedName = item.names[currentLanguage] || item.names.it;
+          const fallbackName = item.names.it;
+          const englishName = item.names.en;
+          const categoryMatches = activeCategory === "all" || item.category === activeCategory;
+          return categoryMatches && (
+            !normalizedFilter
+            || item.symbol.includes(normalizedFilter)
+            || localizedName.includes(normalizedFilter)
+            || fallbackName.includes(normalizedFilter)
+            || englishName.includes(normalizedFilter)
+          );
+        })
+        .forEach(item => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "symbol-button";
+          const label = item.names[currentLanguage] || item.names.it;
+          button.innerHTML = '<span class="symbol-char">' + item.symbol + '</span><span class="symbol-name">' + label + "</span>";
+          button.title = label;
+          button.addEventListener("click", () => insertSymbol(item.symbol));
+          symbolGrid.appendChild(button);
+        });
+    }
+
+    function openSymbolDialog() {
+      saveCurrentSelection();
+      symbolDialog.classList.add("is-open");
+      symbolDialog.setAttribute("aria-hidden", "false");
+      symbolSearch.value = "";
+      renderSymbolGrid();
+      symbolSearch.focus();
+    }
+
+    function closeSymbolDialog() {
+      symbolDialog.classList.remove("is-open");
+      symbolDialog.setAttribute("aria-hidden", "true");
+    }
+
+    function insertSymbol(symbol) {
+      closeSymbolDialog();
+      visualEditor.focus();
+      restoreSavedSelection();
+      document.execCommand("insertText", false, symbol);
+      void syncFromVisual();
+    }
+
+    async function openMarkdownWithPicker() {
+      if (!window.showOpenFilePicker) {
+        markdownFileInput.click();
+        return;
+      }
+
+      try {
+        const [fileHandle] = await window.showOpenFilePicker({
+          multiple: false,
+          id: "markdown-editor-open",
+          startIn: currentDirectoryHandle || "documents",
+          types: [
+            {
+              description: "Markdown",
+              accept: {
+                "text/markdown": [".md", ".markdown"],
+                "text/plain": [".md", ".markdown"]
+              }
+            }
+          ]
+        });
+        currentFileHandle = fileHandle;
+        const file = await fileHandle.getFile();
+        await openMarkdownFile(file, null);
+      } catch {
+        setStatus(t("statusOpenCancelled"));
+      }
+    }
+
+    async function openMarkdownFile(file, directoryHandle = null) {
+      currentDocumentName = file.name || "documento.md";
+      if (directoryHandle !== null) {
+        currentDirectoryHandle = directoryHandle;
+      }
+      clearResolvedResources();
+      const reader = new FileReader();
+      reader.onload = async event => {
+        lastLoadedMarkdown = String(event.target.result || "");
+        lastDownloadedMarkdown = lastLoadedMarkdown;
+        markdownInput.value = lastLoadedMarkdown;
+        await syncFromMarkdown();
+        const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
+        const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
+        setStatus(t("statusLoaded") + suffix + hint);
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    async function linkCurrentDirectory() {
+      const directoryHandle = await pickDocumentDirectory();
+      if (!directoryHandle) {
+        return;
+      }
+
+      if (directoryHandle && directoryHandle.kind !== "virtual-directory") {
+        currentDirectoryHandle = directoryHandle;
+      }
+      if (lastLoadedMarkdown) {
+        await syncFromMarkdown();
+        setStatus(t("statusFolderLinked"));
+        return;
+      }
+
+      setStatus(t("statusFolderLinked") + " - " + t("statusOpenFirst"));
+    }
+
+    async function closeDocument() {
+      if (hasUndownloadedChanges() && !window.confirm(t("promptUnsavedClose"))) {
+        return;
+      }
+
+      clearResolvedResources();
+      currentFileHandle = null;
+      clearDirectoryContext();
+      currentDocumentName = "documento.md";
+      lastLoadedMarkdown = "";
+      lastDownloadedMarkdown = "";
+      markdownInput.value = getInitialMarkdown();
+      clearSessionValue("draft_markdown");
+      await syncFromMarkdown();
+      setStatus(t("statusDocumentClosed"));
+    }
+
+    async function resetPrivacy() {
+      if (hasUndownloadedChanges() && !window.confirm(t("promptUnsavedReset"))) {
+        return;
+      }
+
+      clearResolvedResources();
+      clearAllPreferences();
+      currentFileHandle = null;
+      clearDirectoryContext();
+      currentDocumentName = "documento.md";
+      lastLoadedMarkdown = "";
+      lastDownloadedMarkdown = "";
+      currentLanguage = "it";
+      markdownInput.value = initialMarkdownByLanguage.it;
+      setLanguage("it");
+      const defaultViewInput = document.querySelector('input[name="previewMode"][value="all"]');
+      if (defaultViewInput) {
+        defaultViewInput.checked = true;
+      }
+      updateViewMode("all");
+      await syncFromMarkdown();
+      setStatus(t("statusPrivacyReset"));
+    }
+
+    function copyMarkdown() {
+      navigator.clipboard.writeText(markdownInput.value).then(() => {
+        setStatus(t("statusCopied"));
+      }).catch(() => {
+        setStatus(t("statusCopyFailed"));
+      });
+    }
+
+    async function downloadMarkdown() {
+      if (currentFileHandle) {
+        try {
+          const writable = await currentFileHandle.createWritable();
+          await writable.write(markdownInput.value);
+          await writable.close();
+          lastDownloadedMarkdown = markdownInput.value;
+          setStatus(t("statusDownloaded"));
+          return;
+        } catch {
+          // Fallback al download standard se la scrittura fallisce
+        }
+      }
+
+      if (currentDirectoryHandle && window.showSaveFilePicker) {
+        try {
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: currentDocumentName,
+            startIn: currentDirectoryHandle,
+            types: [
+              {
+                description: "Markdown",
+                accept: {
+                  "text/markdown": [".md", ".markdown"],
+                  "text/plain": [".md", ".markdown"]
+                }
+              }
+            ]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(markdownInput.value);
+          await writable.close();
+          currentFileHandle = fileHandle;
+          lastDownloadedMarkdown = markdownInput.value;
+          setStatus(t("statusDownloaded"));
+          return;
+        } catch {
+          // Fallback al download standard se l'utente annulla
+        }
+      }
+
+      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = currentDocumentName;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      lastDownloadedMarkdown = markdownInput.value;
+      setStatus(t("statusDownloaded"));
+    }
+
+    async function saveMarkdownAs() {
+      if (window.showSaveFilePicker) {
+        try {
+          const startIn = currentDirectoryHandle || "documents";
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: currentDocumentName,
+            startIn: startIn,
+            types: [
+              {
+                description: "Markdown",
+                accept: {
+                  "text/markdown": [".md", ".markdown"],
+                  "text/plain": [".md", ".markdown"]
+                }
+              }
+            ]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(markdownInput.value);
+          await writable.close();
+          currentFileHandle = fileHandle;
+          currentDocumentName = fileHandle.name;
+          lastDownloadedMarkdown = markdownInput.value;
+          setStatus(t("statusDownloaded"));
+          return;
+        } catch {
+          // L'utente ha annullato
+        }
+      }
+
+      // Fallback al download standard
+      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = currentDocumentName;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      lastDownloadedMarkdown = markdownInput.value;
+      setStatus(t("statusDownloaded"));
+    }
+
+    function updateViewMode(mode) {
+      visualPanel.classList.remove("panel-hidden");
+      markdownPanel.classList.remove("panel-hidden");
+      previewPanel.classList.remove("panel-hidden");
+
+      if (mode === "write") {
+        previewPanel.classList.add("panel-hidden");
+      }
+
+      if (mode === "preview") {
+        visualPanel.classList.add("panel-hidden");
+        markdownPanel.classList.add("panel-hidden");
+      }
+
+      savePreference("view_mode", mode);
+    }
+
+    document.querySelectorAll("[data-command]").forEach(button => {
+      button.addEventListener("click", () => {
+        execCommand(button.dataset.command, button.dataset.value || null);
+      });
+    });
+
+    document.querySelectorAll("[data-block]").forEach(button => {
+      button.addEventListener("click", () => {
+        setBlock(button.dataset.block);
+      });
+    });
+
+    document.getElementById("paragraphButton").addEventListener("click", convertSelectionToParagraph);
+    document.getElementById("codeBlockButton").addEventListener("click", insertCodeBlock);
+    document.getElementById("linkButton").addEventListener("click", insertLink);
+    document.getElementById("imageButton").addEventListener("click", () => imageInput.click());
+    document.getElementById("symbolButton").addEventListener("click", openSymbolDialog);
+    document.getElementById("closeSymbolDialogButton").addEventListener("click", closeSymbolDialog);
+    document.getElementById("openMarkdownButton").addEventListener("click", () => {
+      void openMarkdownWithPicker();
+    });
+    document.getElementById("linkFolderButton").addEventListener("click", () => {
+      void linkCurrentDirectory();
+    });
+    document.getElementById("closeDocumentButton").addEventListener("click", () => {
+      void closeDocument();
+    });
+    document.getElementById("resetPrivacyButton").addEventListener("click", () => {
+      void resetPrivacy();
+    });
+    document.getElementById("copyMarkdownButton").addEventListener("click", copyMarkdown);
+    document.getElementById("saveAsButton").addEventListener("click", () => {
+      void saveMarkdownAs();
+    });
+    document.getElementById("downloadButton").addEventListener("click", downloadMarkdown);
+
+    imageInput.addEventListener("change", event => {
+      const [file] = event.target.files || [];
+      if (file) {
+        insertImageFromFile(file);
+      }
+      event.target.value = "";
+    });
+
+    markdownFileInput.addEventListener("change", event => {
+      const [file] = event.target.files || [];
+      if (file) {
+        void openMarkdownFile(file);
+      }
+      event.target.value = "";
+    });
+
+    visualEditor.addEventListener("input", () => {
+      void syncFromVisual();
+    });
+
+    markdownInput.addEventListener("input", () => {
+      void syncFromMarkdown();
+    });
+
+    symbolSearch.addEventListener("input", event => {
+      renderSymbolGrid(event.target.value);
+    });
+
+    symbolCategorySelect.addEventListener("change", () => {
+      renderSymbolGrid(symbolSearch.value);
+    });
+
+    languageSelect.addEventListener("change", event => {
+      setLanguage(event.target.value);
+    });
+
+    symbolDialog.addEventListener("click", event => {
+      if (event.target === symbolDialog) {
+        closeSymbolDialog();
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && symbolDialog.classList.contains("is-open")) {
+        closeSymbolDialog();
+      }
+    });
+
+    document.querySelectorAll('input[name="previewMode"]').forEach(input => {
+      input.addEventListener("change", event => {
+        updateViewMode(event.target.value);
+      });
+    });
+
+    const savedLanguage = loadPreference("language", "it");
+    const savedDraft = loadSessionValue("draft_markdown", "");
+    const savedViewMode = loadPreference("view_mode", "all");
+
+    markdownInput.value = savedDraft || getInitialMarkdown() || seedMarkdown;
+    setLanguage(savedLanguage);
+    const activeViewInput = document.querySelector('input[name="previewMode"][value="' + savedViewMode + '"]');
+    if (activeViewInput) {
+      activeViewInput.checked = true;
+      updateViewMode(savedViewMode);
+    }
+    void syncFromMarkdown();
+  </script>
+</body>
+</html>
