@@ -54,6 +54,12 @@ The repository includes:
 
 File Handling API support depends on the browser and operating system. Chromium-based browsers generally offer the best support, especially after the app is installed.
 
+## Current note about complex visual formatting
+
+The visual editor is reliable for normal writing, inline formatting, lists, links, images, and common block changes.
+
+For complex structural changes across multiple selected lines, especially when switching between headings and lists, the Markdown panel is currently the most reliable editing surface.
+
 ## Development
 
 This project is intentionally simple and easy to inspect. Most of the application still lives in `index.html`, with a small set of extra files required by the PWA layer.

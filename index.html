@@ -1117,6 +1117,7 @@
         "1. Usa **Collega cartella** per impostare la cartella del progetto.",
         "2. Usa **Apri .md** per aprire un file Markdown esistente.",
         "3. Scrivi nell'editor visuale o nel pannello Markdown: i due lati restano sincronizzati.",
+        "4. Per trasformazioni strutturali complesse su piu righe, come titoli multipli o cambi lista/titolo, il pannello Markdown resta il metodo piu affidabile.",
         "",
         "## Funzioni principali",
         "",
@@ -1165,7 +1166,11 @@
         "## Notes about folders and local images",
         "",
         "> Tip: if you open a README with local images, link the project folder first.",
-        "> Some browsers do not allow direct linking of special folders such as Documents, but subfolders usually work."
+        "> Some browsers do not allow direct linking of special folders such as Documents, but subfolders usually work.",
+        "",
+        "## Current visual-editor note",
+        "",
+        "> For complex structural changes across multiple lines, such as turning several blocks into headings or switching between lists and headings, the Markdown panel is still the most reliable editing surface."
       ].join("\n")
     };
 
@@ -2751,6 +2756,13 @@
     visualEditor.addEventListener("input", () => {
       void syncFromVisual();
       updateToolbarState();
+    });
+
+    visualEditor.addEventListener("paste", () => {
+      window.setTimeout(() => {
+        void syncFromVisual(true);
+        updateToolbarState();
+      }, 0);
     });
 
     markdownInput.addEventListener("input", () => {
