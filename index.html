@@ -3026,6 +3026,14 @@
       }
     });
 
+    window.addEventListener("beforeunload", event => {
+      if (!hasUndownloadedChanges()) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
+    });
+
     document.querySelectorAll('input[name="previewMode"]').forEach(input => {
       input.addEventListener("change", event => {
         updateViewMode(event.target.value);
