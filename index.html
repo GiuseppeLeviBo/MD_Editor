@@ -107,6 +107,24 @@
       flex-wrap: wrap;
     }
 
+    .mobile-panel-switch {
+      display: none;
+      gap: 8px;
+      padding: 12px 24px 0;
+    }
+
+    .mobile-panel-switch button {
+      flex: 1;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .mobile-panel-switch button.is-active {
+      background: var(--accent);
+      color: #fff9f5;
+      border-color: transparent;
+    }
+
     .tool-group {
       display: flex;
       gap: 8px;
@@ -465,6 +483,106 @@
         border-bottom: 0;
       }
     }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 12px;
+      }
+
+      .shell {
+        border-radius: 18px;
+      }
+
+      .hero {
+        padding: 20px 18px 14px;
+      }
+
+      .hero p {
+        font-size: 0.95rem;
+      }
+
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 15;
+        padding: 12px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        align-items: center;
+      }
+
+      .tool-group {
+        flex-wrap: nowrap;
+        padding-right: 8px;
+      }
+
+      .tool-group.mode-group {
+        margin-left: 0;
+      }
+
+      .tool-button {
+        padding: 10px 12px;
+      }
+
+      .tool-button span[data-i18n],
+      .tool-button span:not(.tool-icon) {
+        display: none;
+      }
+
+      .mode-switch {
+        display: none;
+      }
+
+      .mobile-panel-switch {
+        display: flex;
+      }
+
+      .folder-suggestion {
+        padding: 12px 16px;
+      }
+
+      .workspace {
+        min-height: 0;
+      }
+
+      .panel {
+        min-height: 60vh;
+      }
+
+      .panel-header {
+        padding: 14px 16px 12px;
+      }
+
+      .editor,
+      .preview,
+      textarea {
+        padding: 16px;
+        font-size: 0.98rem;
+      }
+
+      .dialog-backdrop {
+        padding: 10px;
+      }
+
+      .dialog {
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 18px;
+        padding: 16px;
+      }
+
+      .symbol-controls {
+        grid-template-columns: 1fr;
+      }
+
+      .symbol-grid {
+        grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+      }
+
+      .footer {
+        padding: 12px 16px 18px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -533,6 +651,12 @@
       </div>
     </section>
 
+    <section class="mobile-panel-switch" id="mobilePanelSwitch">
+      <button type="button" class="tool-button is-active" data-mobile-panel="visual">Visual</button>
+      <button type="button" class="tool-button" data-mobile-panel="markdown">Markdown</button>
+      <button type="button" class="tool-button" data-mobile-panel="preview">Preview</button>
+    </section>
+
     <section class="workspace">
       <article class="panel" id="visualPanel">
         <header class="panel-header">
@@ -597,6 +721,7 @@
     const folderSuggestion = document.getElementById("folderSuggestion");
     const folderSuggestionText = document.getElementById("folderSuggestionText");
     const folderSuggestionAction = document.getElementById("folderSuggestionAction");
+    const mobilePanelSwitch = document.getElementById("mobilePanelSwitch");
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
@@ -740,6 +865,7 @@
     let lastLoadedMarkdown = "";
     let lastDownloadedMarkdown = "";
     let currentLanguage = "it";
+    let currentMobilePanel = "visual";
     let syncVersion = 0;
     const translations = {
       it: {
@@ -768,6 +894,9 @@
         viewAll: "Tutto",
         viewWrite: "Scrittura",
         viewPreview: "Preview",
+        mobileVisual: "Visuale",
+        mobileMarkdown: "Markdown",
+        mobilePreview: "Anteprima",
         visualEditor: "Editor visuale",
         visualHint: "`contenteditable` + toolbar",
         markdownPanel: "Markdown",
@@ -855,6 +984,9 @@
         viewAll: "All",
         viewWrite: "Write",
         viewPreview: "Preview",
+        mobileVisual: "Visual",
+        mobileMarkdown: "Markdown",
+        mobilePreview: "Preview",
         visualEditor: "Visual editor",
         visualHint: "`contenteditable` + toolbar",
         markdownPanel: "Markdown",
@@ -1098,6 +1230,9 @@
       buildBadge.textContent = APP_VERSION;
       folderSuggestionText.textContent = t("promptAutoLinkFolder");
       folderSuggestionAction.textContent = t("actionLinkFolderNow");
+      mobilePanelSwitch.querySelector('[data-mobile-panel="visual"]').textContent = t("mobileVisual");
+      mobilePanelSwitch.querySelector('[data-mobile-panel="markdown"]').textContent = t("mobileMarkdown");
+      mobilePanelSwitch.querySelector('[data-mobile-panel="preview"]').textContent = t("mobilePreview");
 
       document.querySelectorAll("[data-i18n]").forEach(node => {
         node.textContent = t(node.dataset.i18n);
@@ -1115,6 +1250,55 @@
         syncStatus.textContent = t("statusSynced");
       }
       renderSymbolCategoryOptions();
+    }
+
+    function isMobileLayout() {
+      return window.matchMedia("(max-width: 720px)").matches;
+    }
+
+    function updateMobilePanelButtons() {
+      mobilePanelSwitch.querySelectorAll("[data-mobile-panel]").forEach(button => {
+        button.classList.toggle("is-active", button.dataset.mobilePanel === currentMobilePanel);
+      });
+    }
+
+    function updateResponsiveLayout() {
+      const workspace = document.querySelector(".workspace");
+      const isMobile = isMobileLayout();
+      const savedViewMode = loadPreference("view_mode", "all");
+
+      visualPanel.classList.remove("panel-hidden");
+      markdownPanel.classList.remove("panel-hidden");
+      previewPanel.classList.remove("panel-hidden");
+      workspace.classList.remove("mode-write", "mode-preview");
+
+      if (!isMobile) {
+        mobilePanelSwitch.style.display = "";
+        if (savedViewMode === "write") {
+          previewPanel.classList.add("panel-hidden");
+          workspace.classList.add("mode-write");
+        }
+        if (savedViewMode === "preview") {
+          visualPanel.classList.add("panel-hidden");
+          markdownPanel.classList.add("panel-hidden");
+          workspace.classList.add("mode-preview");
+        }
+        return;
+      }
+
+      mobilePanelSwitch.style.display = "flex";
+
+      if (currentMobilePanel !== "visual") {
+        visualPanel.classList.add("panel-hidden");
+      }
+      if (currentMobilePanel !== "markdown") {
+        markdownPanel.classList.add("panel-hidden");
+      }
+      if (currentMobilePanel !== "preview") {
+        previewPanel.classList.add("panel-hidden");
+      }
+
+      updateMobilePanelButtons();
     }
 
     function detectPreferredLanguage() {
@@ -2157,6 +2341,12 @@
       previewPanel.classList.remove("panel-hidden");
       workspace.classList.remove("mode-write", "mode-preview");
 
+      if (isMobileLayout()) {
+        savePreference("view_mode", mode);
+        updateResponsiveLayout();
+        return;
+      }
+
       if (mode === "write") {
         previewPanel.classList.add("panel-hidden");
         workspace.classList.add("mode-write");
@@ -2243,6 +2433,14 @@
       void handleRenderedLinkClick(event);
     });
 
+    mobilePanelSwitch.querySelectorAll("[data-mobile-panel]").forEach(button => {
+      button.addEventListener("click", () => {
+        currentMobilePanel = button.dataset.mobilePanel || "visual";
+        savePreference("mobile_panel", currentMobilePanel);
+        updateResponsiveLayout();
+      });
+    });
+
     symbolSearch.addEventListener("input", event => {
       renderSymbolGrid(event.target.value);
     });
@@ -2276,14 +2474,18 @@
     const savedLanguage = loadPreference("language", detectPreferredLanguage());
     const savedDraft = loadSessionValue("draft_markdown", "");
     const savedViewMode = loadPreference("view_mode", "all");
+    const savedMobilePanel = loadPreference("mobile_panel", "visual");
 
     markdownInput.value = savedDraft || getInitialMarkdown() || seedMarkdown;
+    currentMobilePanel = ["visual", "markdown", "preview"].includes(savedMobilePanel) ? savedMobilePanel : "visual";
     setLanguage(savedLanguage);
     const activeViewInput = document.querySelector('input[name="previewMode"][value="' + savedViewMode + '"]');
     if (activeViewInput) {
       activeViewInput.checked = true;
       updateViewMode(savedViewMode);
     }
+    window.addEventListener("resize", updateResponsiveLayout);
+    updateResponsiveLayout();
     void syncFromMarkdown();
 
     if ("serviceWorker" in navigator) {
