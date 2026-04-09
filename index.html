@@ -1999,7 +1999,9 @@
 
       document.querySelectorAll("[data-command]").forEach(button => {
         const command = button.dataset.command;
-        const active = ["bold", "italic", "strikeThrough"].includes(command) ? isCommandActive(command) : false;
+        const active = ["bold", "italic", "strikeThrough", "insertUnorderedList", "insertOrderedList"].includes(command)
+          ? isCommandActive(command)
+          : false;
         button.classList.toggle("is-active", active);
       });
 
@@ -2010,6 +2012,74 @@
 
       document.getElementById("paragraphButton").classList.toggle("is-active", blockTag === "p" || !blockTag);
       document.getElementById("codeBlockButton").classList.toggle("is-active", blockTag === "pre");
+    }
+
+    function handleEditorShortcut(event) {
+      const isModifierPressed = event.ctrlKey || event.metaKey;
+      if (!isModifierPressed || event.altKey) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === "b") {
+        event.preventDefault();
+        execCommand("bold");
+        return;
+      }
+
+      if (key === "i") {
+        event.preventDefault();
+        execCommand("italic");
+        return;
+      }
+
+      if (key === "u") {
+        event.preventDefault();
+        execCommand("insertUnorderedList");
+        return;
+      }
+
+      if (key === "o") {
+        event.preventDefault();
+        execCommand("insertOrderedList");
+        return;
+      }
+
+      if (key === "e" && event.shiftKey) {
+        event.preventDefault();
+        execCommand("strikeThrough");
+        return;
+      }
+
+      if (key === "0") {
+        event.preventDefault();
+        convertSelectionToParagraph();
+        return;
+      }
+
+      if (key === "1") {
+        event.preventDefault();
+        setBlock("h1");
+        return;
+      }
+
+      if (key === "2") {
+        event.preventDefault();
+        setBlock("h2");
+        return;
+      }
+
+      if (key === "3") {
+        event.preventDefault();
+        setBlock("h3");
+        return;
+      }
+
+      if (key === "9") {
+        event.preventDefault();
+        setBlock("blockquote");
+      }
     }
 
     function execCommand(command, value = null) {
@@ -2518,6 +2588,10 @@
       if (event.key === "Escape" && symbolDialog.classList.contains("is-open")) {
         closeSymbolDialog();
       }
+    });
+
+    visualEditor.addEventListener("keydown", event => {
+      handleEditorShortcut(event);
     });
 
     document.addEventListener("selectionchange", () => {
