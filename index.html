@@ -1940,7 +1940,7 @@
       setStatus(t("statusFromMarkdown"));
     }
 
-    async function syncFromVisual() {
+    async function syncFromVisual(normalizeVisualEditor = false) {
       const version = ++syncVersion;
       const markdown = htmlToMarkdown(visualEditor.innerHTML);
       markdownInput.value = markdown;
@@ -1948,6 +1948,9 @@
       const html = await markdownToHtml(markdown);
       if (version !== syncVersion) {
         return;
+      }
+      if (normalizeVisualEditor) {
+        visualEditor.innerHTML = html;
       }
       preview.innerHTML = html;
       saveSessionValue("draft_markdown", markdown);
@@ -1991,6 +1994,10 @@
     function prepareToolbarAction() {
       visualEditor.focus();
       restoreSavedSelection();
+    }
+
+    function shouldNormalizeAfterCommand(command) {
+      return ["insertUnorderedList", "insertOrderedList"].includes(command);
     }
 
     function isCommandActive(command) {
@@ -2144,7 +2151,7 @@
         const replacementBlock = document.createElement(normalizedTag);
         replacementBlock.innerHTML = block.innerHTML;
         replaceListItemWithBlock(block, replacementBlock);
-        void syncFromVisual();
+        void syncFromVisual(true);
         updateToolbarState();
         return true;
       }
@@ -2155,7 +2162,7 @@
     function execCommand(command, value = null) {
       visualEditor.focus();
       document.execCommand(command, false, value);
-      void syncFromVisual();
+      void syncFromVisual(shouldNormalizeAfterCommand(command));
       updateToolbarState();
     }
 
@@ -2165,7 +2172,7 @@
       }
       visualEditor.focus();
       document.execCommand("formatBlock", false, tagName);
-      void syncFromVisual();
+      void syncFromVisual(true);
       updateToolbarState();
     }
 
@@ -2193,7 +2200,7 @@
         return;
       }
 
-      void syncFromVisual();
+      void syncFromVisual(true);
       updateToolbarState();
     }
 
@@ -2207,7 +2214,7 @@
       visualEditor.focus();
       const selectedText = window.getSelection().toString().trim() || "const esempio = true;";
       document.execCommand("insertHTML", false, "<pre data-language=\"\"><code>" + escapeHtml(selectedText) + "</code></pre><p><br></p>");
-      void syncFromVisual();
+      void syncFromVisual(true);
       updateToolbarState();
     }
 
