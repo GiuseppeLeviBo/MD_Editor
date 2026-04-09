@@ -764,6 +764,7 @@
         promptInsertUrl: "Inserisci l'URL del link",
         promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
         promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
+        promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata. Vuoi collegare ora la cartella del documento per immagini e link locali?",
         promptFolderHelp: "I browser non espongono automaticamente la cartella del file scelto. Usa 'Collega cartella' dopo l'apertura per risolvere immagini e file locali.",
         boldTitle: "Applica il grassetto",
         italicTitle: "Applica il corsivo",
@@ -848,6 +849,7 @@
         promptInsertUrl: "Enter the link URL",
         promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
         promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
+        promptAutoLinkFolder: "You opened a Markdown file without a linked project folder. Do you want to link the document folder now for local images and links?",
         promptFolderHelp: "Browsers do not automatically expose the folder of the selected file. Use 'Link folder' after opening the file to resolve local images and files.",
         boldTitle: "Apply bold",
         italicTitle: "Apply italic",
@@ -1581,12 +1583,16 @@
       syncStatus.textContent = text;
     }
 
-    async function pickDocumentDirectory() {
+    async function pickDocumentDirectory(startInHandle = null) {
       if (window.showDirectoryPicker) {
         try {
-          const directoryHandle = await window.showDirectoryPicker({
+          const options = {
             mode: "read"
-          });
+          };
+          if (startInHandle) {
+            options.startIn = startInHandle;
+          }
+          const directoryHandle = await window.showDirectoryPicker(options);
           clearDirectoryContext();
           currentDirectoryHandle = directoryHandle;
           return directoryHandle;
@@ -1604,6 +1610,28 @@
       clearDirectoryContext();
       currentDirectoryFiles = selectedFiles;
       return { kind: "virtual-directory" };
+    }
+
+    async function maybeSuggestProjectFolderLink() {
+      if (hasLinkedDirectoryContext() || !currentFileHandle || !window.showDirectoryPicker) {
+        return;
+      }
+
+      if (!window.confirm(t("promptAutoLinkFolder"))) {
+        return;
+      }
+
+      const directoryHandle = await pickDocumentDirectory(currentFileHandle);
+      if (!directoryHandle) {
+        return;
+      }
+
+      if (directoryHandle.kind !== "virtual-directory") {
+        currentDirectoryHandle = directoryHandle;
+      }
+
+      await syncFromMarkdown();
+      setStatus(t("statusFolderLinked"));
     }
 
     function pickDirectoryByFiles() {
@@ -1911,6 +1939,7 @@
         const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
         const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
         setStatus(t("statusLoaded") + suffix + hint);
+        await maybeSuggestProjectFolderLink();
       };
       reader.readAsText(file, "utf-8");
     }
