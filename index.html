@@ -751,6 +751,9 @@
         statusLoaded: "File Markdown caricato",
         statusBlobImageWarning: "Attenzione: questo file Markdown contiene URL immagine temporanei blob:. Ripristina i path relativi originali prima di salvarlo.",
         statusOpenFirst: "Apri prima un file Markdown",
+        statusLinkedFileOpened: "File collegato aperto nell'editor",
+        statusLinkedFileMissing: "Il file collegato non e stato trovato nella cartella progetto",
+        statusLinkFolderRequired: "Collega prima la cartella progetto per aprire link locali",
         statusFolderLinked: "Cartella documento collegata: i path relativi ora usano questa base",
         statusDocumentClosed: "Documento chiuso: schermata iniziale ripristinata",
         statusPrivacyReset: "Dati locali rimossi: editor riportato allo stato iniziale",
@@ -832,6 +835,9 @@
         statusLoaded: "Markdown file loaded",
         statusBlobImageWarning: "Warning: this Markdown file contains temporary blob image URLs. Restore the original relative image paths before saving.",
         statusOpenFirst: "Open a Markdown file first",
+        statusLinkedFileOpened: "Linked file opened in the editor",
+        statusLinkedFileMissing: "The linked file was not found in the project folder",
+        statusLinkFolderRequired: "Link the project folder first to open local links",
         statusFolderLinked: "Document folder linked: relative paths now use this base",
         statusDocumentClosed: "Document closed: initial screen restored",
         statusPrivacyReset: "Local data cleared: editor restored to its initial state",
@@ -1146,6 +1152,94 @@
       return node.getAttribute("data-md-src") || node.getAttribute("src") || "";
     }
 
+    function getMarkdownLinkSource(node) {
+      if (!node || typeof node.getAttribute !== "function") {
+        return "";
+      }
+
+      return node.getAttribute("data-md-href") || node.getAttribute("href") || "";
+    }
+
+    function stripHashAndQuery(path) {
+      return String(path || "").split("#")[0].split("?")[0];
+    }
+
+    function isMarkdownPath(path) {
+      return /\.(md|markdown)$/i.test(stripHashAndQuery(path));
+    }
+
+    async function getLinkedFileEntry(path) {
+      const normalizedPath = normalizeResourcePath(path);
+      if (!normalizedPath || !hasLinkedDirectoryContext()) {
+        return null;
+      }
+
+      if (currentDirectoryFiles.size > 0) {
+        const selectedFile = currentDirectoryFiles.get(normalizedPath);
+        return selectedFile ? { file: selectedFile, handle: null } : null;
+      }
+
+      try {
+        const parts = normalizedPath.split("/");
+        let directoryHandle = currentDirectoryHandle;
+
+        for (let index = 0; index < parts.length - 1; index += 1) {
+          directoryHandle = await directoryHandle.getDirectoryHandle(parts[index]);
+        }
+
+        const handle = await directoryHandle.getFileHandle(parts[parts.length - 1]);
+        const file = await handle.getFile();
+        return { file, handle };
+      } catch {
+        return null;
+      }
+    }
+
+    async function openLinkedMarkdown(path) {
+      if (!hasLinkedDirectoryContext()) {
+        setStatus(t("statusLinkFolderRequired"));
+        return false;
+      }
+
+      const entry = await getLinkedFileEntry(path);
+      if (!entry || !entry.file) {
+        setStatus(t("statusLinkedFileMissing"));
+        return false;
+      }
+
+      currentFileHandle = entry.handle || null;
+      await openMarkdownFile(entry.file, null);
+      setStatus(t("statusLinkedFileOpened"));
+      return true;
+    }
+
+    async function handleRenderedLinkClick(event) {
+      const link = event.target.closest("a");
+      if (!link) {
+        return;
+      }
+
+      const href = getMarkdownLinkSource(link);
+      if (!href || isProbablyExternalUrl(href)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (isMarkdownPath(href)) {
+        await openLinkedMarkdown(href);
+        return;
+      }
+
+      const resolvedPath = await resolveResourcePath(href);
+      if (resolvedPath && resolvedPath !== href) {
+        window.open(resolvedPath, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      setStatus(t("statusLinkedFileMissing"));
+    }
+
     async function resolveResourcePath(path) {
       if (!path || isProbablyExternalUrl(path)) {
         return path;
@@ -1216,7 +1310,7 @@
 
       return fragments.join("")
         .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" data-md-href="$2" target="_blank" rel="noreferrer">$1</a>')
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*]+)\*/g, "<em>$1</em>");
     }
@@ -1373,6 +1467,7 @@
 
     function inlineHtmlToMarkdown(html) {
       return html
+        .replace(/<a [^>]*data-md-href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
         .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
         .replace(/<img [^>]*alt="([^"]*)"[^>]*data-md-src="([^"]+)"[^>]*>/gi, "![$1]($2)")
         .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*>/gi, "![]($1)")
@@ -1425,8 +1520,11 @@
           case "em":
           case "i":
           case "code":
-          case "a":
             return inlineHtmlToMarkdown(node.outerHTML);
+          case "a": {
+            const label = normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML)) || getMarkdownLinkSource(node);
+            return "[" + label + "](" + getMarkdownLinkSource(node) + ")";
+          }
           case "blockquote":
             return clean
               .trim()
@@ -2057,6 +2155,14 @@
 
     markdownInput.addEventListener("input", () => {
       void syncFromMarkdown();
+    });
+
+    preview.addEventListener("click", event => {
+      void handleRenderedLinkClick(event);
+    });
+
+    visualEditor.addEventListener("click", event => {
+      void handleRenderedLinkClick(event);
     });
 
     symbolSearch.addEventListener("input", event => {
