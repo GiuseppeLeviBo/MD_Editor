@@ -4,6 +4,19 @@ A lightweight, free Markdown/WYSIWYG editor that started as a single self-contai
 
 Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.github.io/MD_Editor/)
 
+![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
+
+## Release notes - v1.0 beta
+
+- Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
+- Open, edit, save, and download `.md` files
+- Project-folder linking for relative images and local Markdown links
+- Installable PWA shell with desktop-style usage on supported Chromium browsers
+- Italian/English UI, symbol picker, mobile mode, and privacy-oriented local reset
+- Close-warning protection when the current document has unsaved changes
+
+This is a stable beta focused on simplicity and portability. For complex structural edits across multiple selected lines, the Markdown panel is still the most reliable editing surface.
+
 ## Features
 
 - Visual editor, Markdown source, and live HTML preview
