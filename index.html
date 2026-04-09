@@ -942,6 +942,8 @@
         statusCopied: "Markdown copiato negli appunti",
         statusCopyFailed: "Copia non riuscita",
         statusDownloaded: "File Markdown scaricato",
+        statusPrintOpened: "Anteprima di stampa aperta in una nuova finestra",
+        statusPrintBlocked: "Il browser ha bloccato la finestra di stampa",
         promptInsertUrl: "Inserisci l'URL del link",
         promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
         promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
@@ -1034,6 +1036,8 @@
         statusCopied: "Markdown copied to clipboard",
         statusCopyFailed: "Copy failed",
         statusDownloaded: "Markdown file downloaded",
+        statusPrintOpened: "Print preview opened in a new window",
+        statusPrintBlocked: "The browser blocked the print window",
         promptInsertUrl: "Enter the link URL",
         promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
         promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
@@ -2017,6 +2021,15 @@
       return blocks;
     }
 
+    function getSelectionListType() {
+      const block = getSelectionBlock();
+      if (!block) {
+        return null;
+      }
+      const list = block.closest("ul, ol");
+      return list ? list.tagName.toLowerCase() : null;
+    }
+
     function saveCurrentSelection() {
       const selection = window.getSelection();
       if (!selection.rangeCount) {
@@ -2056,6 +2069,7 @@
     function updateToolbarState() {
       const block = getSelectionBlock();
       const blockTag = block ? block.tagName.toLowerCase() : lastKnownBlockTag;
+      const listType = getSelectionListType();
 
       if (blockTag) {
         lastKnownBlockTag = blockTag;
@@ -2063,9 +2077,14 @@
 
       document.querySelectorAll("[data-command]").forEach(button => {
         const command = button.dataset.command;
-        const active = ["bold", "italic", "strikeThrough", "insertUnorderedList", "insertOrderedList"].includes(command)
-          ? isCommandActive(command)
-          : false;
+        let active = false;
+        if (["bold", "italic", "strikeThrough"].includes(command)) {
+          active = isCommandActive(command);
+        } else if (command === "insertUnorderedList") {
+          active = listType === "ul";
+        } else if (command === "insertOrderedList") {
+          active = listType === "ol";
+        }
         button.classList.toggle("is-active", active);
       });
 
@@ -2076,6 +2095,45 @@
 
       document.getElementById("paragraphButton").classList.toggle("is-active", ["p", "li"].includes(blockTag));
       document.getElementById("codeBlockButton").classList.toggle("is-active", blockTag === "pre");
+    }
+
+    function replaceElementTag(element, newTagName) {
+      const replacement = document.createElement(newTagName);
+      Array.from(element.attributes).forEach(attribute => {
+        replacement.setAttribute(attribute.name, attribute.value);
+      });
+      while (element.firstChild) {
+        replacement.appendChild(element.firstChild);
+      }
+      element.replaceWith(replacement);
+      return replacement;
+    }
+
+    function toggleListCommand(command) {
+      const desiredListTag = command === "insertOrderedList" ? "ol" : "ul";
+      const currentListType = getSelectionListType();
+
+      if (currentListType === desiredListTag) {
+        convertSelectionToParagraph();
+        return true;
+      }
+
+      if (currentListType && currentListType !== desiredListTag) {
+        const selectedLists = Array.from(new Set(
+          getSelectedBlocks()
+            .map(block => block.closest("ul, ol"))
+            .filter(Boolean)
+        ));
+
+        if (selectedLists.length) {
+          selectedLists.forEach(list => replaceElementTag(list, desiredListTag));
+          void syncFromVisual(true);
+          updateToolbarState();
+          return true;
+        }
+      }
+
+      return false;
     }
 
     function handleEditorShortcut(event) {
@@ -2143,6 +2201,18 @@
       if (key === "9") {
         event.preventDefault();
         setBlock("blockquote");
+        return;
+      }
+
+      if (key === "s") {
+        event.preventDefault();
+        void saveMarkdownAs();
+        return;
+      }
+
+      if (key === "p") {
+        event.preventDefault();
+        printRenderedDocument();
       }
     }
 
@@ -2289,6 +2359,9 @@
     }
 
     function execCommand(command, value = null) {
+      if (["insertUnorderedList", "insertOrderedList"].includes(command) && toggleListCommand(command)) {
+        return;
+      }
       if (["insertUnorderedList", "insertOrderedList"].includes(command) && wrapSelectedBlocksInList(command)) {
         void syncFromVisual(true);
         updateToolbarState();
@@ -2653,6 +2726,81 @@
       setStatus(t("statusDownloaded"));
     }
 
+    function printRenderedDocument() {
+      const printWindow = window.open("", "_blank", "noopener,noreferrer");
+      if (!printWindow) {
+        setStatus(t("statusPrintBlocked"));
+        return;
+      }
+
+      const title = escapeHtml((currentDocumentName || "Markdown document").replace(/\.md$/i, ""));
+      const renderedHtml = preview.innerHTML || "<p></p>";
+      const printHtml = `<!DOCTYPE html>
+<html lang="${currentLanguage}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      padding: 32px;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #2f241d;
+      background: #fffdf9;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    pre, code {
+      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    }
+    pre {
+      background: #f4efe7;
+      padding: 16px;
+      overflow: auto;
+      border-radius: 12px;
+    }
+    blockquote {
+      margin: 1.2em 0;
+      padding-left: 1em;
+      border-left: 4px solid #b6572c;
+      color: #5f4b3f;
+    }
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+      main {
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>${renderedHtml}</main>
+  <script>
+    window.addEventListener("load", () => {
+      window.print();
+    });
+  </script>
+</body>
+</html>`;
+
+      printWindow.document.open();
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      setStatus(t("statusPrintOpened"));
+    }
+
     function updateViewMode(mode) {
       const workspace = document.querySelector(".workspace");
 
@@ -2812,6 +2960,23 @@
     });
 
     document.addEventListener("keydown", event => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      const isModifierPressed = event.ctrlKey || event.metaKey;
+      if (isModifierPressed && !event.altKey) {
+        const key = event.key.toLowerCase();
+        if (key === "s") {
+          event.preventDefault();
+          void saveMarkdownAs();
+          return;
+        }
+        if (key === "p") {
+          event.preventDefault();
+          printRenderedDocument();
+          return;
+        }
+      }
       if (event.key === "Escape" && symbolDialog.classList.contains("is-open")) {
         closeSymbolDialog();
       }

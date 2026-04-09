@@ -74,6 +74,8 @@ These shortcuts apply to the visual editor on desktop systems.
 - `Ctrl/Cmd + 2`: heading 2
 - `Ctrl/Cmd + 3`: heading 3
 - `Ctrl/Cmd + 9`: blockquote
+- `Ctrl/Cmd + S`: save the Markdown document with the Save As dialog
+- `Ctrl/Cmd + P`: open a printable rendered preview in a separate window
 
 ## Development
 
