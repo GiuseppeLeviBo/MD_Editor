@@ -1714,20 +1714,22 @@
 
     function inlineHtmlToMarkdown(html) {
       return html
+        .replace(/<\/?span[^>]*>/gi, "")
         .replace(/<a [^>]*data-md-href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
         .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
         .replace(/<img [^>]*alt="([^"]*)"[^>]*data-md-src="([^"]+)"[^>]*>/gi, "![$1]($2)")
         .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*>/gi, "![]($1)")
         .replace(/<img [^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
         .replace(/<img [^>]*alt="([^"]*)"[^>]*src="([^"]+)"[^>]*>/gi, "![$1]($2)")
-        .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
-        .replace(/<b>(.*?)<\/b>/gi, "**$1**")
-        .replace(/<em>(.*?)<\/em>/gi, "*$1*")
-        .replace(/<i>(.*?)<\/i>/gi, "*$1*")
-        .replace(/<(del|s|strike)>(.*?)<\/\1>/gi, "~~$2~~")
-        .replace(/<code>(.*?)<\/code>/gi, "`$1`")
+        .replace(/<strong[^>]*>(.*?)<\/strong>/gi, "**$1**")
+        .replace(/<b[^>]*>(.*?)<\/b>/gi, "**$1**")
+        .replace(/<em[^>]*>(.*?)<\/em>/gi, "*$1*")
+        .replace(/<i[^>]*>(.*?)<\/i>/gi, "*$1*")
+        .replace(/<(del|s|strike)[^>]*>(.*?)<\/\1>/gi, "~~$2~~")
+        .replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`")
         .replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
         .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
         .replace(/&nbsp;/g, " ")
         .replace(/&amp;/g, "&")
         .replace(/&lt;/g, "<")
@@ -2087,6 +2089,64 @@
       }
     }
 
+    function replaceListItemWithBlock(listItem, replacementBlock) {
+      const list = listItem.closest("ul, ol");
+      if (!list || !list.parentNode) {
+        listItem.replaceWith(replacementBlock);
+        return;
+      }
+
+      const parent = list.parentNode;
+      const items = Array.from(list.children);
+      const currentIndex = items.indexOf(listItem);
+
+      const beforeItems = items.slice(0, currentIndex);
+      const afterItems = items.slice(currentIndex + 1);
+
+      if (beforeItems.length) {
+        const beforeList = list.cloneNode(false);
+        beforeItems.forEach(item => beforeList.appendChild(item));
+        parent.insertBefore(beforeList, list);
+      }
+
+      parent.insertBefore(replacementBlock, list);
+
+      if (afterItems.length) {
+        const afterList = list.cloneNode(false);
+        afterItems.forEach(item => afterList.appendChild(item));
+        parent.insertBefore(afterList, list);
+      }
+
+      list.remove();
+    }
+
+    function transformCurrentBlock(tagName) {
+      const block = getSelectionBlock();
+      if (!block) {
+        setBlock(tagName);
+        return true;
+      }
+
+      const normalizedTag = tagName.toLowerCase();
+      const currentTag = block.tagName.toLowerCase();
+
+      if (currentTag === normalizedTag) {
+        convertSelectionToParagraph();
+        return true;
+      }
+
+      if (currentTag === "li") {
+        const replacementBlock = document.createElement(normalizedTag);
+        replacementBlock.innerHTML = block.innerHTML;
+        replaceListItemWithBlock(block, replacementBlock);
+        void syncFromVisual();
+        updateToolbarState();
+        return true;
+      }
+
+      return false;
+    }
+
     function execCommand(command, value = null) {
       visualEditor.focus();
       document.execCommand(command, false, value);
@@ -2095,9 +2155,7 @@
     }
 
     function setBlock(tagName) {
-      const block = getSelectionBlock();
-      if (block && block.tagName.toLowerCase() === tagName.toLowerCase()) {
-        convertSelectionToParagraph();
+      if (transformCurrentBlock(tagName)) {
         return;
       }
       visualEditor.focus();
@@ -2124,7 +2182,7 @@
       } else if (block.tagName === "LI") {
         const paragraph = document.createElement("p");
         paragraph.innerHTML = block.innerHTML;
-        block.closest("ul, ol").replaceWith(paragraph);
+        replaceListItemWithBlock(block, paragraph);
       } else {
         setBlock("p");
         return;
