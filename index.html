@@ -81,6 +81,32 @@
       background: rgba(255, 252, 247, 0.85);
     }
 
+    .folder-suggestion {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 24px;
+      border-bottom: 1px solid rgba(189, 169, 138, 0.35);
+      background: rgba(244, 216, 203, 0.35);
+    }
+
+    .folder-suggestion.is-visible {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .folder-suggestion-text {
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .folder-suggestion-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .tool-group {
       display: flex;
       gap: 8px;
@@ -497,6 +523,16 @@
       </div>
     </section>
 
+    <section class="folder-suggestion" id="folderSuggestion">
+      <div class="folder-suggestion-text" id="folderSuggestionText">
+        Hai aperto un file Markdown senza cartella progetto collegata.
+      </div>
+      <div class="folder-suggestion-actions">
+        <button type="button" id="folderSuggestionAction">Collega cartella ora</button>
+        <button type="button" id="folderSuggestionDismiss" data-i18n="close">Chiudi</button>
+      </div>
+    </section>
+
     <section class="workspace">
       <article class="panel" id="visualPanel">
         <header class="panel-header">
@@ -558,6 +594,9 @@
     const symbolCategorySelect = document.getElementById("symbolCategorySelect");
     const languageSelect = document.getElementById("languageSelect");
     const buildBadge = document.getElementById("buildBadge");
+    const folderSuggestion = document.getElementById("folderSuggestion");
+    const folderSuggestionText = document.getElementById("folderSuggestionText");
+    const folderSuggestionAction = document.getElementById("folderSuggestionAction");
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
@@ -697,6 +736,7 @@
     let currentDirectoryFiles = new Map();
     let currentDirectoryCache = new Map();
     let currentObjectUrls = [];
+    let pendingFolderLinkHandle = null;
     let lastLoadedMarkdown = "";
     let lastDownloadedMarkdown = "";
     let currentLanguage = "it";
@@ -754,6 +794,7 @@
         statusLinkedFileOpened: "File collegato aperto nell'editor",
         statusLinkedFileMissing: "Il file collegato non e stato trovato nella cartella progetto",
         statusLinkFolderRequired: "Collega prima la cartella progetto per aprire link locali",
+        statusFolderSuggestion: "File aperto senza cartella progetto: usa il pulsante qui sotto per collegare la cartella del documento.",
         statusFolderLinked: "Cartella documento collegata: i path relativi ora usano questa base",
         statusDocumentClosed: "Documento chiuso: schermata iniziale ripristinata",
         statusPrivacyReset: "Dati locali rimossi: editor riportato allo stato iniziale",
@@ -764,7 +805,8 @@
         promptInsertUrl: "Inserisci l'URL del link",
         promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
         promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
-        promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata. Vuoi collegare ora la cartella del documento per immagini e link locali?",
+        promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata.",
+        actionLinkFolderNow: "Collega cartella ora",
         promptFolderHelp: "I browser non espongono automaticamente la cartella del file scelto. Usa 'Collega cartella' dopo l'apertura per risolvere immagini e file locali.",
         boldTitle: "Applica il grassetto",
         italicTitle: "Applica il corsivo",
@@ -839,6 +881,7 @@
         statusLinkedFileOpened: "Linked file opened in the editor",
         statusLinkedFileMissing: "The linked file was not found in the project folder",
         statusLinkFolderRequired: "Link the project folder first to open local links",
+        statusFolderSuggestion: "File opened without a linked project folder: use the button below to link the document folder.",
         statusFolderLinked: "Document folder linked: relative paths now use this base",
         statusDocumentClosed: "Document closed: initial screen restored",
         statusPrivacyReset: "Local data cleared: editor restored to its initial state",
@@ -849,7 +892,8 @@
         promptInsertUrl: "Enter the link URL",
         promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
         promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
-        promptAutoLinkFolder: "You opened a Markdown file without a linked project folder. Do you want to link the document folder now for local images and links?",
+        promptAutoLinkFolder: "You opened a Markdown file without a linked project folder.",
+        actionLinkFolderNow: "Link folder now",
         promptFolderHelp: "Browsers do not automatically expose the folder of the selected file. Use 'Link folder' after opening the file to resolve local images and files.",
         boldTitle: "Apply bold",
         italicTitle: "Apply italic",
@@ -1052,6 +1096,8 @@
       languageSelect.value = currentLanguage;
       savePreference("language", currentLanguage);
       buildBadge.textContent = APP_VERSION;
+      folderSuggestionText.textContent = t("promptAutoLinkFolder");
+      folderSuggestionAction.textContent = t("actionLinkFolderNow");
 
       document.querySelectorAll("[data-i18n]").forEach(node => {
         node.textContent = t(node.dataset.i18n);
@@ -1583,6 +1629,17 @@
       syncStatus.textContent = text;
     }
 
+    function showFolderSuggestion(handle = null) {
+      pendingFolderLinkHandle = handle;
+      folderSuggestion.classList.add("is-visible");
+      setStatus(t("statusFolderSuggestion"));
+    }
+
+    function hideFolderSuggestion() {
+      pendingFolderLinkHandle = null;
+      folderSuggestion.classList.remove("is-visible");
+    }
+
     async function pickDocumentDirectory(startInHandle = null) {
       if (window.showDirectoryPicker) {
         try {
@@ -1616,22 +1673,7 @@
       if (hasLinkedDirectoryContext() || !currentFileHandle || !window.showDirectoryPicker) {
         return;
       }
-
-      if (!window.confirm(t("promptAutoLinkFolder"))) {
-        return;
-      }
-
-      const directoryHandle = await pickDocumentDirectory(currentFileHandle);
-      if (!directoryHandle) {
-        return;
-      }
-
-      if (directoryHandle.kind !== "virtual-directory") {
-        currentDirectoryHandle = directoryHandle;
-      }
-
-      await syncFromMarkdown();
-      setStatus(t("statusFolderLinked"));
+      showFolderSuggestion(currentFileHandle);
     }
 
     function pickDirectoryByFiles() {
@@ -1945,7 +1987,7 @@
     }
 
     async function linkCurrentDirectory() {
-      const directoryHandle = await pickDocumentDirectory();
+      const directoryHandle = await pickDocumentDirectory(pendingFolderLinkHandle);
       if (!directoryHandle) {
         return;
       }
@@ -1953,6 +1995,7 @@
       if (directoryHandle && directoryHandle.kind !== "virtual-directory") {
         currentDirectoryHandle = directoryHandle;
       }
+      hideFolderSuggestion();
       if (lastLoadedMarkdown) {
         await syncFromMarkdown();
         setStatus(t("statusFolderLinked"));
@@ -1970,6 +2013,7 @@
       clearResolvedResources();
       currentFileHandle = null;
       clearDirectoryContext();
+      hideFolderSuggestion();
       currentDocumentName = "documento.md";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
@@ -1988,6 +2032,7 @@
       clearAllPreferences();
       currentFileHandle = null;
       clearDirectoryContext();
+      hideFolderSuggestion();
       currentDocumentName = "documento.md";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
@@ -2150,6 +2195,10 @@
     document.getElementById("linkFolderButton").addEventListener("click", () => {
       void linkCurrentDirectory();
     });
+    folderSuggestionAction.addEventListener("click", () => {
+      void linkCurrentDirectory();
+    });
+    document.getElementById("folderSuggestionDismiss").addEventListener("click", hideFolderSuggestion);
     document.getElementById("closeDocumentButton").addEventListener("click", () => {
       void closeDocument();
     });
