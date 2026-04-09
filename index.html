@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.020-beta">
+<link rel="manifest" href="./manifest.json?v=0.021-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -695,7 +695,7 @@
         Supporta titoli, grassetto, corsivo, liste, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.020 beta</div>
+    <div class="build-badge" id="buildBadge">v0.021 beta</div>
     </footer>
   </main>
 
@@ -734,7 +734,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.020 beta";
+    const APP_VERSION = "v0.021 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -2109,6 +2109,47 @@
       return replacement;
     }
 
+    function unwrapElement(element) {
+      const parent = element.parentNode;
+      if (!parent) {
+        return;
+      }
+      while (element.firstChild) {
+        parent.insertBefore(element.firstChild, element);
+      }
+      element.remove();
+    }
+
+    function getInlineFormatAncestor(tagNames) {
+      const selection = window.getSelection();
+      if (!selection.rangeCount) {
+        return null;
+      }
+      let node = selection.getRangeAt(0).commonAncestorContainer || selection.anchorNode;
+      if (!node) {
+        return null;
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentElement;
+      }
+      const selector = tagNames.map(tag => tag.toLowerCase()).join(", ");
+      return node && node.closest ? node.closest(selector) : null;
+    }
+
+    function toggleStrikethrough() {
+      const activeNode = getInlineFormatAncestor(["del", "s", "strike"]);
+      if (activeNode) {
+        unwrapElement(activeNode);
+        void syncFromVisual(false);
+        updateToolbarState();
+        return;
+      }
+      visualEditor.focus();
+      document.execCommand("strikeThrough", false, null);
+      void syncFromVisual(false);
+      updateToolbarState();
+    }
+
     function toggleListCommand(command) {
       const desiredListTag = command === "insertOrderedList" ? "ol" : "ul";
       const currentListType = getSelectionListType();
@@ -2127,7 +2168,7 @@
 
         if (selectedLists.length) {
           selectedLists.forEach(list => replaceElementTag(list, desiredListTag));
-          void syncFromVisual(true);
+          void syncFromVisual(false);
           updateToolbarState();
           return true;
         }
@@ -2170,7 +2211,7 @@
 
       if (key === "e" && event.shiftKey) {
         event.preventDefault();
-        execCommand("strikeThrough");
+        toggleStrikethrough();
         return;
       }
 
@@ -2204,16 +2245,6 @@
         return;
       }
 
-      if (key === "s") {
-        event.preventDefault();
-        void saveMarkdownAs();
-        return;
-      }
-
-      if (key === "p") {
-        event.preventDefault();
-        printRenderedDocument();
-      }
     }
 
     function replaceListItemWithBlock(listItem, replacementBlock) {
@@ -2359,6 +2390,10 @@
     }
 
     function execCommand(command, value = null) {
+      if (command === "strikeThrough") {
+        toggleStrikethrough();
+        return;
+      }
       if (["insertUnorderedList", "insertOrderedList"].includes(command) && toggleListCommand(command)) {
         return;
       }
@@ -2711,7 +2746,7 @@
           setStatus(t("statusDownloaded"));
           return;
         } catch {
-          // L'utente ha annullato
+          return;
         }
       }
 
@@ -2727,7 +2762,7 @@
     }
 
     function printRenderedDocument() {
-      const printWindow = window.open("", "_blank", "noopener,noreferrer");
+      const printWindow = window.open("", "_blank");
       if (!printWindow) {
         setStatus(t("statusPrintBlocked"));
         return;
@@ -2790,12 +2825,13 @@
 </body>
 </html>`;
 
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
       printWindow.document.open();
       printWindow.document.write(printHtml);
       printWindow.document.close();
-      printWindow.addEventListener("load", () => {
-        printWindow.print();
-      }, { once: true });
       setStatus(t("statusPrintOpened"));
     }
 
@@ -3016,7 +3052,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.020-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.021-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
