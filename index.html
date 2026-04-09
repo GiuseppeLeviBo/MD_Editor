@@ -1972,6 +1972,38 @@
       return node ? node.closest("p, h1, h2, h3, pre, blockquote, li") : null;
     }
 
+    function getSelectedBlocks() {
+      const selection = window.getSelection();
+      if (!selection.rangeCount) {
+        return [];
+      }
+
+      const range = selection.getRangeAt(0);
+      const blockSelector = "p, h1, h2, h3, pre, blockquote, li";
+      const blocks = [];
+      const walker = document.createTreeWalker(visualEditor, NodeFilter.SHOW_ELEMENT, {
+        acceptNode(node) {
+          return node.matches && node.matches(blockSelector)
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_SKIP;
+        }
+      });
+
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (range.intersectsNode(node)) {
+          blocks.push(node);
+        }
+      }
+
+      if (!blocks.length) {
+        const fallbackBlock = getSelectionBlock();
+        return fallbackBlock ? [fallbackBlock] : [];
+      }
+
+      return blocks;
+    }
+
     function saveCurrentSelection() {
       const selection = window.getSelection();
       if (!selection.rangeCount) {
@@ -2132,14 +2164,100 @@
       list.remove();
     }
 
-    function transformCurrentBlock(tagName) {
-      const block = getSelectionBlock();
+    function replaceBlockWithTag(block, tagName) {
+      const replacementBlock = document.createElement(tagName.toLowerCase());
+      replacementBlock.innerHTML = block.innerHTML;
+
+      if (block.tagName.toLowerCase() === "li") {
+        replaceListItemWithBlock(block, replacementBlock);
+      } else {
+        block.replaceWith(replacementBlock);
+      }
+    }
+
+    function convertBlockToParagraph(block) {
       if (!block) {
+        return;
+      }
+
+      const tagName = block.tagName.toLowerCase();
+      const paragraph = document.createElement("p");
+
+      if (tagName === "pre") {
+        paragraph.textContent = block.textContent;
+        block.replaceWith(paragraph);
+        return;
+      }
+
+      if (tagName === "blockquote") {
+        paragraph.innerHTML = block.innerHTML.replace(/<\/?p>/gi, " ").trim();
+        block.replaceWith(paragraph);
+        return;
+      }
+
+      paragraph.innerHTML = block.innerHTML;
+      if (tagName === "li") {
+        replaceListItemWithBlock(block, paragraph);
+      } else if (tagName !== "p") {
+        block.replaceWith(paragraph);
+      }
+    }
+
+    function wrapSelectedBlocksInList(tagName) {
+      const selectedBlocks = getSelectedBlocks();
+      if (!selectedBlocks.length) {
+        return false;
+      }
+
+      const uniqueBlocks = Array.from(new Set(selectedBlocks));
+      if (uniqueBlocks.length < 2) {
+        return false;
+      }
+
+      const firstBlock = uniqueBlocks[0];
+      const parent = firstBlock.parentNode;
+      if (!parent) {
+        return false;
+      }
+
+      const list = document.createElement(tagName.toLowerCase() === "insertorderedlist" ? "ol" : "ul");
+
+      uniqueBlocks.forEach(block => {
+        const li = document.createElement("li");
+        li.innerHTML = block.innerHTML;
+        list.appendChild(li);
+      });
+
+      parent.insertBefore(list, firstBlock);
+      uniqueBlocks.forEach(block => {
+        if (block.parentNode) {
+          block.remove();
+        }
+      });
+
+      return true;
+    }
+
+    function transformCurrentBlock(tagName) {
+      const selectedBlocks = getSelectedBlocks();
+      if (!selectedBlocks.length) {
         setBlock(tagName);
         return true;
       }
 
       const normalizedTag = tagName.toLowerCase();
+      const uniqueBlocks = Array.from(new Set(selectedBlocks));
+
+      if (uniqueBlocks.length > 1) {
+        uniqueBlocks.forEach(block => {
+          replaceBlockWithTag(block, normalizedTag);
+        });
+        void syncFromVisual(true);
+        updateToolbarState();
+        return true;
+      }
+
+      const block = uniqueBlocks[0];
       const currentTag = block.tagName.toLowerCase();
 
       if (currentTag === normalizedTag) {
@@ -2148,9 +2266,7 @@
       }
 
       if (currentTag === "li") {
-        const replacementBlock = document.createElement(normalizedTag);
-        replacementBlock.innerHTML = block.innerHTML;
-        replaceListItemWithBlock(block, replacementBlock);
+        replaceBlockWithTag(block, normalizedTag);
         void syncFromVisual(true);
         updateToolbarState();
         return true;
@@ -2160,6 +2276,11 @@
     }
 
     function execCommand(command, value = null) {
+      if (["insertUnorderedList", "insertOrderedList"].includes(command) && wrapSelectedBlocksInList(command)) {
+        void syncFromVisual(true);
+        updateToolbarState();
+        return;
+      }
       visualEditor.focus();
       document.execCommand(command, false, value);
       void syncFromVisual(shouldNormalizeAfterCommand(command));
@@ -2177,28 +2298,15 @@
     }
 
     function convertSelectionToParagraph() {
-      const block = getSelectionBlock();
-      if (!block) {
+      const selectedBlocks = getSelectedBlocks();
+      if (!selectedBlocks.length) {
         setBlock("p");
         return;
       }
 
-      if (block.tagName === "PRE") {
-        const paragraph = document.createElement("p");
-        paragraph.textContent = block.textContent;
-        block.replaceWith(paragraph);
-      } else if (block.tagName === "BLOCKQUOTE") {
-        const paragraph = document.createElement("p");
-        paragraph.innerHTML = block.innerHTML.replace(/<\/?p>/gi, " ").trim();
-        block.replaceWith(paragraph);
-      } else if (block.tagName === "LI") {
-        const paragraph = document.createElement("p");
-        paragraph.innerHTML = block.innerHTML;
-        replaceListItemWithBlock(block, paragraph);
-      } else {
-        setBlock("p");
-        return;
-      }
+      Array.from(new Set(selectedBlocks)).forEach(block => {
+        convertBlockToParagraph(block);
+      });
 
       void syncFromVisual(true);
       updateToolbarState();
