@@ -39,6 +39,11 @@ The goal is to protect the most important promises of the product.
 - The whole current ordered list can become a task list from a single cursor position
 - Clicking task text keeps it editable instead of toggling the checkbox
 - A current task list can become bullets or numbered list without losing items
+- A standard Markdown table can be created from toolbar prompts
+- Table editing stays aligned between visual editor, Markdown, and preview
+- Table keyboard navigation does not create accidental rows
+- Block commands are disabled when the cursor is inside a table cell
+- Invalid Markdown tables fall back to plain text with a clear status message
 - Paragraph toggles correctly from headings, code blocks, and list items
 - `H1/H2/H3` work on single-block selections
 - Bullet list toggles on/off
@@ -88,6 +93,21 @@ The goal is to protect the most important promises of the product.
 
 - Manual-selection edge cases around list-to-heading transforms may still exist and should be explored further
 - Additional mixed-selection edge cases should be explored beyond the current guardrail behavior
+- Multi-cell inline formatting inside tables should be explored beyond the current v1 behavior
+
+## Tables v1
+
+- Standard Markdown table syntax only
+- Header row + separator row are required in Markdown
+- Toolbar insertion asks for column count and data-row count
+- Header cells start empty
+- Direct cell editing is allowed in the visual editor
+- `Tab`, `Shift+Tab`, and `Enter` navigate inside the table without creating rows automatically
+- `Shift+Enter` is normalized as plain text, not HTML
+- Inline styles are allowed in cells
+- Block commands are disabled inside tables
+- Images and lists inside table cells are out of scope for v1
+- Invalid tables are shown as plain text with a status warning
 
 ## First Playwright targets
 
