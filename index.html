@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.023-beta">
+<link rel="manifest" href="./manifest.json?v=0.024-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -189,11 +189,17 @@
       gap: 0.6rem;
     }
 
-    .editor li[data-task="true"] > label,
-    .preview li[data-task="true"] > label {
+    .editor li[data-task="true"] > .task-item,
+    .preview li[data-task="true"] > .task-item {
       display: inline-flex;
       align-items: flex-start;
       gap: 0.6rem;
+    }
+
+    .editor li[data-task="true"] .task-text,
+    .preview li[data-task="true"] .task-text {
+      display: inline-block;
+      min-width: 0;
     }
 
     .editor li[data-task="true"] input[type="checkbox"],
@@ -721,7 +727,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.023 beta</div>
+    <div class="build-badge" id="buildBadge">v0.024 beta</div>
     </footer>
   </main>
 
@@ -760,7 +766,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.023 beta";
+    const APP_VERSION = "v0.024 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1744,7 +1750,7 @@
           }
           const checked = task[1].toLowerCase() === "x";
           const label = await applyInlineMarkdown(task[2] || "");
-          html += '<li data-task="true" data-checked="' + String(checked) + '"><label><input type="checkbox"' + (checked ? " checked" : "") + '><span>' + label + "</span></label></li>";
+          html += '<li data-task="true" data-checked="' + String(checked) + '"><span class="task-item"><input type="checkbox" contenteditable="false"' + (checked ? " checked" : "") + '><span class="task-text">' + label + "</span></span></li>";
           continue;
         }
 
@@ -1840,7 +1846,7 @@
         const checkbox = node.querySelector('input[type="checkbox"]');
         if (node.dataset.task === "true" || checkbox) {
           const marker = checkbox && checkbox.checked ? "[x]" : "[ ]";
-          const labelNode = node.querySelector("span") || node.querySelector("label") || node;
+          const labelNode = node.querySelector(".task-text") || node.querySelector("span") || node;
           const label = normalizeNodeText(inlineHtmlToMarkdown(labelNode.innerHTML || labelNode.textContent || ""));
           return prefix + " " + marker + (label ? " " + label : "");
         }
@@ -2483,7 +2489,7 @@
       if (!listItem) {
         return "";
       }
-      const labelSpan = listItem.querySelector("label > span");
+      const labelSpan = listItem.querySelector(".task-text");
       return labelSpan ? labelSpan.innerHTML : listItem.innerHTML;
     }
 
@@ -2491,7 +2497,7 @@
       const listItem = document.createElement("li");
       listItem.dataset.task = "true";
       listItem.dataset.checked = String(checked);
-      listItem.innerHTML = '<label><input type="checkbox"' + (checked ? ' checked="checked"' : "") + '><span>' + contentHtml + "</span></label>";
+      listItem.innerHTML = '<span class="task-item"><input type="checkbox" contenteditable="false"' + (checked ? ' checked="checked"' : "") + '><span class="task-text">' + contentHtml + "</span></span>";
       return listItem;
     }
 
@@ -2510,7 +2516,7 @@
       const contentHtml = getTaskItemContentHtml(listItem);
       listItem.dataset.task = "true";
       listItem.dataset.checked = String(checked);
-      listItem.innerHTML = '<label><input type="checkbox"' + (checked ? ' checked="checked"' : "") + '><span>' + contentHtml + "</span></label>";
+      listItem.innerHTML = '<span class="task-item"><input type="checkbox" contenteditable="false"' + (checked ? ' checked="checked"' : "") + '><span class="task-text">' + contentHtml + "</span></span>";
     }
 
     function convertTaskItemToBullet(listItem) {
@@ -3406,7 +3412,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.023-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.024-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

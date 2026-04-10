@@ -37,6 +37,7 @@ The goal is to protect the most important promises of the product.
 - Toggling a task checkbox updates Markdown and preview coherently
 - Task list can be created from selected visual blocks through the toolbar
 - The whole current ordered list can become a task list from a single cursor position
+- Clicking task text keeps it editable instead of toggling the checkbox
 - A current task list can become bullets or numbered list without losing items
 - Paragraph toggles correctly from headings, code blocks, and list items
 - `H1/H2/H3` work on single-block selections

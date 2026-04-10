@@ -60,6 +60,11 @@ async function placeCursorInVisualText(page, text) {
   }, text);
 }
 
+async function clickTaskText(page, text) {
+  const textLocator = page.locator('#visualEditor li[data-task="true"] .task-text', { hasText: text }).first();
+  await textLocator.click();
+}
+
 test.describe("task list", () => {
   test("renders markdown task list items as checkboxes in visual editor and preview", async ({ page }) => {
     await page.goto("/");
@@ -122,6 +127,21 @@ test.describe("task list", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] Third item/);
     await expect(page.locator("#markdownInput")).not.toHaveValue(/1\. First item/);
     await expect(page.locator('#visualEditor li[data-task="true"] input[type="checkbox"]')).toHaveCount(3);
+  });
+
+  test("clicking task text keeps it editable instead of toggling the checkbox", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] First task");
+    const visualCheckbox = page.locator('#visualEditor li[data-task="true"] input[type="checkbox"]').first();
+
+    await clickTaskText(page, "First task");
+    await page.keyboard.type(" updated");
+
+    await expect(visualCheckbox).not.toBeChecked();
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] First .*updated.*task|- \[ \] First task.*updated/);
+    await expect(page.locator('#visualEditor li[data-task="true"] .task-text').first()).toContainText("updated");
+    await expect(page.locator('#preview li[data-task="true"] input[type="checkbox"]').first()).not.toBeChecked();
   });
 
   test("converts the whole current task list back to bullets or numbered list without losing items", async ({ page }) => {
