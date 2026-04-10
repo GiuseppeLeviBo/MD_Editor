@@ -78,6 +78,11 @@ The goal is to protect the most important promises of the product.
 - Should printing remain a two-step flow by design?
 - Should complex multi-line structural edits stay unsupported in visual mode, or should they become a future feature?
 
+## Known gaps to turn into future regression tests
+
+- Turning an entire ordered or unordered list into a heading does not currently work correctly
+- Mixed structural selections across different block contexts can still produce ambiguous formatting results
+
 ## First Playwright targets
 
 - Startup language matches default document
