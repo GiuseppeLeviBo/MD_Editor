@@ -2642,22 +2642,33 @@
         currentDirectoryHandle = directoryHandle;
       }
       clearResolvedResources();
-      const reader = new FileReader();
-      reader.onload = async event => {
-        lastLoadedMarkdown = String(event.target.result || "");
-        lastDownloadedMarkdown = lastLoadedMarkdown;
-        markdownInput.value = lastLoadedMarkdown;
-        await syncFromMarkdown();
-        if (/blob:null\//i.test(lastLoadedMarkdown)) {
-          setStatus(t("statusBlobImageWarning"));
-          return;
-        }
-        const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
-        const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
-        setStatus(t("statusLoaded") + suffix + hint);
-        await maybeSuggestProjectFolderLink();
-      };
-      reader.readAsText(file, "utf-8");
+      await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async event => {
+          try {
+            lastLoadedMarkdown = String(event.target.result || "");
+            lastDownloadedMarkdown = lastLoadedMarkdown;
+            markdownInput.value = lastLoadedMarkdown;
+            await syncFromMarkdown();
+            if (/blob:null\//i.test(lastLoadedMarkdown)) {
+              setStatus(t("statusBlobImageWarning"));
+              resolve();
+              return;
+            }
+            const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
+            const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
+            setStatus(t("statusLoaded") + suffix + hint);
+            await maybeSuggestProjectFolderLink();
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => {
+          reject(reader.error || new Error("Unable to read Markdown file."));
+        };
+        reader.readAsText(file, "utf-8");
+      });
     }
 
     async function linkCurrentDirectory() {
