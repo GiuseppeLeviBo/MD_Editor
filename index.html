@@ -2182,6 +2182,15 @@
       restoreSavedSelection();
     }
 
+    function isSelectionCollapsedInEditor() {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) {
+        return true;
+      }
+      const anchorNode = selection.anchorNode;
+      return selection.isCollapsed && (!anchorNode || visualEditor.contains(anchorNode));
+    }
+
     function shouldNormalizeAfterCommand(command) {
       return ["insertUnorderedList", "insertOrderedList"].includes(command);
     }
@@ -2283,6 +2292,23 @@
     function toggleListCommand(command) {
       const desiredListTag = command === "insertOrderedList" ? "ol" : "ul";
       const currentListType = getSelectionListType();
+      const selectionCollapsed = isSelectionCollapsedInEditor();
+
+      function getAffectedLists() {
+        const selectedBlocks = getSelectedBlocks();
+        const sourceBlocks = selectedBlocks.length ? selectedBlocks : [getSelectionBlock()].filter(Boolean);
+        let lists = Array.from(new Set(
+          sourceBlocks
+            .map(block => block && block.closest ? block.closest("ul, ol") : null)
+            .filter(Boolean)
+        ));
+
+        if (selectionCollapsed && lists.length === 1) {
+          return lists;
+        }
+
+        return lists;
+      }
 
       if (currentListType === desiredListTag) {
         convertSelectionToParagraph();
@@ -2290,15 +2316,21 @@
       }
 
       if (currentListType && currentListType !== desiredListTag) {
-        const selectedLists = Array.from(new Set(
-          getSelectedBlocks()
-            .map(block => block.closest("ul, ol"))
-            .filter(Boolean)
-        ));
+        const selectedLists = getAffectedLists();
 
         if (selectedLists.length) {
-          selectedLists.forEach(list => replaceElementTag(list, desiredListTag));
-          void syncFromVisual(false);
+          selectedLists.forEach(list => {
+            const convertedList = list.tagName.toLowerCase() === desiredListTag ? list : replaceElementTag(list, desiredListTag);
+            if (currentListType === "task") {
+              convertedList.classList.remove("task-list");
+              Array.from(convertedList.children).forEach(item => {
+                if (item.tagName && item.tagName.toLowerCase() === "li" && item.dataset.task === "true") {
+                  convertTaskItemToBullet(item);
+                }
+              });
+            }
+          });
+          void syncFromVisual(currentListType === "task");
           updateToolbarState();
           return true;
         }
@@ -2545,19 +2577,50 @@
       }
 
       const uniqueBlocks = Array.from(new Set(selectedBlocks));
+      const selectionCollapsed = isSelectionCollapsedInEditor();
+      const affectedLists = Array.from(new Set(
+        uniqueBlocks
+          .map(block => block && block.closest ? block.closest("ul, ol") : null)
+          .filter(Boolean)
+      ));
       const allTaskItems = uniqueBlocks.every(block => block.tagName.toLowerCase() === "li" && block.dataset.task === "true");
 
       if (allTaskItems) {
-        uniqueBlocks.forEach(block => convertTaskItemToBullet(block));
-        void syncFromVisual(true);
+        if (selectionCollapsed && affectedLists.length) {
+          affectedLists.forEach(list => {
+            list.classList.remove("task-list");
+            Array.from(list.children).forEach(item => {
+              if (item.tagName && item.tagName.toLowerCase() === "li" && item.dataset.task === "true") {
+                convertTaskItemToBullet(item);
+              }
+            });
+          });
+          void syncFromVisual(false);
+        } else {
+          uniqueBlocks.forEach(block => convertTaskItemToBullet(block));
+          void syncFromVisual(true);
+        }
         updateToolbarState();
         return true;
       }
 
       const allListItems = uniqueBlocks.every(block => block.tagName.toLowerCase() === "li");
       if (allListItems) {
-        uniqueBlocks.forEach(block => convertListItemToTask(block, false));
-        void syncFromVisual(true);
+        if (selectionCollapsed && affectedLists.length) {
+          affectedLists.forEach(list => {
+            const targetList = list.tagName.toLowerCase() === "ol" ? replaceElementTag(list, "ul") : list;
+            targetList.classList.add("task-list");
+            Array.from(targetList.children).forEach(item => {
+              if (item.tagName && item.tagName.toLowerCase() === "li") {
+                convertListItemToTask(item, item.dataset.checked === "true");
+              }
+            });
+          });
+          void syncFromVisual(false);
+        } else {
+          uniqueBlocks.forEach(block => convertListItemToTask(block, false));
+          void syncFromVisual(true);
+        }
         updateToolbarState();
         return true;
       }

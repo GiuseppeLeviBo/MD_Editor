@@ -36,6 +36,8 @@ The goal is to protect the most important promises of the product.
 - Task list Markdown renders as interactive checkboxes in visual editor
 - Toggling a task checkbox updates Markdown and preview coherently
 - Task list can be created from selected visual blocks through the toolbar
+- The whole current ordered list can become a task list from a single cursor position
+- A current task list can become bullets or numbered list without losing items
 - Paragraph toggles correctly from headings, code blocks, and list items
 - `H1/H2/H3` work on single-block selections
 - Bullet list toggles on/off
