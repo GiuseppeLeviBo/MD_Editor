@@ -80,8 +80,8 @@ The goal is to protect the most important promises of the product.
 
 ## Known gaps to turn into future regression tests
 
-- Turning an entire ordered or unordered list into a heading does not currently work correctly
-- Mixed structural selections across different block contexts can still produce ambiguous formatting results
+- Manual-selection edge cases around list-to-heading transforms may still exist and should be explored further
+- Additional mixed-selection edge cases should be explored beyond the current guardrail behavior
 
 ## First Playwright targets
 
