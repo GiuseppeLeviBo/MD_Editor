@@ -1281,6 +1281,11 @@
         syncStatus.textContent = t("statusSynced");
       }
       renderSymbolCategoryOptions();
+
+      if (isInitialDocumentState()) {
+        markdownInput.value = getInitialMarkdown();
+        void syncFromMarkdown();
+      }
     }
 
     function isMobileLayout() {
@@ -1354,6 +1359,12 @@
 
     function getInitialMarkdown() {
       return initialMarkdownByLanguage[currentLanguage] || initialMarkdownByLanguage.it;
+    }
+
+    function isInitialDocumentState() {
+      const currentValue = markdownInput.value || "";
+      return !lastLoadedMarkdown
+        && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
     }
 
     function hasUndownloadedChanges() {
