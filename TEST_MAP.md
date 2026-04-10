@@ -33,6 +33,9 @@ The goal is to protect the most important promises of the product.
 - Bold updates visual editor, Markdown, and preview coherently
 - Italic updates visual editor, Markdown, and preview coherently
 - Strikethrough toggles on and off
+- Task list Markdown renders as interactive checkboxes in visual editor
+- Toggling a task checkbox updates Markdown and preview coherently
+- Task list can be created from selected visual blocks through the toolbar
 - Paragraph toggles correctly from headings, code blocks, and list items
 - `H1/H2/H3` work on single-block selections
 - Bullet list toggles on/off
@@ -94,3 +97,4 @@ The goal is to protect the most important promises of the product.
 - Save-as cancel does not trigger a fallback download
 - Linked local Markdown files open from preview clicks
 - Local images render after the project folder is linked
+- Task list rendering, toggle, and toolbar creation

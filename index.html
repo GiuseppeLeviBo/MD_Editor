@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.022-beta">
+<link rel="manifest" href="./manifest.json?v=0.023-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -174,6 +174,31 @@
     .tool-icon {
       font-size: 1rem;
       line-height: 1;
+    }
+
+    .editor ul.task-list,
+    .preview ul.task-list {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .editor li[data-task="true"],
+    .preview li[data-task="true"] {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+
+    .editor li[data-task="true"] > label,
+    .preview li[data-task="true"] > label {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+
+    .editor li[data-task="true"] input[type="checkbox"],
+    .preview li[data-task="true"] input[type="checkbox"] {
+      margin-top: 0.2rem;
     }
 
     .lang-select {
@@ -608,6 +633,7 @@
         <button type="button" class="tool-button" data-command="strikeThrough" data-i18n-title="strike"><span class="tool-icon">S</span><span data-i18n="strike">Barrato</span></button>
         <button type="button" class="tool-button" data-command="insertUnorderedList" data-i18n-title="bulletList"><span class="tool-icon">•</span><span data-i18n="bulletList">Lista</span></button>
         <button type="button" class="tool-button" data-command="insertOrderedList" data-i18n-title="numberedList"><span class="tool-icon">1.</span><span data-i18n="numberedList">Numerata</span></button>
+        <button type="button" class="tool-button" id="taskListButton" data-command="insertTaskList" data-i18n-title="taskList"><span class="tool-icon">☑</span><span data-i18n="taskList">Attivita</span></button>
         <button type="button" class="tool-button" data-block="blockquote" data-i18n-title="quote"><span class="tool-icon">❞</span><span data-i18n="quote">Citazione</span></button>
       </div>
 
@@ -692,10 +718,10 @@
 
     <footer class="footer">
       <span data-i18n="footerText">
-        Supporta titoli, grassetto, corsivo, liste, citazioni, link, blocchi di codice e regole orizzontali.
+        Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.022 beta</div>
+    <div class="build-badge" id="buildBadge">v0.023 beta</div>
     </footer>
   </main>
 
@@ -734,7 +760,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.022 beta";
+    const APP_VERSION = "v0.023 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -886,6 +912,7 @@
         strike: "Barrato",
         bulletList: "Lista",
         numberedList: "Numerata",
+        taskList: "Attivita",
         quote: "Citazione",
         heading1: "Titolo 1",
         heading2: "Titolo 2",
@@ -913,7 +940,7 @@
         markdownPanel: "Markdown",
         previewPanel: "Anteprima",
         previewHint: "HTML renderizzato",
-        footerText: "Supporta titoli, grassetto, corsivo, liste, citazioni, link, blocchi di codice e regole orizzontali. La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.",
+        footerText: "Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali. La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.",
         symbolDialogTitle: "Inserisci simboli speciali",
         symbolSearchPlaceholder: "Cerca per nome o simbolo...",
         symbolCategoryLabel: "Categoria simboli",
@@ -956,6 +983,7 @@
         strikeTitle: "Applica o rimuovi il barrato",
         bulletListTitle: "Inserisci una lista puntata",
         numberedListTitle: "Inserisci una lista numerata",
+        taskListTitle: "Inserisci o rimuovi una task list",
         quoteTitle: "Trasforma in citazione",
         heading1Title: "Titolo di primo livello",
         heading2Title: "Titolo di secondo livello",
@@ -981,6 +1009,7 @@
         strike: "Strike",
         bulletList: "Bullets",
         numberedList: "Numbered",
+        taskList: "Tasks",
         quote: "Quote",
         heading1: "Heading 1",
         heading2: "Heading 2",
@@ -1008,7 +1037,7 @@
         markdownPanel: "Markdown",
         previewPanel: "Preview",
         previewHint: "Rendered HTML",
-        footerText: "Supports headings, bold, italic, lists, blockquotes, links, code blocks, and horizontal rules. The HTML/Markdown conversion is intentionally lightweight to keep the file simple and portable.",
+        footerText: "Supports headings, bold, italic, lists, task lists, blockquotes, links, code blocks, and horizontal rules. The HTML/Markdown conversion is intentionally lightweight to keep the file simple and portable.",
         symbolDialogTitle: "Insert special symbols",
         symbolSearchPlaceholder: "Search by name or symbol...",
         symbolCategoryLabel: "Symbol category",
@@ -1051,6 +1080,7 @@
         strikeTitle: "Apply or remove strikethrough",
         bulletListTitle: "Insert a bulleted list",
         numberedListTitle: "Insert a numbered list",
+        taskListTitle: "Insert or remove a task list",
         quoteTitle: "Turn into quote",
         heading1Title: "First-level heading",
         heading2Title: "Second-level heading",
@@ -1655,6 +1685,7 @@
         const h1 = line.match(/^# (.+)$/);
         const h2 = line.match(/^## (.+)$/);
         const h3 = line.match(/^### (.+)$/);
+        const task = line.match(/^- \[([ xX])\] ?(.*)$/);
         const ul = line.match(/^- (.+)$/);
         const ol = line.match(/^\d+\. (.+)$/);
         const quote = line.match(/^> (.+)$/);
@@ -1699,6 +1730,21 @@
           const originalSource = image[2];
           const src = escapeHtml(await resolveResourcePath(originalSource));
           html += '<figure><img src="' + src + '" data-md-src="' + escapeHtml(originalSource) + '" alt="' + alt + '">' + (alt ? "<figcaption>" + alt + "</figcaption>" : "") + "</figure>";
+          continue;
+        }
+
+        if (task) {
+          if (inOl) {
+            html += "</ol>";
+            inOl = false;
+          }
+          if (!inUl) {
+            html += '<ul class="task-list">';
+            inUl = true;
+          }
+          const checked = task[1].toLowerCase() === "x";
+          const label = await applyInlineMarkdown(task[2] || "");
+          html += '<li data-task="true" data-checked="' + String(checked) + '"><label><input type="checkbox"' + (checked ? " checked" : "") + '><span>' + label + "</span></label></li>";
           continue;
         }
 
@@ -1770,8 +1816,36 @@
       return value.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").trim();
     }
 
+    function syncCheckboxAttributes(root = visualEditor) {
+      if (!root) {
+        return;
+      }
+      root.querySelectorAll('li[data-task="true"] input[type="checkbox"]').forEach(checkbox => {
+        if (checkbox.checked) {
+          checkbox.setAttribute("checked", "checked");
+        } else {
+          checkbox.removeAttribute("checked");
+        }
+        const listItem = checkbox.closest('li[data-task="true"]');
+        if (listItem) {
+          listItem.dataset.checked = String(checkbox.checked);
+        }
+      });
+    }
+
     function htmlToMarkdown(html) {
       const doc = new DOMParser().parseFromString(html.replace(/\r/g, ""), "text/html");
+
+      function listItemToMarkdown(node, prefix) {
+        const checkbox = node.querySelector('input[type="checkbox"]');
+        if (node.dataset.task === "true" || checkbox) {
+          const marker = checkbox && checkbox.checked ? "[x]" : "[ ]";
+          const labelNode = node.querySelector("span") || node.querySelector("label") || node;
+          const label = normalizeNodeText(inlineHtmlToMarkdown(labelNode.innerHTML || labelNode.textContent || ""));
+          return prefix + " " + marker + (label ? " " + label : "");
+        }
+        return prefix + " " + normalizeNodeText(nodeToMarkdown(node));
+      }
 
       function nodeToMarkdown(node) {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -1817,11 +1891,11 @@
               .join("\n") + "\n\n";
           case "ul":
             return Array.from(node.children)
-              .map(item => "- " + normalizeNodeText(nodeToMarkdown(item)))
+              .map(item => listItemToMarkdown(item, "-"))
               .join("\n") + "\n\n";
           case "ol":
             return Array.from(node.children)
-              .map((item, index) => (index + 1) + ". " + normalizeNodeText(nodeToMarkdown(item)))
+              .map((item, index) => listItemToMarkdown(item, (index + 1) + "."))
               .join("\n") + "\n\n";
           case "li":
             return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
@@ -1972,6 +2046,7 @@
 
     async function syncFromVisual(normalizeVisualEditor = false) {
       const version = ++syncVersion;
+      syncCheckboxAttributes(visualEditor);
       const markdown = htmlToMarkdown(visualEditor.innerHTML);
       markdownInput.value = markdown;
       clearResolvedResources();
@@ -2038,6 +2113,9 @@
       const block = getSelectionBlock();
       if (!block) {
         return null;
+      }
+      if (block.matches('li[data-task="true"]') || block.closest('ul.task-list')) {
+        return "task";
       }
       const list = block.closest("ul, ol");
       return list ? list.tagName.toLowerCase() : null;
@@ -2134,6 +2212,8 @@
           active = listType === "ul";
         } else if (command === "insertOrderedList") {
           active = listType === "ol";
+        } else if (command === "insertTaskList") {
+          active = listType === "task";
         }
         button.classList.toggle("is-active", active);
       });
@@ -2367,6 +2447,54 @@
       }
     }
 
+    function getTaskItemContentHtml(listItem) {
+      if (!listItem) {
+        return "";
+      }
+      const labelSpan = listItem.querySelector("label > span");
+      return labelSpan ? labelSpan.innerHTML : listItem.innerHTML;
+    }
+
+    function createTaskListItem(contentHtml, checked = false) {
+      const listItem = document.createElement("li");
+      listItem.dataset.task = "true";
+      listItem.dataset.checked = String(checked);
+      listItem.innerHTML = '<label><input type="checkbox"' + (checked ? ' checked="checked"' : "") + '><span>' + contentHtml + "</span></label>";
+      return listItem;
+    }
+
+    function convertListItemToTask(listItem, checked = false) {
+      if (!listItem) {
+        return;
+      }
+      const list = listItem.closest("ul, ol");
+      if (list && list.tagName.toLowerCase() === "ol") {
+        replaceElementTag(list, "ul");
+      }
+      const targetList = listItem.closest("ul, ol");
+      if (targetList) {
+        targetList.classList.add("task-list");
+      }
+      const contentHtml = getTaskItemContentHtml(listItem);
+      listItem.dataset.task = "true";
+      listItem.dataset.checked = String(checked);
+      listItem.innerHTML = '<label><input type="checkbox"' + (checked ? ' checked="checked"' : "") + '><span>' + contentHtml + "</span></label>";
+    }
+
+    function convertTaskItemToBullet(listItem) {
+      if (!listItem) {
+        return;
+      }
+      const list = listItem.closest("ul, ol");
+      const contentHtml = getTaskItemContentHtml(listItem);
+      listItem.innerHTML = contentHtml;
+      delete listItem.dataset.task;
+      delete listItem.dataset.checked;
+      if (list && !list.querySelector('li[data-task="true"]')) {
+        list.classList.remove("task-list");
+      }
+    }
+
     function wrapSelectedBlocksInList(tagName) {
       const selectedBlocks = getSelectedBlocks();
       if (!selectedBlocks.length) {
@@ -2403,6 +2531,59 @@
         }
       });
 
+      return true;
+    }
+
+    function toggleTaskListCommand() {
+      const selectedBlocks = getSelectedBlocks();
+      if (!selectedBlocks.length) {
+        return false;
+      }
+
+      if (guardMixedStructuralSelection(selectedBlocks)) {
+        return true;
+      }
+
+      const uniqueBlocks = Array.from(new Set(selectedBlocks));
+      const allTaskItems = uniqueBlocks.every(block => block.tagName.toLowerCase() === "li" && block.dataset.task === "true");
+
+      if (allTaskItems) {
+        uniqueBlocks.forEach(block => convertTaskItemToBullet(block));
+        void syncFromVisual(true);
+        updateToolbarState();
+        return true;
+      }
+
+      const allListItems = uniqueBlocks.every(block => block.tagName.toLowerCase() === "li");
+      if (allListItems) {
+        uniqueBlocks.forEach(block => convertListItemToTask(block, false));
+        void syncFromVisual(true);
+        updateToolbarState();
+        return true;
+      }
+
+      const firstBlock = uniqueBlocks[0];
+      const parent = firstBlock.parentNode;
+      if (!parent) {
+        return false;
+      }
+
+      const list = document.createElement("ul");
+      list.className = "task-list";
+
+      uniqueBlocks.forEach(block => {
+        list.appendChild(createTaskListItem(block.innerHTML, false));
+      });
+
+      parent.insertBefore(list, firstBlock);
+      uniqueBlocks.forEach(block => {
+        if (block.parentNode) {
+          block.remove();
+        }
+      });
+
+      void syncFromVisual(true);
+      updateToolbarState();
       return true;
     }
 
@@ -2450,6 +2631,9 @@
     function execCommand(command, value = null) {
       if (command === "strikeThrough") {
         toggleStrikethrough();
+        return;
+      }
+      if (command === "insertTaskList" && toggleTaskListCommand()) {
         return;
       }
       if (["insertUnorderedList", "insertOrderedList"].includes(command) && toggleListCommand(command)) {
@@ -3021,6 +3205,17 @@
       updateToolbarState();
     });
 
+    visualEditor.addEventListener("change", event => {
+      if (event.target.matches('input[type="checkbox"]')) {
+        const listItem = event.target.closest('li[data-task="true"]');
+        if (listItem) {
+          listItem.dataset.checked = String(event.target.checked);
+        }
+        void syncFromVisual(false);
+        updateToolbarState();
+      }
+    });
+
     visualEditor.addEventListener("paste", () => {
       window.setTimeout(() => {
         void syncFromVisual(true);
@@ -3033,10 +3228,25 @@
     });
 
     preview.addEventListener("click", event => {
+      if (event.target.matches('input[type="checkbox"]')) {
+        event.preventDefault();
+        return;
+      }
       void handleRenderedLinkClick(event);
     });
 
     visualEditor.addEventListener("click", event => {
+      if (event.target.matches('input[type="checkbox"]')) {
+        window.setTimeout(() => {
+          const listItem = event.target.closest('li[data-task="true"]');
+          if (listItem) {
+            listItem.dataset.checked = String(event.target.checked);
+          }
+          void syncFromVisual(false);
+          updateToolbarState();
+        }, 0);
+        return;
+      }
       void handleRenderedLinkClick(event);
     });
 
@@ -3133,7 +3343,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.022-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.023-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
