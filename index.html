@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.035-beta">
+  <link rel="manifest" href="./manifest.json?v=0.036-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -837,7 +837,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.035 beta</div>
+      <div class="build-badge" id="buildBadge">v0.036 beta</div>
     </footer>
   </main>
 
@@ -876,7 +876,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.035 beta";
+    const APP_VERSION = "v0.036 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1125,6 +1125,7 @@
         statusTableInvalid: "Tabella Markdown non valida: la mostro come testo normale.",
         statusTableBlocksDisabled: "Dentro una tabella puoi usare gli stili inline, ma non i comandi di blocco.",
         statusTableSoftBreak: "Nelle tabelle i ritorni a capo interni vengono normalizzati come testo semplice.",
+        statusListSoftBreak: "Negli elenchi i ritorni a capo interni vengono normalizzati come testo semplice.",
         statusListIndentUnavailable: "Per rientrare, il punto corrente deve avere un elemento precedente nello stesso elenco.",
         statusListOutdentUnavailable: "Questo elemento e gia al livello piu esterno dell'elenco.",
         promptInsertUrl: "Inserisci l'URL del link",
@@ -1244,6 +1245,7 @@
         statusTableInvalid: "Invalid Markdown table: showing it as plain text.",
         statusTableBlocksDisabled: "Inside a table you can use inline styles, but not block commands.",
         statusTableSoftBreak: "Inside tables, soft line breaks are normalized as plain text.",
+        statusListSoftBreak: "Inside lists, soft line breaks are normalized as plain text.",
         statusListIndentUnavailable: "To indent, the current item needs a previous sibling in the same list.",
         statusListOutdentUnavailable: "This item is already at the outermost list level.",
         promptInsertUrl: "Enter the link URL",
@@ -3585,6 +3587,26 @@
       return true;
     }
 
+    function handleListSoftBreakKey(event) {
+      const isSoftBreakInsertion = event.type === "beforeinput"
+        ? event.inputType === "insertLineBreak"
+        : event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+      if (!isSoftBreakInsertion) {
+        return false;
+      }
+      if (isSelectionInsideTable()) {
+        return false;
+      }
+      const listItem = getSelectionListItem();
+      if (!listItem) {
+        return false;
+      }
+      event.preventDefault();
+      document.execCommand("insertText", false, " ");
+      setStatus(t("statusListSoftBreak"));
+      return true;
+    }
+
     function handleListEnterKey(event) {
       const isParagraphInsertion = event.type === "beforeinput"
         ? event.inputType === "insertParagraph"
@@ -4003,6 +4025,10 @@
 
     function handleEditorShortcut(event) {
       if (handleTableNavigationKey(event)) {
+        return;
+      }
+
+      if (handleListSoftBreakKey(event)) {
         return;
       }
 
@@ -5156,6 +5182,9 @@
       handleEditorShortcut(event);
     });
     visualEditor.addEventListener("beforeinput", event => {
+      if (handleListSoftBreakKey(event)) {
+        return;
+      }
       if (handleCodeBlockEnterKey(event)) {
         return;
       }
@@ -5206,7 +5235,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.035-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.036-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

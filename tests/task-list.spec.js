@@ -60,6 +60,31 @@ async function placeCursorInVisualText(page, text) {
   }, text);
 }
 
+async function placeCursorAtEndOfTaskText(page, text) {
+  await page.evaluate(targetText => {
+    const taskTexts = Array.from(document.querySelectorAll('#visualEditor li[data-task="true"] .task-text'));
+    for (const taskText of taskTexts) {
+      const walker = document.createTreeWalker(taskText, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const index = node.textContent.indexOf(targetText);
+        if (index >= 0) {
+          const range = document.createRange();
+          range.setStart(node, index + targetText.length);
+          range.setEnd(node, index + targetText.length);
+          const selection = window.getSelection();
+          const editor = document.getElementById("visualEditor");
+          editor.focus();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return;
+        }
+      }
+    }
+    throw new Error(`Unable to place cursor at end of task text: ${targetText}`);
+  }, text);
+}
+
 async function clickTaskText(page, text) {
   const textLocator = page.locator('#visualEditor li[data-task="true"] .task-text', { hasText: text }).first();
   await textLocator.click();
@@ -239,5 +264,20 @@ test.describe("task list", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/3\. Third task/);
     await expect(page.locator("#markdownInput")).not.toHaveValue(/\[x\]|\[ \]/);
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second task");
+  });
+
+  test("normalizes Shift+Enter inside a task item without freezing the editor", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] First task");
+    await placeCursorAtEndOfTaskText(page, "First task");
+
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type("continued");
+
+    await expect(page.locator("#syncStatus")).toContainText(/Updated from visual editor|Aggiornato dall'editor visuale/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] First task continued/);
+    await expect(page.locator('#visualEditor li[data-task="true"] .task-text').first()).toContainText("First task continued");
+    await expect(page.locator('#preview li[data-task="true"] .task-text').first()).toContainText("First task continued");
   });
 });
