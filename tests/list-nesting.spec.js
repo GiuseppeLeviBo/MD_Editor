@@ -104,4 +104,18 @@ test.describe("list nesting", () => {
     await expect(page.locator("#preview > ol > li")).toHaveCount(3);
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Third item");
   });
+
+  test("clicking a nested bullet under a task item keeps editing on the bullet line", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] Parent task\n  - Child bullet");
+
+    const childBullet = page.locator("#visualEditor ul.task-list > li > ul > li").first();
+    await childBullet.click({ position: { x: 18, y: 10 } });
+    await page.keyboard.type(" updated");
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] Parent task\n  - .*updated.*/);
+    await expect(page.locator("#markdownInput")).not.toHaveValue(/Parent task updated/);
+    await expect.poll(() => getCurrentVisualListItemText(page)).toContain("updated");
+  });
 });

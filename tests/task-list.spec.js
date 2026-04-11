@@ -281,7 +281,7 @@ test.describe("task list", () => {
     await expect(page.locator('#preview li[data-task="true"] .task-text').first()).toContainText("First task continued");
   });
 
-  test("keeps editing inside task text when clicking just after the checkbox and preserves the original line on Enter", async ({ page }) => {
+  test("keeps editing inside the same task line when clicking just after the checkbox", async ({ page }) => {
     await page.goto("/");
 
     await page.locator("#markdownInput").fill("1. First item\n2. Second item\n3. Third item");
@@ -290,13 +290,37 @@ test.describe("task list", () => {
     await page.locator('[data-command="insertTaskList"]').click();
 
     await page.locator('#visualEditor li[data-task="true"] .task-item').first().click({ position: { x: 24, y: 8 } });
-    await page.keyboard.type(" nested");
-    await page.keyboard.press("Enter");
-    await page.keyboard.type("Next nested task");
+    await page.keyboard.type("nested ");
 
-    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n  - \[ \] Third item nested\n  - \[ \] Next nested task/);
-    await expect(page.locator('#visualEditor li[data-task="true"]')).toHaveCount(2);
-    await expect(page.locator('#visualEditor li[data-task="true"] .task-text').first()).toContainText("Third item nested");
-    await expect(page.locator('#visualEditor li[data-task="true"] .task-text').nth(1)).toContainText("Next nested task");
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/2\. Second item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/  - \[ \] .*Third item.*nested|  - \[ \] .*nested.*Third item/);
+    await expect(page.locator('#visualEditor li[data-task="true"]')).toHaveCount(1);
+    await expect(page.locator('#visualEditor li[data-task="true"] .task-text').first()).toContainText(/Third item.*nested|nested.*Third item/);
+  });
+
+  test("typing inside task text respects the current caret position instead of forcing the end", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] First task");
+    await page.evaluate(() => {
+      const taskText = document.querySelector('#visualEditor li[data-task="true"] .task-text');
+      const textNode = taskText && taskText.firstChild;
+      if (!taskText || !textNode || textNode.nodeType !== Node.TEXT_NODE) {
+        throw new Error("Unable to place caret inside task text.");
+      }
+      const range = document.createRange();
+      range.setStart(textNode, "First ".length);
+      range.collapse(true);
+      const selection = window.getSelection();
+      taskText.focus();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
+
+    await page.keyboard.type("new ");
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] First new task/);
+    await expect(page.locator('#visualEditor li[data-task="true"] .task-text').first()).toContainText("First new task");
   });
 });

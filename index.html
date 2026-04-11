@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.036-beta">
+  <link rel="manifest" href="./manifest.json?v=0.038-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -215,6 +215,12 @@
     .preview li[data-task="true"] .task-text {
       display: block;
       min-width: 0;
+    }
+
+    .editor li[data-task="true"] .task-text:focus {
+      outline: none;
+      border: 0;
+      box-shadow: none;
     }
 
     .editor li[data-task="true"] input[type="checkbox"],
@@ -837,7 +843,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.037 beta</div>
+      <div class="build-badge" id="buildBadge">v0.038 beta</div>
     </footer>
   </main>
 
@@ -876,7 +882,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.037 beta";
+    const APP_VERSION = "v0.038 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -3103,6 +3109,69 @@
       return true;
     }
 
+    function moveCaretToElementStart(element) {
+      if (!element) {
+        return false;
+      }
+
+      focusEditableElement(element);
+
+      let targetNode = null;
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      targetNode = walker.nextNode();
+
+      if (!targetNode) {
+        targetNode = document.createTextNode("");
+        element.insertBefore(targetNode, element.firstChild || null);
+      }
+
+      const range = document.createRange();
+      range.setStart(targetNode, 0);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+
+    function moveCaretToTaskTextFromPoint(taskText, clientX, clientY) {
+      if (!taskText) {
+        return false;
+      }
+
+      focusEditableElement(taskText);
+
+      const rect = taskText.getBoundingClientRect();
+      if (clientX <= rect.left + Math.min(24, Math.max(8, rect.width * 0.2))) {
+        return moveCaretToElementStart(taskText);
+      }
+
+      let range = null;
+      if (document.caretPositionFromPoint) {
+        const position = document.caretPositionFromPoint(clientX, clientY);
+        if (position && taskText.contains(position.offsetNode)) {
+          range = document.createRange();
+          range.setStart(position.offsetNode, position.offset);
+          range.collapse(true);
+        }
+      } else if (document.caretRangeFromPoint) {
+        const pointRange = document.caretRangeFromPoint(clientX, clientY);
+        if (pointRange && taskText.contains(pointRange.startContainer)) {
+          range = pointRange;
+          range.collapse(true);
+        }
+      }
+
+      if (!range) {
+        return moveCaretToElementEnd(taskText);
+      }
+
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+
     function getSelectionBlock() {
       const node = getSelectionAnchorElement();
       if (!node) {
@@ -3634,6 +3703,11 @@
       }
       const taskText = listItem.querySelector(".task-text");
       if (!taskText) {
+        return false;
+      }
+      const selection = window.getSelection();
+      const anchorNode = selection && selection.anchorNode ? selection.anchorNode : null;
+      if (anchorNode && taskText.contains(anchorNode)) {
         return false;
       }
       event.preventDefault();
@@ -5138,13 +5212,15 @@
 
     visualEditor.addEventListener("mousedown", event => {
       const taskItem = event.target.closest ? event.target.closest('li[data-task="true"]') : null;
+      const taskRow = event.target.closest ? event.target.closest(".task-item") : null;
       const clickedCheckbox = event.target.matches && event.target.matches('input[type="checkbox"]');
       const clickedTaskText = event.target.closest ? event.target.closest(".task-text") : null;
-      if (taskItem && !clickedCheckbox && !clickedTaskText) {
+      const isOwnTaskRow = taskItem && taskRow && taskRow.parentElement === taskItem;
+      if (taskItem && isOwnTaskRow && !clickedCheckbox && !clickedTaskText) {
         event.preventDefault();
         const taskText = taskItem.querySelector(".task-text");
         if (taskText) {
-          moveCaretToElementEnd(taskText);
+          moveCaretToTaskTextFromPoint(taskText, event.clientX, event.clientY);
           updateToolbarState();
         }
       }
@@ -5163,12 +5239,14 @@
         return;
       }
       const taskItem = event.target.closest ? event.target.closest('li[data-task="true"]') : null;
+      const taskRow = event.target.closest ? event.target.closest(".task-item") : null;
       const clickedTaskText = event.target.closest ? event.target.closest(".task-text") : null;
-      if (taskItem && !clickedTaskText) {
+      const isOwnTaskRow = taskItem && taskRow && taskRow.parentElement === taskItem;
+      if (taskItem && isOwnTaskRow && !clickedTaskText) {
         const taskText = taskItem.querySelector(".task-text");
         if (taskText) {
           window.setTimeout(() => {
-            moveCaretToElementEnd(taskText);
+            moveCaretToTaskTextFromPoint(taskText, event.clientX, event.clientY);
             updateToolbarState();
           }, 0);
         }
@@ -5299,7 +5377,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.037-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.038-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
