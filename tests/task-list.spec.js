@@ -210,4 +210,34 @@ test.describe("task list", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] Third item/);
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second item");
   });
+
+  test("keeps the cursor on the same item when converting task lists back to bullets", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] First task\n- [ ] Second task\n- [ ] Third task");
+    await placeCursorInVisualText(page, "Second task");
+
+    await page.locator('[data-command="insertUnorderedList"]').click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/- First task/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- Second task/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- Third task/);
+    await expect(page.locator("#markdownInput")).not.toHaveValue(/\[x\]|\[ \]/);
+    await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second task");
+  });
+
+  test("keeps the cursor on the same item when converting task lists back to numbered lists", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] First task\n- [ ] Second task\n- [ ] Third task");
+    await placeCursorInVisualText(page, "Second task");
+
+    await page.locator('[data-command="insertOrderedList"]').click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First task/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/2\. Second task/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/3\. Third task/);
+    await expect(page.locator("#markdownInput")).not.toHaveValue(/\[x\]|\[ \]/);
+    await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second task");
+  });
 });
