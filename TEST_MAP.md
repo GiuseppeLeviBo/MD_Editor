@@ -16,6 +16,8 @@ The goal is to protect the most important promises of the product.
 
 - Startup language matches default document
 - Visual editor, Markdown, and preview stay aligned for normal typing
+- Markdown edits rebuild the visual editor correctly for basic structures
+- Preview renders the same document structure without leaking editor-only wrappers
 - Unsaved changes trigger warning on tab/window close
 - `Ctrl/Cmd + S` opens a single save flow, with no duplicate fallback
 - `Close document` warns if the latest version is not saved
@@ -24,12 +26,15 @@ The goal is to protect the most important promises of the product.
 - Save edited `.md` and reopen with the same content
 - Relative local images render when the project folder is linked
 - Relative local Markdown links open inside the editor
+- Unsafe inline HTML such as `<script>` stays inert and is rendered as text
+- Dangerous link schemes such as `javascript:` are neutralized or treated as plain text
 
 ## Important
 
 - Default language follows browser/system language
 - Default document text matches the active language
 - Changing language on the initial screen updates the initial document too
+- Refreshing the page restores the current per-tab draft from `sessionStorage`
 - Bold updates visual editor, Markdown, and preview coherently
 - Italic updates visual editor, Markdown, and preview coherently
 - Strikethrough toggles on and off
@@ -62,6 +67,7 @@ The goal is to protect the most important promises of the product.
 - Keyboard shortcuts work on desktop without corrupting content
 - Closing and reopening restores the per-tab draft correctly
 - `Clear local data` resets local/session state and returns to the initial screen
+- Local object URLs are revoked when closing the document or clearing local data
 
 ## Useful
 
@@ -75,6 +81,11 @@ The goal is to protect the most important promises of the product.
 - App start works both on GitHub Pages and on a local static server
 - README screenshot and repository links stay valid
 - Save-as suggested location behaves coherently with linked-folder state
+- Resetting privacy returns language, view mode, and the default document to a clean state
+- Symbol dialog closes with `Escape` and backdrop click
+- Link insertion dialog creates a valid link without corrupting the selection
+- Emptying the visual editor leaves clean empty Markdown and restores the placeholder
+- Pasting dirty HTML from rich editors degrades gracefully to stable Markdown/text
 
 ## Exploratory
 
@@ -88,6 +99,11 @@ The goal is to protect the most important promises of the product.
 - Paste large text blocks into the visual editor
 - Edit mixed Markdown structures manually in the Markdown panel
 - Browser-blocked popup behavior for print or save flows
+- Delete/backspace flows after exiting a nested task list back to the parent list
+- Repeated `Enter` / `Delete` / `Backspace` around nested bullets, numbering, and tasks
+- Rich paste from office tools or web pages with spans, inline styles, and tables
+- Very large pasted images or `data:` URLs inside Markdown
+- Potential focus drift when the visual editor re-renders after rapid Markdown edits
 
 ## Product decisions to clarify
 
@@ -102,6 +118,9 @@ The goal is to protect the most important promises of the product.
 - Manual-selection edge cases around list-to-heading transforms may still exist and should be explored further
 - Additional mixed-selection edge cases should be explored beyond the current guardrail behavior
 - Multi-cell inline formatting inside tables should be explored beyond the current v1 behavior
+- Nested-list delete/backspace behavior still needs a small family of regressions around `DEL` and `Backspace`
+- Visual/Markdown/preview alignment after rich-text paste should be hardened with explicit regression tests
+- Security-oriented regressions for unsafe HTML and dangerous link schemes should be added explicitly
 
 ## Tables v1
 
