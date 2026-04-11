@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.030-beta">
+<link rel="manifest" href="./manifest.json?v=0.031-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -777,7 +777,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.030 beta</div>
+    <div class="build-badge" id="buildBadge">v0.031 beta</div>
     </footer>
   </main>
 
@@ -816,7 +816,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.030 beta";
+      const APP_VERSION = "v0.031 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -2874,6 +2874,29 @@
       return !text && !hasEmbeddedContent;
     }
 
+    function getSelectionQuoteParagraph() {
+      const anchorElement = getSelectionAnchorElement();
+      if (!anchorElement || !anchorElement.closest) {
+        return null;
+      }
+      const paragraph = anchorElement.closest("blockquote p");
+      return paragraph && visualEditor.contains(paragraph) ? paragraph : null;
+    }
+
+    function isBlockEffectivelyEmpty(block) {
+      if (!block) {
+        return true;
+      }
+      const probe = document.createElement("div");
+      probe.innerHTML = block.innerHTML;
+      const text = (probe.textContent || "")
+        .replace(/[\u200B\u00A0]/g, " ")
+        .replace(/\s+/g, "")
+        .trim();
+      const hasEmbeddedContent = !!probe.querySelector("img, table, pre, blockquote, ul, ol");
+      return !text && !hasEmbeddedContent;
+    }
+
     function exitListAtCurrentItem(listItem) {
       const list = listItem && listItem.closest ? listItem.closest("ul, ol") : null;
       if (!list || list.lastElementChild !== listItem) {
@@ -2893,6 +2916,31 @@
         list.remove();
       }
       parent.insertBefore(paragraph, afterList);
+      moveCaretBeforeNode(placeholder);
+      updateToolbarState();
+      void syncFromVisual(false);
+      return true;
+    }
+
+    function exitBlockquoteAtCurrentParagraph(paragraph) {
+      const quote = paragraph && paragraph.closest ? paragraph.closest("blockquote") : null;
+      if (!quote || quote.lastElementChild !== paragraph) {
+        return false;
+      }
+      const parent = quote.parentNode;
+      if (!parent) {
+        return false;
+      }
+      const afterQuote = quote.nextSibling;
+      const newParagraph = document.createElement("p");
+      const placeholder = document.createElement("br");
+      placeholder.setAttribute("data-caret-placeholder", "true");
+      newParagraph.appendChild(placeholder);
+      paragraph.remove();
+      if (!quote.children.length || !(quote.textContent || "").trim()) {
+        quote.remove();
+      }
+      parent.insertBefore(newParagraph, afterQuote);
       moveCaretBeforeNode(placeholder);
       updateToolbarState();
       void syncFromVisual(false);
@@ -2945,6 +2993,24 @@
       }
       event.preventDefault();
       return insertListItemAfterCurrent(listItem);
+    }
+
+    function handleBlockquoteEnterKey(event) {
+      const isParagraphInsertion = event.type === "beforeinput"
+        ? event.inputType === "insertParagraph"
+        : event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+      if (!isParagraphInsertion) {
+        return false;
+      }
+      if (!isSelectionCollapsedInEditor() || isSelectionInsideTable()) {
+        return false;
+      }
+      const paragraph = getSelectionQuoteParagraph();
+      if (!paragraph || !isBlockEffectivelyEmpty(paragraph)) {
+        return false;
+      }
+      event.preventDefault();
+      return exitBlockquoteAtCurrentParagraph(paragraph);
     }
 
     function shouldNormalizeAfterCommand(command) {
@@ -3243,6 +3309,10 @@
 
     function handleEditorShortcut(event) {
       if (handleTableNavigationKey(event)) {
+        return;
+      }
+
+      if (handleBlockquoteEnterKey(event)) {
         return;
       }
 
@@ -4362,6 +4432,9 @@
       handleEditorShortcut(event);
     });
     visualEditor.addEventListener("beforeinput", event => {
+      if (handleBlockquoteEnterKey(event)) {
+        return;
+      }
       handleListEnterKey(event);
     });
 
@@ -4406,7 +4479,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.030-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.031-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
