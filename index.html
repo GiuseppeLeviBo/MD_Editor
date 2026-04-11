@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.031-beta">
+<link rel="manifest" href="./manifest.json?v=0.032-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -405,6 +405,21 @@
       overflow: auto;
     }
 
+    .editor pre[data-language]::before,
+    .preview pre[data-language]::before {
+      content: attr(data-language);
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(182, 87, 44, 0.12);
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
     .editor img,
     .preview img {
       display: block;
@@ -777,7 +792,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.031 beta</div>
+    <div class="build-badge" id="buildBadge">v0.032 beta</div>
     </footer>
   </main>
 
@@ -816,7 +831,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.031 beta";
+      const APP_VERSION = "v0.032 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -957,9 +972,10 @@
     let lastDownloadedMarkdown = "";
     let currentLanguage = "it";
     let currentMobilePanel = "visual";
-    let lastKnownBlockTag = "p";
-    let syncVersion = 0;
-    const HISTORY_LIMIT = 500;
+      let lastKnownBlockTag = "p";
+      let syncVersion = 0;
+      const CODE_CARET_MARKER = "\u200B";
+      const HISTORY_LIMIT = 500;
     const shortcutHints = {
       bold: "Ctrl/Cmd + B",
       italic: "Ctrl/Cmd + I",
@@ -1054,11 +1070,12 @@
         statusMixedStructureSelection: "La selezione include strutture diverse. Per evitare risultati confusi, modifica una struttura alla volta.",
         statusTableInvalid: "Tabella Markdown non valida: la mostro come testo normale.",
         statusTableBlocksDisabled: "Dentro una tabella puoi usare gli stili inline, ma non i comandi di blocco.",
-        statusTableSoftBreak: "Nelle tabelle i ritorni a capo interni vengono normalizzati come testo semplice.",
-        promptInsertUrl: "Inserisci l'URL del link",
-        promptTableColumns: "Numero di colonne della tabella",
-        promptTableRows: "Numero di righe dati della tabella",
-        promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
+          statusTableSoftBreak: "Nelle tabelle i ritorni a capo interni vengono normalizzati come testo semplice.",
+          promptInsertUrl: "Inserisci l'URL del link",
+          promptTableColumns: "Numero di colonne della tabella",
+          promptTableRows: "Numero di righe dati della tabella",
+          promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
+          promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
         promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
         promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata.",
         actionLinkFolderNow: "Collega cartella ora",
@@ -1160,11 +1177,12 @@
         statusMixedStructureSelection: "This selection includes different structures. To avoid confusing results, edit one structure at a time.",
         statusTableInvalid: "Invalid Markdown table: showing it as plain text.",
         statusTableBlocksDisabled: "Inside a table you can use inline styles, but not block commands.",
-        statusTableSoftBreak: "Inside tables, soft line breaks are normalized as plain text.",
-        promptInsertUrl: "Enter the link URL",
-        promptTableColumns: "Number of table columns",
-        promptTableRows: "Number of table data rows",
-        promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
+          statusTableSoftBreak: "Inside tables, soft line breaks are normalized as plain text.",
+          promptInsertUrl: "Enter the link URL",
+          promptTableColumns: "Number of table columns",
+          promptTableRows: "Number of table data rows",
+          promptCodeLanguage: "Code block language (optional)",
+          promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
         promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
         promptAutoLinkFolder: "You opened a Markdown file without a linked project folder.",
         actionLinkFolderNow: "Link folder now",
@@ -2054,15 +2072,16 @@
         .replace(/\*([^*]+)\*/g, "<em>$1</em>");
     }
 
-    async function markdownToHtml(markdown) {
-      const lines = markdown.replace(/\r/g, "").split("\n");
-      let html = "";
-      let inCode = false;
-      let codeLanguage = "";
-      let inUl = false;
-      let inOl = false;
-      let inBlockquote = false;
-      const warnings = new Set();
+      async function markdownToHtml(markdown) {
+        const lines = markdown.replace(/\r/g, "").split("\n");
+        let html = "";
+        let inCode = false;
+        let codeLanguage = "";
+        let codeLines = [];
+        let inUl = false;
+        let inOl = false;
+        let inBlockquote = false;
+        const warnings = new Set();
 
       function closeLists() {
         if (inUl) {
@@ -2082,26 +2101,28 @@
         }
       }
 
-      for (let index = 0; index < lines.length; index += 1) {
-        const line = lines[index];
-        if (line.startsWith("```")) {
-          closeLists();
-          closeQuote();
-          if (inCode) {
-            html += "</code></pre>";
-          } else {
-            codeLanguage = line.slice(3).trim();
-            const languageAttr = codeLanguage ? ' data-language="' + escapeHtml(codeLanguage) + '"' : "";
-            html += "<pre" + languageAttr + "><code>";
+        for (let index = 0; index < lines.length; index += 1) {
+          const line = lines[index];
+          if (line.startsWith("```")) {
+            closeLists();
+            closeQuote();
+            if (inCode) {
+              html += escapeHtml(codeLines.join("\n")) + "</code></pre>";
+              codeLines = [];
+            } else {
+              codeLanguage = line.slice(3).trim();
+              const languageAttr = codeLanguage ? ' data-language="' + escapeHtml(codeLanguage) + '"' : "";
+              html += "<pre" + languageAttr + "><code>";
+              codeLines = [];
+            }
+            inCode = !inCode;
+            continue;
           }
-          inCode = !inCode;
-          continue;
-        }
 
-        if (inCode) {
-          html += escapeHtml(line) + "\n";
-          continue;
-        }
+          if (inCode) {
+            codeLines.push(line);
+            continue;
+          }
 
         if (!line.trim()) {
           closeLists();
@@ -2228,9 +2249,9 @@
       closeLists();
       closeQuote();
 
-      if (inCode) {
-        html += "</code></pre>";
-      }
+        if (inCode) {
+          html += escapeHtml(codeLines.join("\n")) + "</code></pre>";
+        }
 
       return {
         html,
@@ -2376,10 +2397,10 @@
             return Array.from(node.children)
               .map((item, index) => listItemToMarkdown(item, (index + 1) + "."))
               .join("\n") + "\n\n";
-          case "li":
-            return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
-          case "pre":
-            return "```" + (node.dataset.language || "") + "\n" + node.textContent.trim() + "\n```\n\n";
+            case "li":
+              return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
+            case "pre":
+              return "```" + (node.dataset.language || "") + "\n" + getCodeBlockText(node).replace(/\n+$/, "") + "\n```\n\n";
           case "table":
             return tableNodeToMarkdown(node);
           case "img":
@@ -2897,6 +2918,96 @@
       return !text && !hasEmbeddedContent;
     }
 
+    function getSelectionCodeBlock() {
+      const anchorElement = getSelectionAnchorElement();
+      if (!anchorElement || !anchorElement.closest) {
+        return null;
+      }
+      const codeBlock = anchorElement.closest("pre");
+      return codeBlock && visualEditor.contains(codeBlock) ? codeBlock : null;
+    }
+
+    function extractCodeTextFromNode(node) {
+      if (!node) {
+        return "";
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || "";
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+        return "";
+      }
+      const tagName = node.tagName ? node.tagName.toLowerCase() : "";
+      if (tagName === "br") {
+        return "\n";
+      }
+      const content = Array.from(node.childNodes).map(child => extractCodeTextFromNode(child)).join("");
+      if (tagName === "div" || tagName === "p") {
+        return content + "\n";
+      }
+      return content;
+    }
+
+    function getCodeBlockCodeElement(codeBlock) {
+      return codeBlock.querySelector("code") || codeBlock;
+    }
+
+    function getRawCodeBlockText(codeBlock) {
+      return extractCodeTextFromNode(getCodeBlockCodeElement(codeBlock)).replace(/\r\n?/g, "\n");
+    }
+
+    function getCodeBlockText(codeBlock) {
+      return getRawCodeBlockText(codeBlock).replace(/\u200B/g, "");
+    }
+
+    function setCodeBlockText(codeBlock, text) {
+      const codeElement = getCodeBlockCodeElement(codeBlock);
+      codeElement.textContent = text;
+      return codeElement;
+    }
+
+    function getSelectionOffsetInCodeBlock(codeBlock) {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) {
+        return null;
+      }
+      const range = selection.getRangeAt(0);
+      const codeElement = getCodeBlockCodeElement(codeBlock);
+      const probeRange = document.createRange();
+      probeRange.selectNodeContents(codeElement);
+      probeRange.setEnd(range.endContainer, range.endOffset);
+      const fragment = probeRange.cloneContents();
+      return extractCodeTextFromNode(fragment).replace(/\u200B/g, "").length;
+    }
+
+    function setCaretInCodeBlock(codeBlock, offset) {
+      const codeElement = getCodeBlockCodeElement(codeBlock);
+      const rawText = codeElement.textContent || "";
+      let textNode = codeElement.firstChild;
+      if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+        textNode = document.createTextNode(rawText);
+        codeElement.replaceChildren(textNode);
+      }
+      const safeOffset = Math.max(0, Math.min(offset, textNode.textContent.length));
+      const range = document.createRange();
+      range.setStart(textNode, safeOffset);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+
+    function moveCaretAfterCodeMarker(codeBlock) {
+      const codeElement = getCodeBlockCodeElement(codeBlock);
+      const rawText = codeElement.textContent || "";
+      const markerIndex = rawText.indexOf(CODE_CARET_MARKER);
+      if (markerIndex < 0) {
+        return false;
+      }
+      return setCaretInCodeBlock(codeBlock, markerIndex + 1);
+    }
+
     function exitListAtCurrentItem(listItem) {
       const list = listItem && listItem.closest ? listItem.closest("ul, ol") : null;
       if (!list || list.lastElementChild !== listItem) {
@@ -2941,6 +3052,25 @@
         quote.remove();
       }
       parent.insertBefore(newParagraph, afterQuote);
+      moveCaretBeforeNode(placeholder);
+      updateToolbarState();
+      void syncFromVisual(false);
+      return true;
+    }
+
+    function exitCodeBlockToParagraph(codeBlock) {
+      if (!codeBlock || !codeBlock.parentNode) {
+        return false;
+      }
+      const normalizedText = getCodeBlockText(codeBlock).replace(/\n+$/, "");
+      setCodeBlockText(codeBlock, normalizedText);
+      const parent = codeBlock.parentNode;
+      const afterCodeBlock = codeBlock.nextSibling;
+      const paragraph = document.createElement("p");
+      const placeholder = document.createElement("br");
+      placeholder.setAttribute("data-caret-placeholder", "true");
+      paragraph.appendChild(placeholder);
+      parent.insertBefore(paragraph, afterCodeBlock);
       moveCaretBeforeNode(placeholder);
       updateToolbarState();
       void syncFromVisual(false);
@@ -3011,6 +3141,43 @@
       }
       event.preventDefault();
       return exitBlockquoteAtCurrentParagraph(paragraph);
+    }
+
+    function handleCodeBlockEnterKey(event) {
+      const isParagraphInsertion = event.type === "beforeinput"
+        ? event.inputType === "insertParagraph"
+        : event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+      if (!isParagraphInsertion) {
+        return false;
+      }
+      if (!isSelectionCollapsedInEditor() || isSelectionInsideTable()) {
+        return false;
+      }
+      const codeBlock = getSelectionCodeBlock();
+      if (!codeBlock) {
+        return false;
+      }
+
+      const codeText = getCodeBlockText(codeBlock);
+      const logicalOffset = getSelectionOffsetInCodeBlock(codeBlock);
+      if (logicalOffset == null) {
+        return false;
+      }
+
+      const trailingNewlineOffset = codeText.endsWith("\n") ? codeText.length - 1 : -1;
+      const isOnTrailingBlankLine = codeText.endsWith("\n") && logicalOffset >= trailingNewlineOffset;
+      if (isOnTrailingBlankLine) {
+        event.preventDefault();
+        return exitCodeBlockToParagraph(codeBlock);
+      }
+
+      event.preventDefault();
+      const updatedText = codeText.slice(0, logicalOffset) + "\n" + CODE_CARET_MARKER + codeText.slice(logicalOffset);
+      setCodeBlockText(codeBlock, updatedText);
+      moveCaretAfterCodeMarker(codeBlock);
+      updateToolbarState();
+      void syncFromVisual(false);
+      return true;
     }
 
     function shouldNormalizeAfterCommand(command) {
@@ -3154,6 +3321,14 @@
       }
       const parsed = Number.parseInt(String(answer).trim(), 10);
       return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    function readOptionalPrompt(key, defaultValue = "") {
+      const answer = window.prompt(t(key), defaultValue);
+      if (answer == null) {
+        return null;
+      }
+      return String(answer).trim();
     }
 
     function insertTable() {
@@ -3312,6 +3487,10 @@
         return;
       }
 
+      if (handleCodeBlockEnterKey(event)) {
+        return;
+      }
+
       if (handleBlockquoteEnterKey(event)) {
         return;
       }
@@ -3465,13 +3644,13 @@
       }
 
       const tagName = block.tagName.toLowerCase();
-      const paragraph = document.createElement("p");
+        const paragraph = document.createElement("p");
 
-      if (tagName === "pre") {
-        paragraph.textContent = block.textContent;
-        block.replaceWith(paragraph);
-        return;
-      }
+        if (tagName === "pre") {
+          paragraph.textContent = getCodeBlockText(block).replace(/\n+$/, "");
+          block.replaceWith(paragraph);
+          return;
+        }
 
       if (tagName === "blockquote") {
         paragraph.innerHTML = block.innerHTML.replace(/<\/?p>/gi, " ").trim();
@@ -3785,8 +3964,10 @@
       }
 
       visualEditor.focus();
+      const language = readOptionalPrompt("promptCodeLanguage", "") ?? "";
+      const languageAttr = language ? ' data-language="' + escapeHtml(language) + '"' : "";
       const selectedText = window.getSelection().toString().trim() || "const esempio = true;";
-      document.execCommand("insertHTML", false, "<pre data-language=\"\"><code>" + escapeHtml(selectedText) + "</code></pre><p><br></p>");
+      document.execCommand("insertHTML", false, "<pre" + languageAttr + "><code>" + escapeHtml(selectedText) + "</code></pre><p><br></p>");
       void syncFromVisual(true);
       updateToolbarState();
     }
@@ -4432,6 +4613,9 @@
       handleEditorShortcut(event);
     });
     visualEditor.addEventListener("beforeinput", event => {
+      if (handleCodeBlockEnterKey(event)) {
+        return;
+      }
       if (handleBlockquoteEnterKey(event)) {
         return;
       }
@@ -4479,7 +4663,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.031-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.032-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

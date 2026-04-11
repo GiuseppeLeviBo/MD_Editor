@@ -44,6 +44,9 @@ The goal is to protect the most important promises of the product.
 - Table keyboard navigation does not create accidental rows
 - Block commands are disabled when the cursor is inside a table cell
 - Invalid Markdown tables fall back to plain text with a clear status message
+- Code blocks can be created with an optional fence language
+- Pressing `Enter` inside a code block keeps visual editor, Markdown, and preview aligned
+- Double `Enter` at the end of a code block exits to a normal paragraph
 - Paragraph toggles correctly from headings, code blocks, and list items
 - `H1/H2/H3` work on single-block selections
 - Bullet list toggles on/off
