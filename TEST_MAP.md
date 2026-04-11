@@ -49,6 +49,7 @@ The goal is to protect the most important promises of the product.
 - Double `Enter` at the end of a code block exits to a normal paragraph
 - `H4-H6` render and round-trip correctly
 - Nested lists stay aligned between visual editor, Markdown, and preview
+- Nested list indent/outdent works from the visual editor with buttons and Tab/Shift+Tab
 - Nested blockquotes stay aligned between visual editor, Markdown, and preview
 - Reference-style links resolve in preview and keep their definitions
 - Paragraph toggles correctly from headings, code blocks, and list items

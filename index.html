@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.033-beta">
+  <link rel="manifest" href="./manifest.json?v=0.034-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -191,7 +191,9 @@
     }
 
     .editor ul.task-list,
-    .preview ul.task-list {
+    .preview ul.task-list,
+    .editor ol.task-list,
+    .preview ol.task-list {
       list-style: none;
       padding-left: 0;
     }
@@ -729,6 +731,8 @@
         <button type="button" class="tool-button" data-command="insertUnorderedList" data-i18n-title="bulletList"><span class="tool-icon">•</span><span data-i18n="bulletList">Lista</span></button>
         <button type="button" class="tool-button" data-command="insertOrderedList" data-i18n-title="numberedList"><span class="tool-icon">1.</span><span data-i18n="numberedList">Numerata</span></button>
         <button type="button" class="tool-button" id="taskListButton" data-command="insertTaskList" data-i18n-title="taskList"><span class="tool-icon">☑</span><span data-i18n="taskList">Attivita</span></button>
+        <button type="button" class="tool-button" id="indentListButton" data-i18n-title="indentList"><span class="tool-icon">⇥</span><span data-i18n="indentList">Rientra</span></button>
+        <button type="button" class="tool-button" id="outdentListButton" data-i18n-title="outdentList"><span class="tool-icon">⇤</span><span data-i18n="outdentList">Esci rientro</span></button>
         <button type="button" class="tool-button" id="tableButton" data-i18n-title="table"><span class="tool-icon">▦</span><span data-i18n="table">Tabella</span></button>
         <button type="button" class="tool-button" data-block="blockquote" data-i18n-title="quote"><span class="tool-icon">❞</span><span data-i18n="quote">Citazione</span></button>
       </div>
@@ -820,7 +824,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.033 beta</div>
+      <div class="build-badge" id="buildBadge">v0.034 beta</div>
     </footer>
   </main>
 
@@ -859,7 +863,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.033 beta";
+    const APP_VERSION = "v0.034 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1012,6 +1016,8 @@
       strike: "Ctrl/Cmd + Shift + E",
       bulletList: "Ctrl/Cmd + U",
       numberedList: "Ctrl/Cmd + O",
+      indentList: "Tab",
+      outdentList: "Shift + Tab",
       quote: "Ctrl/Cmd + 9",
       heading1: "Ctrl/Cmd + 1",
       heading2: "Ctrl/Cmd + 2",
@@ -1036,6 +1042,8 @@
         bulletList: "Lista",
         numberedList: "Numerata",
         taskList: "Attivita",
+        indentList: "Rientra",
+        outdentList: "Esci rientro",
         table: "Tabella",
         quote: "Citazione",
         heading1: "Titolo 1",
@@ -1103,12 +1111,14 @@
         statusMixedStructureSelection: "La selezione include strutture diverse. Per evitare risultati confusi, modifica una struttura alla volta.",
         statusTableInvalid: "Tabella Markdown non valida: la mostro come testo normale.",
         statusTableBlocksDisabled: "Dentro una tabella puoi usare gli stili inline, ma non i comandi di blocco.",
-          statusTableSoftBreak: "Nelle tabelle i ritorni a capo interni vengono normalizzati come testo semplice.",
-          promptInsertUrl: "Inserisci l'URL del link",
-          promptTableColumns: "Numero di colonne della tabella",
-          promptTableRows: "Numero di righe dati della tabella",
-          promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
-          promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
+        statusTableSoftBreak: "Nelle tabelle i ritorni a capo interni vengono normalizzati come testo semplice.",
+        statusListIndentUnavailable: "Per rientrare, il punto corrente deve avere un elemento precedente nello stesso elenco.",
+        statusListOutdentUnavailable: "Questo elemento e gia al livello piu esterno dell'elenco.",
+        promptInsertUrl: "Inserisci l'URL del link",
+        promptTableColumns: "Numero di colonne della tabella",
+        promptTableRows: "Numero di righe dati della tabella",
+        promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
+        promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
         promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
         promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata.",
         actionLinkFolderNow: "Collega cartella ora",
@@ -1119,6 +1129,8 @@
         bulletListTitle: "Inserisci una lista puntata",
         numberedListTitle: "Inserisci una lista numerata",
         taskListTitle: "Inserisci o rimuovi una task list",
+        indentListTitle: "Aumenta il rientro dell'elemento corrente (Tab)",
+        outdentListTitle: "Riduci il rientro dell'elemento corrente (Shift+Tab)",
         tableTitle: "Inserisci una tabella Markdown standard",
         quoteTitle: "Trasforma in citazione",
         heading1Title: "Titolo di primo livello",
@@ -1149,6 +1161,8 @@
         bulletList: "Bullets",
         numberedList: "Numbered",
         taskList: "Tasks",
+        indentList: "Indent",
+        outdentList: "Outdent",
         table: "Table",
         quote: "Quote",
         heading1: "Heading 1",
@@ -1216,12 +1230,14 @@
         statusMixedStructureSelection: "This selection includes different structures. To avoid confusing results, edit one structure at a time.",
         statusTableInvalid: "Invalid Markdown table: showing it as plain text.",
         statusTableBlocksDisabled: "Inside a table you can use inline styles, but not block commands.",
-          statusTableSoftBreak: "Inside tables, soft line breaks are normalized as plain text.",
-          promptInsertUrl: "Enter the link URL",
-          promptTableColumns: "Number of table columns",
-          promptTableRows: "Number of table data rows",
-          promptCodeLanguage: "Code block language (optional)",
-          promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
+        statusTableSoftBreak: "Inside tables, soft line breaks are normalized as plain text.",
+        statusListIndentUnavailable: "To indent, the current item needs a previous sibling in the same list.",
+        statusListOutdentUnavailable: "This item is already at the outermost list level.",
+        promptInsertUrl: "Enter the link URL",
+        promptTableColumns: "Number of table columns",
+        promptTableRows: "Number of table data rows",
+        promptCodeLanguage: "Code block language (optional)",
+        promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
         promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
         promptAutoLinkFolder: "You opened a Markdown file without a linked project folder.",
         actionLinkFolderNow: "Link folder now",
@@ -1232,6 +1248,8 @@
         bulletListTitle: "Insert a bulleted list",
         numberedListTitle: "Insert a numbered list",
         taskListTitle: "Insert or remove a task list",
+        indentListTitle: "Increase the current item indent (Tab)",
+        outdentListTitle: "Decrease the current item indent (Shift+Tab)",
         tableTitle: "Insert a standard Markdown table",
         quoteTitle: "Turn into quote",
         heading1Title: "First-level heading",
@@ -1480,12 +1498,25 @@
         return null;
       }
 
+      const orderedTaskMatch = line.match(/^(\s*)(\d+)\. \[([ xX])\]\s?(.*)$/);
+      if (orderedTaskMatch) {
+        return {
+          indent: orderedTaskMatch[1].length,
+          depth: Math.floor(orderedTaskMatch[1].length / 2),
+          type: "task",
+          containerTag: "ol",
+          checked: orderedTaskMatch[3].toLowerCase() === "x",
+          content: orderedTaskMatch[4] || ""
+        };
+      }
+
       const taskMatch = line.match(/^(\s*)- \[([ xX])\]\s?(.*)$/);
       if (taskMatch) {
         return {
           indent: taskMatch[1].length,
           depth: Math.floor(taskMatch[1].length / 2),
           type: "task",
+          containerTag: "ul",
           checked: taskMatch[2].toLowerCase() === "x",
           content: taskMatch[3] || ""
         };
@@ -1497,6 +1528,7 @@
           indent: ulMatch[1].length,
           depth: Math.floor(ulMatch[1].length / 2),
           type: "ul",
+          containerTag: "ul",
           checked: false,
           content: ulMatch[2] || ""
         };
@@ -1508,6 +1540,7 @@
           indent: olMatch[1].length,
           depth: Math.floor(olMatch[1].length / 2),
           type: "ol",
+          containerTag: "ol",
           checked: false,
           content: olMatch[3] || ""
         };
@@ -1552,7 +1585,7 @@
         }
 
         let currentList = listStack[desiredDepth] || null;
-        const desiredTag = info.type === "ol" ? "ol" : "ul";
+        const desiredTag = info.containerTag || (info.type === "ol" ? "ol" : "ul");
 
         if (!currentList || currentList.tagName.toLowerCase() !== desiredTag || (info.type === "task" && !currentList.classList.contains("task-list")) || (info.type !== "task" && currentList.classList.contains("task-list"))) {
           const list = document.createElement(desiredTag);
@@ -2611,6 +2644,7 @@
         const nestedLists = Array.from(node.children).filter(child => child.matches && child.matches("ul, ol"));
         const clone = node.cloneNode(true);
         clone.querySelectorAll("ul, ol").forEach(childList => childList.remove());
+        const isTaskItem = node.dataset.task === "true";
         const checkbox = clone.querySelector('input[type="checkbox"]');
         if (checkbox) {
           checkbox.remove();
@@ -2621,7 +2655,7 @@
         const markerPrefix = "  ".repeat(depth) + prefix;
 
         let line = markerPrefix;
-        if (node.dataset.task === "true" || node.querySelector('input[type="checkbox"]')) {
+        if (isTaskItem) {
           const originalCheckbox = node.querySelector('input[type="checkbox"]');
           const marker = originalCheckbox && originalCheckbox.checked ? "[x]" : "[ ]";
           line += " " + marker + (label ? " " + label : "");
@@ -3126,7 +3160,7 @@
       if (!block) {
         return null;
       }
-      if (block.matches('li[data-task="true"]') || block.closest('ul.task-list')) {
+      if (block.matches('li[data-task="true"]') || block.closest('ul.task-list, ol.task-list')) {
         return "task";
       }
       const list = block.closest("ul, ol");
@@ -3206,6 +3240,109 @@
     function getSelectionListItem() {
       const block = getSelectionBlock();
       return block && block.tagName && block.tagName.toLowerCase() === "li" ? block : null;
+    }
+
+    function getSelectionParentList() {
+      const listItem = getSelectionListItem();
+      return listItem && listItem.parentElement && listItem.parentElement.matches("ul, ol")
+        ? listItem.parentElement
+        : null;
+    }
+
+    function cloneListContainer(list) {
+      const clone = document.createElement(list.tagName.toLowerCase());
+      if (list.classList.contains("task-list")) {
+        clone.classList.add("task-list");
+      }
+      return clone;
+    }
+
+    function getOrCreateNestedList(parentItem, sourceList) {
+      const expectedTag = sourceList.tagName.toLowerCase();
+      const isTaskList = sourceList.classList.contains("task-list");
+      const trailingLists = Array.from(parentItem.children)
+        .filter(child => child.matches && child.matches("ul, ol"));
+      const compatibleList = trailingLists.find(child =>
+        child.tagName.toLowerCase() === expectedTag &&
+        child.classList.contains("task-list") === isTaskList
+      );
+
+      if (compatibleList) {
+        return compatibleList;
+      }
+
+      const nestedList = cloneListContainer(sourceList);
+      parentItem.appendChild(nestedList);
+      return nestedList;
+    }
+
+    function indentCurrentListItem() {
+      if (isSelectionInsideTable()) {
+        showTableBlockCommandStatus();
+        return true;
+      }
+      if (!isSelectionCollapsedInEditor()) {
+        return false;
+      }
+
+      const listItem = getSelectionListItem();
+      const sourceList = getSelectionParentList();
+      if (!listItem || !sourceList) {
+        return false;
+      }
+
+      const previousItem = listItem.previousElementSibling;
+      if (!previousItem || previousItem.tagName.toLowerCase() !== "li") {
+        setStatus(t("statusListIndentUnavailable"));
+        return true;
+      }
+
+      const markerId = markCollapsedListSelection();
+      const targetList = getOrCreateNestedList(previousItem, sourceList);
+      targetList.appendChild(listItem);
+      if (!sourceList.children.length) {
+        sourceList.remove();
+      }
+      restoreMarkedListSelection(markerId);
+      void syncFromVisual(false);
+      updateToolbarState();
+      return true;
+    }
+
+    function outdentCurrentListItem() {
+      if (isSelectionInsideTable()) {
+        showTableBlockCommandStatus();
+        return true;
+      }
+      if (!isSelectionCollapsedInEditor()) {
+        return false;
+      }
+
+      const listItem = getSelectionListItem();
+      const sourceList = getSelectionParentList();
+      if (!listItem || !sourceList) {
+        return false;
+      }
+
+      const parentListItem = sourceList.closest("li");
+      const targetList = parentListItem && parentListItem.parentElement && parentListItem.parentElement.matches("ul, ol")
+        ? parentListItem.parentElement
+        : null;
+
+      if (!parentListItem || !targetList) {
+        setStatus(t("statusListOutdentUnavailable"));
+        return true;
+      }
+
+      const markerId = markCollapsedListSelection();
+      targetList.insertBefore(listItem, parentListItem.nextSibling);
+      if (!sourceList.children.length) {
+        sourceList.remove();
+      }
+      restoreMarkedListSelection(markerId);
+      void syncFromVisual(false);
+      updateToolbarState();
+      return true;
     }
 
     function isCaretAtEndOfListItem(range, listItem) {
@@ -3540,6 +3677,10 @@
       const blockTag = block ? block.tagName.toLowerCase() : lastKnownBlockTag;
       const listType = getSelectionListType();
       const insideTable = isSelectionInsideTable();
+      const currentListItem = getSelectionListItem();
+      const parentList = getSelectionParentList();
+      const canIndentListItem = !!(currentListItem && currentListItem.previousElementSibling && currentListItem.previousElementSibling.tagName && currentListItem.previousElementSibling.tagName.toLowerCase() === "li");
+      const canOutdentListItem = !!(parentList && parentList.closest("li"));
 
       if (blockTag) {
         lastKnownBlockTag = blockTag;
@@ -3570,6 +3711,8 @@
       document.getElementById("paragraphButton").disabled = insideTable;
       document.getElementById("codeBlockButton").disabled = insideTable;
       document.getElementById("imageButton").disabled = insideTable;
+      document.getElementById("indentListButton").disabled = insideTable || !canIndentListItem;
+      document.getElementById("outdentListButton").disabled = insideTable || !canOutdentListItem;
       document.getElementById("paragraphButton").classList.toggle("is-active", !insideTable && ["p", "div", "li"].includes(blockTag));
       document.getElementById("codeBlockButton").classList.toggle("is-active", !insideTable && blockTag === "pre");
     }
@@ -3780,19 +3923,19 @@
       const selectionMarker = selectionCollapsed ? markCollapsedListSelection() : null;
 
       function getAffectedLists() {
+        if (selectionCollapsed) {
+          const currentBlock = getSelectionBlock();
+          const currentList = currentBlock && currentBlock.closest ? currentBlock.closest("ul, ol") : null;
+          return currentList ? [currentList] : [];
+        }
+
         const selectedBlocks = getSelectedBlocks();
         const sourceBlocks = selectedBlocks.length ? selectedBlocks : [getSelectionBlock()].filter(Boolean);
-        let lists = Array.from(new Set(
+        return Array.from(new Set(
           sourceBlocks
             .map(block => block && block.closest ? block.closest("ul, ol") : null)
             .filter(Boolean)
         ));
-
-        if (selectionCollapsed && lists.length === 1) {
-          return lists;
-        }
-
-        return lists;
       }
 
       if (currentListType === desiredListTag) {
@@ -3825,8 +3968,32 @@
       return false;
     }
 
+    function handleListIndentationKey(event) {
+      if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) {
+        return false;
+      }
+
+      if (event.shiftKey) {
+        const handled = outdentCurrentListItem();
+        if (handled) {
+          event.preventDefault();
+        }
+        return handled;
+      }
+
+      const handled = indentCurrentListItem();
+      if (handled) {
+        event.preventDefault();
+      }
+      return handled;
+    }
+
     function handleEditorShortcut(event) {
       if (handleTableNavigationKey(event)) {
+        return;
+      }
+
+      if (handleListIndentationKey(event)) {
         return;
       }
 
@@ -4113,11 +4280,15 @@
       const uniqueBlocks = Array.from(new Set(selectedBlocks));
       const selectionCollapsed = isSelectionCollapsedInEditor();
       const selectionMarker = selectionCollapsed ? markCollapsedListSelection() : null;
-      const affectedLists = Array.from(new Set(
-        uniqueBlocks
+      const affectedLists = selectionCollapsed
+        ? [getSelectionBlock()]
           .map(block => block && block.closest ? block.closest("ul, ol") : null)
           .filter(Boolean)
-      ));
+        : Array.from(new Set(
+          uniqueBlocks
+            .map(block => block && block.closest ? block.closest("ul, ol") : null)
+            .filter(Boolean)
+        ));
       const allTaskItems = uniqueBlocks.every(block => block.tagName.toLowerCase() === "li" && block.dataset.task === "true");
 
       if (allTaskItems) {
@@ -4795,6 +4966,22 @@
       prepareToolbarAction();
       insertTable();
     });
+    document.getElementById("indentListButton").addEventListener("mousedown", event => {
+      event.preventDefault();
+      saveCurrentSelection();
+    });
+    document.getElementById("indentListButton").addEventListener("click", () => {
+      prepareToolbarAction();
+      indentCurrentListItem();
+    });
+    document.getElementById("outdentListButton").addEventListener("mousedown", event => {
+      event.preventDefault();
+      saveCurrentSelection();
+    });
+    document.getElementById("outdentListButton").addEventListener("click", () => {
+      prepareToolbarAction();
+      outdentCurrentListItem();
+    });
     document.getElementById("linkButton").addEventListener("click", insertLink);
     document.getElementById("imageButton").addEventListener("click", () => imageInput.click());
     document.getElementById("symbolButton").addEventListener("click", openSymbolDialog);
@@ -5006,7 +5193,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.033-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.034-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

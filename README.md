@@ -22,6 +22,7 @@ This is a stable beta focused on simplicity, portability, and standard Markdown.
 - Visual editor, Markdown source, and live HTML preview
 - Single-page app with no runtime dependencies
 - Pure-Markdown-first editing with common standard structures
+- Visual nested-list editing with indent/outdent controls
 - Open and edit `.md` files
 - Link a project folder to resolve relative images and local assets
 - Insert uploaded images directly into Markdown
