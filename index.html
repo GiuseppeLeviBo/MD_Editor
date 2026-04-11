@@ -837,7 +837,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.036 beta</div>
+      <div class="build-badge" id="buildBadge">v0.037 beta</div>
     </footer>
   </main>
 
@@ -876,7 +876,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.036 beta";
+    const APP_VERSION = "v0.037 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1629,7 +1629,7 @@
           listItem.dataset.task = "true";
           listItem.dataset.checked = String(info.checked);
           const labelHtml = await applyInlineMarkdown(info.content, { allowImages: false });
-          listItem.innerHTML = '<span class="task-item"><input type="checkbox" contenteditable="false"' + (info.checked ? ' checked="checked"' : "") + '><span class="task-text">' + labelHtml + "</span></span>";
+          listItem.innerHTML = '<span class="task-item" contenteditable="false"><input type="checkbox" contenteditable="false"' + (info.checked ? ' checked="checked"' : "") + '><span class="task-text" contenteditable="true">' + labelHtml + "</span></span>";
         } else {
           listItem.innerHTML = await applyInlineMarkdown(info.content, { allowImages: false });
         }
@@ -3063,10 +3063,24 @@
       return true;
     }
 
+    function focusEditableElement(element) {
+      if (!element || !element.closest) {
+        return;
+      }
+      const editableTarget = element.closest('[contenteditable="true"]');
+      if (editableTarget && editableTarget.focus) {
+        editableTarget.focus();
+      } else if (visualEditor.focus) {
+        visualEditor.focus();
+      }
+    }
+
     function moveCaretToElementEnd(element) {
       if (!element) {
         return false;
       }
+
+      focusEditableElement(element);
 
       let targetNode = null;
       const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -3604,6 +3618,28 @@
       event.preventDefault();
       document.execCommand("insertText", false, " ");
       setStatus(t("statusListSoftBreak"));
+      return true;
+    }
+
+    function handleTaskPrintableKey(event) {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) {
+        return false;
+      }
+      if (isSelectionInsideTable()) {
+        return false;
+      }
+      const listItem = getSelectionListItem();
+      if (!listItem || listItem.dataset.task !== "true") {
+        return false;
+      }
+      const taskText = listItem.querySelector(".task-text");
+      if (!taskText) {
+        return false;
+      }
+      event.preventDefault();
+      moveCaretToElementEnd(taskText);
+      document.execCommand("insertText", false, event.key);
+      void syncFromVisual(false);
       return true;
     }
 
@@ -4227,7 +4263,7 @@
       const listItem = document.createElement("li");
       listItem.dataset.task = "true";
       listItem.dataset.checked = String(checked);
-      listItem.innerHTML = '<span class="task-item"><input type="checkbox" contenteditable="false"' + (checked ? ' checked="checked"' : "") + '><span class="task-text">' + contentHtml + "</span></span>";
+      listItem.innerHTML = '<span class="task-item" contenteditable="false"><input type="checkbox" contenteditable="false"' + (checked ? ' checked="checked"' : "") + '><span class="task-text" contenteditable="true">' + contentHtml + "</span></span>";
       return listItem;
     }
 
@@ -4246,7 +4282,7 @@
       const contentHtml = getTaskItemContentHtml(listItem);
       listItem.dataset.task = "true";
       listItem.dataset.checked = String(checked);
-      listItem.innerHTML = '<span class="task-item"><input type="checkbox" contenteditable="false"' + (checked ? ' checked="checked"' : "") + '><span class="task-text">' + contentHtml + "</span></span>";
+      listItem.innerHTML = '<span class="task-item" contenteditable="false"><input type="checkbox" contenteditable="false"' + (checked ? ' checked="checked"' : "") + '><span class="task-text" contenteditable="true">' + contentHtml + "</span></span>";
     }
 
     function convertTaskItemToBullet(listItem) {
@@ -5100,6 +5136,20 @@
       void handleRenderedLinkClick(event);
     });
 
+    visualEditor.addEventListener("mousedown", event => {
+      const taskItem = event.target.closest ? event.target.closest('li[data-task="true"]') : null;
+      const clickedCheckbox = event.target.matches && event.target.matches('input[type="checkbox"]');
+      const clickedTaskText = event.target.closest ? event.target.closest(".task-text") : null;
+      if (taskItem && !clickedCheckbox && !clickedTaskText) {
+        event.preventDefault();
+        const taskText = taskItem.querySelector(".task-text");
+        if (taskText) {
+          moveCaretToElementEnd(taskText);
+          updateToolbarState();
+        }
+      }
+    });
+
     visualEditor.addEventListener("click", event => {
       if (event.target.matches('input[type="checkbox"]')) {
         window.setTimeout(() => {
@@ -5111,6 +5161,17 @@
           updateToolbarState();
         }, 0);
         return;
+      }
+      const taskItem = event.target.closest ? event.target.closest('li[data-task="true"]') : null;
+      const clickedTaskText = event.target.closest ? event.target.closest(".task-text") : null;
+      if (taskItem && !clickedTaskText) {
+        const taskText = taskItem.querySelector(".task-text");
+        if (taskText) {
+          window.setTimeout(() => {
+            moveCaretToElementEnd(taskText);
+            updateToolbarState();
+          }, 0);
+        }
       }
       void handleRenderedLinkClick(event);
     });
@@ -5179,6 +5240,9 @@
     });
 
     visualEditor.addEventListener("keydown", event => {
+      if (handleTaskPrintableKey(event)) {
+        return;
+      }
       handleEditorShortcut(event);
     });
     visualEditor.addEventListener("beforeinput", event => {
@@ -5235,7 +5299,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.036-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.037-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
