@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.026-beta">
+<link rel="manifest" href="./manifest.json?v=0.027-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -46,7 +46,7 @@
       border: 1px solid rgba(255, 255, 255, 0.5);
       border-radius: 24px;
       box-shadow: var(--shadow);
-      overflow: hidden;
+      overflow: visible;
     }
 
     .hero {
@@ -73,12 +73,16 @@
     }
 
     .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 15;
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       padding: 18px 24px;
       border-bottom: 1px solid rgba(189, 169, 138, 0.35);
       background: rgba(255, 252, 247, 0.85);
+      backdrop-filter: blur(10px);
     }
 
     .folder-suggestion {
@@ -773,7 +777,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.026 beta</div>
+    <div class="build-badge" id="buildBadge">v0.027 beta</div>
     </footer>
   </main>
 
@@ -812,7 +816,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.026 beta";
+      const APP_VERSION = "v0.027 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -4050,7 +4054,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.026-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.027-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
