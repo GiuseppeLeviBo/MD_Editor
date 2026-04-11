@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.025-beta">
+<link rel="manifest" href="./manifest.json?v=0.026-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -773,7 +773,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.025 beta</div>
+    <div class="build-badge" id="buildBadge">v0.026 beta</div>
     </footer>
   </main>
 
@@ -812,7 +812,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.025 beta";
+      const APP_VERSION = "v0.026 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -2398,13 +2398,39 @@
       return node && visualEditor.contains(node) ? node : null;
     }
 
+    function getSelectionTableElement() {
+      const anchorElement = getSelectionAnchorElement();
+      if (anchorElement && anchorElement.closest) {
+        const table = anchorElement.closest("table");
+        if (table) {
+          return table;
+        }
+      }
+
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) {
+        return null;
+      }
+
+      const range = selection.getRangeAt(0);
+      return Array.from(visualEditor.querySelectorAll("table")).find(table => range.intersectsNode(table)) || null;
+    }
+
     function getSelectionTableCell() {
       const node = getSelectionAnchorElement();
-      return node && node.closest ? node.closest("th, td") : null;
+      if (node && node.closest) {
+        const directCell = node.closest("th, td");
+        if (directCell) {
+          return directCell;
+        }
+      }
+
+      const selectedCells = getSelectedTableCells();
+      return selectedCells.length === 1 ? selectedCells[0] : null;
     }
 
     function isSelectionInsideTable() {
-      return Boolean(getSelectionTableCell());
+      return Boolean(getSelectionTableElement());
     }
 
     function getSelectedTableCells() {
@@ -2414,8 +2440,7 @@
       }
 
       const range = selection.getRangeAt(0);
-      const anchorCell = getSelectionTableCell();
-      const table = anchorCell ? anchorCell.closest("table") : null;
+      const table = getSelectionTableElement();
       if (!table) {
         return [];
       }
@@ -2468,7 +2493,11 @@
       if (!node) {
         return null;
       }
-      return node ? node.closest("p, h1, h2, h3, pre, blockquote, li") : null;
+      const quoteBlock = node.closest ? node.closest("blockquote") : null;
+      if (quoteBlock) {
+        return quoteBlock;
+      }
+      return node ? node.closest("p, h1, h2, h3, pre, li") : null;
     }
 
     function getSelectedBlocks() {
@@ -2478,13 +2507,19 @@
       }
 
       const range = selection.getRangeAt(0);
-      const blockSelector = "p, h1, h2, h3, pre, blockquote, li";
       const blocks = [];
       const walker = document.createTreeWalker(visualEditor, NodeFilter.SHOW_ELEMENT, {
         acceptNode(node) {
-          return node.matches && node.matches(blockSelector)
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_SKIP;
+          if (!node.matches) {
+            return NodeFilter.FILTER_SKIP;
+          }
+          if (node.matches("blockquote")) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          if (node.matches("p, h1, h2, h3, pre, li") && !node.closest("blockquote")) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_SKIP;
         }
       });
 
@@ -4015,7 +4050,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.025-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.026-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

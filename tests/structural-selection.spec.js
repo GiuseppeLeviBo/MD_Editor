@@ -71,4 +71,18 @@ test.describe("structural selections", () => {
     await expect(page.locator("#syncStatus")).toContainText("different structures");
     await expect(page.locator("#markdownInput")).toHaveValue(initialMarkdown);
   });
+
+  test("turns a blockquote back into a paragraph from the visual toolbar", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("> Quoted line");
+    await expect(page.locator("#visualEditor blockquote")).toContainText("Quoted line");
+
+    await selectVisualTextRange(page, "Quoted line", "Quoted line");
+    await page.locator("#paragraphButton").click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue("Quoted line");
+    await expect(page.locator("#visualEditor blockquote")).toHaveCount(0);
+    await expect(page.locator("#visualEditor p")).toContainText("Quoted line");
+  });
 });

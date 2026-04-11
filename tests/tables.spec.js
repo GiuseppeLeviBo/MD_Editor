@@ -48,6 +48,45 @@ async function getCurrentTableCellText(page) {
   });
 }
 
+async function selectTableRange(page, startText, endText) {
+  await page.evaluate(({ startTextValue, endTextValue }) => {
+    const editor = document.getElementById("visualEditor");
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    let startNode = null;
+    let endNode = null;
+    let startOffset = -1;
+    let endOffset = -1;
+    let node;
+
+    while ((node = walker.nextNode())) {
+      if (!startNode) {
+        const startIndex = node.textContent.indexOf(startTextValue);
+        if (startIndex >= 0) {
+          startNode = node;
+          startOffset = startIndex;
+        }
+      }
+
+      const endIndex = node.textContent.indexOf(endTextValue);
+      if (endIndex >= 0) {
+        endNode = node;
+        endOffset = endIndex + endTextValue.length;
+      }
+    }
+
+    if (!startNode || !endNode) {
+      throw new Error("Unable to create a range across the table.");
+    }
+
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, { startTextValue: startText, endTextValue: endText });
+}
+
 test.describe("tables", () => {
   test("creates a standard markdown table from toolbar prompts", async ({ page }) => {
     await mockPromptSequence(page, ["3", "2"]);
@@ -83,11 +122,10 @@ test.describe("tables", () => {
     await page.goto("/");
 
     await page.locator("#markdownInput").fill(
-      "|  |  |\n| --- | --- |\n| Alpha | Beta |"
+      "|  |  |\n| --- | --- |\n| Alpha | Beta |\n| Gamma | Delta |"
     );
 
-    await placeCaretInTableCell(page, "Alpha");
-    await page.locator("#visualEditor table td").first().click();
+    await selectTableRange(page, "Alpha", "Delta");
 
     await expect(page.locator('[data-block="h1"]')).toBeDisabled();
     await expect(page.locator('[data-command="insertUnorderedList"]')).toBeDisabled();
