@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.032-beta">
+  <link rel="manifest" href="./manifest.json?v=0.033-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -370,6 +370,31 @@
       letter-spacing: 0.01em;
     }
 
+    .editor h4,
+    .preview h4 {
+      font-size: 1.05rem;
+      line-height: 1.35;
+      margin-top: 1.1em;
+      letter-spacing: 0.01em;
+    }
+
+    .editor h5,
+    .preview h5 {
+      font-size: 0.97rem;
+      line-height: 1.4;
+      margin-top: 1.05em;
+      letter-spacing: 0.01em;
+    }
+
+    .editor h6,
+    .preview h6 {
+      font-size: 0.9rem;
+      line-height: 1.45;
+      margin-top: 1em;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
     .editor p,
     .preview p,
     .editor ul,
@@ -712,6 +737,9 @@
         <button type="button" class="tool-button" data-block="h1" data-i18n-title="heading1"><span class="tool-icon">H1</span><span data-i18n="heading1">Titolo 1</span></button>
         <button type="button" class="tool-button" data-block="h2" data-i18n-title="heading2"><span class="tool-icon">H2</span><span data-i18n="heading2">Titolo 2</span></button>
         <button type="button" class="tool-button" data-block="h3" data-i18n-title="heading3"><span class="tool-icon">H3</span><span data-i18n="heading3">Titolo 3</span></button>
+        <button type="button" class="tool-button" data-block="h4" data-i18n-title="heading4"><span class="tool-icon">H4</span><span data-i18n="heading4">Titolo 4</span></button>
+        <button type="button" class="tool-button" data-block="h5" data-i18n-title="heading5"><span class="tool-icon">H5</span><span data-i18n="heading5">Titolo 5</span></button>
+        <button type="button" class="tool-button" data-block="h6" data-i18n-title="heading6"><span class="tool-icon">H6</span><span data-i18n="heading6">Titolo 6</span></button>
         <button type="button" class="tool-button" id="paragraphButton" data-i18n-title="paragraph"><span class="tool-icon">¶</span><span data-i18n="paragraph">Paragrafo</span></button>
         <button type="button" class="tool-button" id="codeBlockButton" data-i18n-title="code"><span class="tool-icon">&lt;/&gt;</span><span data-i18n="code">Codice</span></button>
         <button type="button" class="tool-button" id="linkButton" data-i18n-title="link"><span class="tool-icon">🔗</span><span data-i18n="link">Link</span></button>
@@ -792,7 +820,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.032 beta</div>
+      <div class="build-badge" id="buildBadge">v0.033 beta</div>
     </footer>
   </main>
 
@@ -831,7 +859,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.032 beta";
+    const APP_VERSION = "v0.033 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -976,6 +1004,8 @@
       let syncVersion = 0;
       const CODE_CARET_MARKER = "\u200B";
       const HISTORY_LIMIT = 500;
+    let currentReferenceDefinitions = new Map();
+    let currentReferenceOrder = [];
     const shortcutHints = {
       bold: "Ctrl/Cmd + B",
       italic: "Ctrl/Cmd + I",
@@ -1011,6 +1041,9 @@
         heading1: "Titolo 1",
         heading2: "Titolo 2",
         heading3: "Titolo 3",
+        heading4: "Titolo 4",
+        heading5: "Titolo 5",
+        heading6: "Titolo 6",
         paragraph: "Paragrafo",
         code: "Codice",
         link: "Link",
@@ -1091,6 +1124,9 @@
         heading1Title: "Titolo di primo livello",
         heading2Title: "Titolo di secondo livello",
         heading3Title: "Titolo di terzo livello",
+        heading4Title: "Titolo di quarto livello",
+        heading5Title: "Titolo di quinto livello",
+        heading6Title: "Titolo di sesto livello",
         paragraphTitle: "Trasforma in paragrafo",
         codeTitle: "Inserisci o rimuovi un blocco codice",
         linkTitle: "Inserisci un collegamento",
@@ -1118,6 +1154,9 @@
         heading1: "Heading 1",
         heading2: "Heading 2",
         heading3: "Heading 3",
+        heading4: "Heading 4",
+        heading5: "Heading 5",
+        heading6: "Heading 6",
         paragraph: "Paragraph",
         code: "Code",
         link: "Link",
@@ -1198,6 +1237,9 @@
         heading1Title: "First-level heading",
         heading2Title: "Second-level heading",
         heading3Title: "Third-level heading",
+        heading4Title: "Fourth-level heading",
+        heading5Title: "Fifth-level heading",
+        heading6Title: "Sixth-level heading",
         paragraphTitle: "Turn into paragraph",
         codeTitle: "Insert or remove a code block",
         linkTitle: "Insert a link",
@@ -1268,6 +1310,11 @@
         "3. Scrivi nell'editor visuale o nel pannello Markdown: i due lati restano sincronizzati.",
         "4. Per trasformazioni strutturali complesse su più righe, come titoli multipli o cambi lista/titolo, il pannello Markdown resta il metodo più affidabile.",
         "",
+        "## Filosofia del progetto",
+        "",
+        "> Questo editor segue un approccio 'pure Markdown first'.",
+        "> Privilegia strutture Markdown standard o molto diffuse, evitando stili visuali arbitrari e sintassi proprietarie.",
+        "",
         "## Funzioni principali",
         "",
         "- toolbar visuale",
@@ -1320,6 +1367,12 @@
         "1. Use **Link folder** to set the project folder.",
         "2. Use **Open .md** to open an existing Markdown file.",
         "3. Write in the visual editor or in the Markdown panel: both sides stay in sync.",
+        "4. For complex multi-line structural edits, such as switching several blocks between headings and lists, the Markdown panel is still the most reliable method.",
+        "",
+        "## Project philosophy",
+        "",
+        "> This editor follows a 'pure Markdown first' approach.",
+        "> It prefers standard or widely adopted Markdown structures and avoids arbitrary visual styling or proprietary syntax.",
         "",
         "## Main features",
         "",
@@ -1370,6 +1423,215 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+    }
+
+    function normalizeReferenceId(value) {
+      return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+    }
+
+    function extractReferenceDefinitionData(markdown) {
+      const lines = String(markdown || "").replace(/\r/g, "").split("\n");
+      const contentLines = [];
+      const definitions = new Map();
+      const order = [];
+
+      lines.forEach(line => {
+        const match = line.match(/^\s*\[([^\]]+)\]:\s*(\S+)(?:\s+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?\s*$/);
+        if (!match) {
+          contentLines.push(line);
+          return;
+        }
+
+        const label = (match[1] || "").trim();
+        const key = normalizeReferenceId(label);
+        if (!key) {
+          contentLines.push(line);
+          return;
+        }
+
+        if (!definitions.has(key)) {
+          order.push(key);
+        }
+
+        definitions.set(key, {
+          label,
+          href: match[2] || "",
+          title: match[3] || match[4] || match[5] || ""
+        });
+      });
+
+      return { contentLines, definitions, order };
+    }
+
+    function getReferenceDefinition(label, definitions = currentReferenceDefinitions) {
+      const key = normalizeReferenceId(label);
+      return key ? definitions.get(key) || null : null;
+    }
+
+    function createMarkdownAnchorHtml(label, href, options = {}) {
+      const { referenceId = "", title = "" } = options;
+      const titleAttr = title ? ' title="' + escapeHtml(title) + '"' : "";
+      const referenceAttr = referenceId ? ' data-md-ref="' + escapeHtml(referenceId) + '"' : "";
+      return '<a href="' + escapeHtml(href) + '" data-md-href="' + escapeHtml(href) + '"' + referenceAttr + titleAttr + ' target="_blank" rel="noreferrer">' + label + "</a>";
+    }
+
+    function getMarkdownListLineInfo(line) {
+      if (typeof line !== "string") {
+        return null;
+      }
+
+      const taskMatch = line.match(/^(\s*)- \[([ xX])\]\s?(.*)$/);
+      if (taskMatch) {
+        return {
+          indent: taskMatch[1].length,
+          depth: Math.floor(taskMatch[1].length / 2),
+          type: "task",
+          checked: taskMatch[2].toLowerCase() === "x",
+          content: taskMatch[3] || ""
+        };
+      }
+
+      const ulMatch = line.match(/^(\s*)- (.+)$/);
+      if (ulMatch) {
+        return {
+          indent: ulMatch[1].length,
+          depth: Math.floor(ulMatch[1].length / 2),
+          type: "ul",
+          checked: false,
+          content: ulMatch[2] || ""
+        };
+      }
+
+      const olMatch = line.match(/^(\s*)(\d+)\. (.+)$/);
+      if (olMatch) {
+        return {
+          indent: olMatch[1].length,
+          depth: Math.floor(olMatch[1].length / 2),
+          type: "ol",
+          checked: false,
+          content: olMatch[3] || ""
+        };
+      }
+
+      return null;
+    }
+
+    function getMarkdownQuoteLineInfo(line) {
+      if (typeof line !== "string") {
+        return null;
+      }
+
+      const match = line.match(/^(\s*(?:>\s*)+)(.*)$/);
+      if (!match) {
+        return null;
+      }
+
+      const markers = match[1].match(/>/g) || [];
+      return {
+        depth: markers.length,
+        content: match[2] || ""
+      };
+    }
+
+    async function renderMarkdownListBlock(lines, startIndex) {
+      const root = document.createElement("div");
+      const listStack = [];
+      const lastItems = [];
+      let index = startIndex;
+
+      while (index < lines.length) {
+        const info = getMarkdownListLineInfo(lines[index]);
+        if (!info) {
+          break;
+        }
+
+        const desiredDepth = info.depth;
+        while (listStack.length > desiredDepth + 1) {
+          listStack.pop();
+          lastItems.pop();
+        }
+
+        let currentList = listStack[desiredDepth] || null;
+        const desiredTag = info.type === "ol" ? "ol" : "ul";
+
+        if (!currentList || currentList.tagName.toLowerCase() !== desiredTag || (info.type === "task" && !currentList.classList.contains("task-list")) || (info.type !== "task" && currentList.classList.contains("task-list"))) {
+          const list = document.createElement(desiredTag);
+          if (info.type === "task") {
+            list.classList.add("task-list");
+          }
+
+          if (desiredDepth === 0) {
+            root.appendChild(list);
+          } else {
+            const parentItem = lastItems[desiredDepth - 1];
+            if (!parentItem) {
+              break;
+            }
+            parentItem.appendChild(list);
+          }
+
+          listStack[desiredDepth] = list;
+          listStack.length = desiredDepth + 1;
+          lastItems.length = desiredDepth;
+          currentList = list;
+        }
+
+        const listItem = document.createElement("li");
+        if (info.type === "task") {
+          listItem.dataset.task = "true";
+          listItem.dataset.checked = String(info.checked);
+          const labelHtml = await applyInlineMarkdown(info.content, { allowImages: false });
+          listItem.innerHTML = '<span class="task-item"><input type="checkbox" contenteditable="false"' + (info.checked ? ' checked="checked"' : "") + '><span class="task-text">' + labelHtml + "</span></span>";
+        } else {
+          listItem.innerHTML = await applyInlineMarkdown(info.content, { allowImages: false });
+        }
+
+        currentList.appendChild(listItem);
+        lastItems[desiredDepth] = listItem;
+        index += 1;
+      }
+
+      return {
+        html: root.innerHTML,
+        consumed: index - startIndex
+      };
+    }
+
+    async function renderMarkdownBlockquoteBlock(lines, startIndex) {
+      const root = document.createElement("div");
+      const quoteStack = [];
+      let index = startIndex;
+
+      while (index < lines.length) {
+        const info = getMarkdownQuoteLineInfo(lines[index]);
+        if (!info || info.depth <= 0) {
+          break;
+        }
+
+        while (quoteStack.length > info.depth) {
+          quoteStack.pop();
+        }
+
+        while (quoteStack.length < info.depth) {
+          const blockquote = document.createElement("blockquote");
+          if (!quoteStack.length) {
+            root.appendChild(blockquote);
+          } else {
+            quoteStack[quoteStack.length - 1].appendChild(blockquote);
+          }
+          quoteStack.push(blockquote);
+        }
+
+        const paragraph = document.createElement("p");
+        paragraph.innerHTML = await applyInlineMarkdown(info.content, { allowImages: false });
+        quoteStack[quoteStack.length - 1].appendChild(paragraph);
+        index += 1;
+      }
+
+      return {
+        html: root.innerHTML,
+        consumed: index - startIndex
+      };
     }
 
     function t(key) {
@@ -2044,7 +2306,7 @@
     }
 
     async function applyInlineMarkdown(text, options = {}) {
-      const { allowImages = true } = options;
+      const { allowImages = true, referenceDefinitions = currentReferenceDefinitions } = options;
       const escaped = escapeHtml(text);
       const fragments = [];
       let lastIndex = 0;
@@ -2066,6 +2328,14 @@
 
       return fragments.join("")
         .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\[([^\]]+)\]\[([^\]]+)\]/g, (match, label, refId) => {
+          const definition = getReferenceDefinition(refId, referenceDefinitions);
+          return definition ? createMarkdownAnchorHtml(label, definition.href, { referenceId: definition.label, title: definition.title }) : match;
+        })
+        .replace(/\[([^\]]+)\]\[\]/g, (match, label) => {
+          const definition = getReferenceDefinition(label, referenceDefinitions);
+          return definition ? createMarkdownAnchorHtml(label, definition.href, { referenceId: definition.label, title: definition.title }) : match;
+        })
         .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" data-md-href="$2" target="_blank" rel="noreferrer">$1</a>')
         .replace(/~~([^~]+)~~/g, "<del>$1</del>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -2073,32 +2343,22 @@
     }
 
       async function markdownToHtml(markdown) {
-        const lines = markdown.replace(/\r/g, "").split("\n");
+        const referenceData = extractReferenceDefinitionData(markdown);
+        currentReferenceDefinitions = referenceData.definitions;
+        currentReferenceOrder = referenceData.order;
+        const lines = referenceData.contentLines;
         let html = "";
         let inCode = false;
         let codeLanguage = "";
         let codeLines = [];
-        let inUl = false;
-        let inOl = false;
-        let inBlockquote = false;
         const warnings = new Set();
 
       function closeLists() {
-        if (inUl) {
-          html += "</ul>";
-          inUl = false;
-        }
-        if (inOl) {
-          html += "</ol>";
-          inOl = false;
-        }
+        return;
       }
 
       function closeQuote() {
-        if (inBlockquote) {
-          html += "</blockquote>";
-          inBlockquote = false;
-        }
+        return;
       }
 
         for (let index = 0; index < lines.length; index += 1) {
@@ -2153,10 +2413,11 @@
         const h1 = line.match(/^# (.+)$/);
         const h2 = line.match(/^## (.+)$/);
         const h3 = line.match(/^### (.+)$/);
-        const task = line.match(/^- \[([ xX])\] ?(.*)$/);
-        const ul = line.match(/^- (.+)$/);
-        const ol = line.match(/^\d+\. (.+)$/);
-        const quote = line.match(/^> (.+)$/);
+        const h4 = line.match(/^#### (.+)$/);
+        const h5 = line.match(/^##### (.+)$/);
+        const h6 = line.match(/^###### (.+)$/);
+        const listInfo = getMarkdownListLineInfo(line);
+        const quoteInfo = getMarkdownQuoteLineInfo(line);
 
         if (h1) {
           closeLists();
@@ -2179,13 +2440,32 @@
           continue;
         }
 
-        if (quote) {
+        if (h4) {
           closeLists();
-          if (!inBlockquote) {
-            html += "<blockquote>";
-            inBlockquote = true;
-          }
-          html += "<p>" + await applyInlineMarkdown(quote[1]) + "</p>";
+          closeQuote();
+          html += "<h4>" + await applyInlineMarkdown(h4[1]) + "</h4>";
+          continue;
+        }
+
+        if (h5) {
+          closeLists();
+          closeQuote();
+          html += "<h5>" + await applyInlineMarkdown(h5[1]) + "</h5>";
+          continue;
+        }
+
+        if (h6) {
+          closeLists();
+          closeQuote();
+          html += "<h6>" + await applyInlineMarkdown(h6[1]) + "</h6>";
+          continue;
+        }
+
+        if (quoteInfo) {
+          closeLists();
+          const quoteBlock = await renderMarkdownBlockquoteBlock(lines, index);
+          html += quoteBlock.html;
+          index += quoteBlock.consumed - 1;
           continue;
         }
 
@@ -2201,44 +2481,10 @@
           continue;
         }
 
-        if (task) {
-          if (inOl) {
-            html += "</ol>";
-            inOl = false;
-          }
-          if (!inUl) {
-            html += '<ul class="task-list">';
-            inUl = true;
-          }
-          const checked = task[1].toLowerCase() === "x";
-          const label = await applyInlineMarkdown(task[2] || "");
-          html += '<li data-task="true" data-checked="' + String(checked) + '"><span class="task-item"><input type="checkbox" contenteditable="false"' + (checked ? " checked" : "") + '><span class="task-text">' + label + "</span></span></li>";
-          continue;
-        }
-
-        if (ul) {
-          if (inOl) {
-            html += "</ol>";
-            inOl = false;
-          }
-          if (!inUl) {
-            html += "<ul>";
-            inUl = true;
-          }
-          html += "<li>" + await applyInlineMarkdown(ul[1]) + "</li>";
-          continue;
-        }
-
-        if (ol) {
-          if (inUl) {
-            html += "</ul>";
-            inUl = false;
-          }
-          if (!inOl) {
-            html += "<ol>";
-            inOl = true;
-          }
-          html += "<li>" + await applyInlineMarkdown(ol[1]) + "</li>";
+        if (listInfo) {
+          const listBlock = await renderMarkdownListBlock(lines, index);
+          html += listBlock.html;
+          index += listBlock.consumed - 1;
           continue;
         }
 
@@ -2262,6 +2508,7 @@
     function inlineHtmlToMarkdown(html) {
       return html
         .replace(/<\/?span[^>]*>/gi, "")
+        .replace(/<a [^>]*data-md-ref="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2][$1]")
         .replace(/<a [^>]*data-md-href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
         .replace(/<img [^>]*data-md-src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi, "![$2]($1)")
         .replace(/<img [^>]*alt="([^"]*)"[^>]*data-md-src="([^"]+)"[^>]*>/gi, "![$1]($2)")
@@ -2335,15 +2582,106 @@
         return [headerLine, separatorLine, ...rows].join("\n") + "\n\n";
       }
 
-      function listItemToMarkdown(node, prefix) {
-        const checkbox = node.querySelector('input[type="checkbox"]');
-        if (node.dataset.task === "true" || checkbox) {
-          const marker = checkbox && checkbox.checked ? "[x]" : "[ ]";
-          const labelNode = node.querySelector(".task-text") || node.querySelector("span") || node;
-          const label = normalizeNodeText(inlineHtmlToMarkdown(labelNode.innerHTML || labelNode.textContent || ""));
-          return prefix + " " + marker + (label ? " " + label : "");
+      function prefixMarkdownLines(markdown, prefix) {
+        return String(markdown || "")
+          .split("\n")
+          .filter(Boolean)
+          .map(line => prefix + line)
+          .join("\n");
+      }
+
+      function collectReferenceDefinitionsFromDocument() {
+        const usedKeys = new Set();
+        doc.querySelectorAll("a[data-md-ref]").forEach(link => {
+          const key = normalizeReferenceId(link.getAttribute("data-md-ref"));
+          if (key) {
+            usedKeys.add(key);
+          }
+        });
+
+        return currentReferenceOrder
+          .filter(key => usedKeys.has(key) && currentReferenceDefinitions.has(key))
+          .map(key => {
+            const definition = currentReferenceDefinitions.get(key);
+            return "[" + definition.label + "]: " + definition.href + (definition.title ? ' "' + definition.title + '"' : "");
+          });
+      }
+
+      function listItemToMarkdown(node, prefix, depth = 0) {
+        const nestedLists = Array.from(node.children).filter(child => child.matches && child.matches("ul, ol"));
+        const clone = node.cloneNode(true);
+        clone.querySelectorAll("ul, ol").forEach(childList => childList.remove());
+        const checkbox = clone.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+          checkbox.remove();
         }
-        return prefix + " " + normalizeNodeText(nodeToMarkdown(node));
+        const taskText = clone.querySelector(".task-text");
+        const inlineSource = taskText ? taskText.innerHTML : clone.innerHTML;
+        const label = normalizeNodeText(inlineHtmlToMarkdown(inlineSource || clone.textContent || ""));
+        const markerPrefix = "  ".repeat(depth) + prefix;
+
+        let line = markerPrefix;
+        if (node.dataset.task === "true" || node.querySelector('input[type="checkbox"]')) {
+          const originalCheckbox = node.querySelector('input[type="checkbox"]');
+          const marker = originalCheckbox && originalCheckbox.checked ? "[x]" : "[ ]";
+          line += " " + marker + (label ? " " + label : "");
+        } else {
+          line += " " + label;
+        }
+
+        const nestedMarkdown = nestedLists
+          .map(list => listNodeToMarkdown(list, depth + 1, false))
+          .filter(Boolean)
+          .join("\n");
+
+        return nestedMarkdown ? line + "\n" + nestedMarkdown : line;
+      }
+
+      function listNodeToMarkdown(node, depth = 0, addTrailingGap = true) {
+        const lines = Array.from(node.children)
+          .map((item, index) => listItemToMarkdown(item, node.tagName.toLowerCase() === "ol" ? (index + 1) + "." : "-", depth))
+          .filter(Boolean);
+
+        if (!lines.length) {
+          return "";
+        }
+
+        return lines.join("\n") + (addTrailingGap && depth === 0 ? "\n\n" : "");
+      }
+
+      function blockquoteNodeToMarkdown(node, depth = 1) {
+        const parts = [];
+
+        Array.from(node.childNodes).forEach(child => {
+          if (child.nodeType === Node.TEXT_NODE) {
+            const text = normalizeNodeText(child.textContent || "");
+            if (text) {
+              parts.push(prefixMarkdownLines(text, "> ".repeat(depth)));
+            }
+            return;
+          }
+
+          if (child.nodeType !== Node.ELEMENT_NODE) {
+            return;
+          }
+
+          const tag = child.tagName.toLowerCase();
+          if (tag === "blockquote") {
+            const nested = blockquoteNodeToMarkdown(child, depth + 1).trim();
+            if (nested) {
+              parts.push(nested);
+            }
+            return;
+          }
+
+          const childMarkdown = nodeToMarkdown(child).trim();
+          if (!childMarkdown) {
+            return;
+          }
+          parts.push(prefixMarkdownLines(childMarkdown, "> ".repeat(depth)));
+        });
+
+        return parts.filter(Boolean).join("\n") + "\n\n";
       }
 
       function nodeToMarkdown(node) {
@@ -2366,6 +2704,12 @@
             return "## " + clean.trim() + "\n\n";
           case "h3":
             return "### " + clean.trim() + "\n\n";
+          case "h4":
+            return "#### " + clean.trim() + "\n\n";
+          case "h5":
+            return "##### " + clean.trim() + "\n\n";
+          case "h6":
+            return "###### " + clean.trim() + "\n\n";
           case "p":
           case "div":
             return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML)) + "\n\n";
@@ -2380,27 +2724,22 @@
             return inlineHtmlToMarkdown(node.outerHTML);
           case "a": {
             const label = normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML)) || getMarkdownLinkSource(node);
+            const referenceId = node.getAttribute("data-md-ref");
+            if (referenceId) {
+              return "[" + label + "][" + referenceId + "]";
+            }
             return "[" + label + "](" + getMarkdownLinkSource(node) + ")";
           }
           case "blockquote":
-            return clean
-              .trim()
-              .split("\n")
-              .filter(Boolean)
-              .map(line => "> " + line.replace(/^> /, "").trim())
-              .join("\n") + "\n\n";
+            return blockquoteNodeToMarkdown(node, 1);
           case "ul":
-            return Array.from(node.children)
-              .map(item => listItemToMarkdown(item, "-"))
-              .join("\n") + "\n\n";
+            return listNodeToMarkdown(node, 0, true);
           case "ol":
-            return Array.from(node.children)
-              .map((item, index) => listItemToMarkdown(item, (index + 1) + "."))
-              .join("\n") + "\n\n";
-            case "li":
-              return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
-            case "pre":
-              return "```" + (node.dataset.language || "") + "\n" + getCodeBlockText(node).replace(/\n+$/, "") + "\n```\n\n";
+            return listNodeToMarkdown(node, 0, true);
+          case "li":
+            return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
+          case "pre":
+            return "```" + (node.dataset.language || "") + "\n" + getCodeBlockText(node).replace(/\n+$/, "") + "\n```\n\n";
           case "table":
             return tableNodeToMarkdown(node);
           case "img":
@@ -2430,8 +2769,12 @@
         }
       }
 
-      return nodeToMarkdown(doc.body)
+      const bodyMarkdown = nodeToMarkdown(doc.body)
         .replace(/• /g, "- ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      const referenceLines = collectReferenceDefinitionsFromDocument();
+      return (bodyMarkdown + (referenceLines.length ? "\n\n" + referenceLines.join("\n") : ""))
         .replace(/\n{3,}/g, "\n\n")
         .trim();
     }
@@ -2706,7 +3049,7 @@
       if (quoteBlock) {
         return quoteBlock;
       }
-      return node ? node.closest("p, div, h1, h2, h3, pre, li") : null;
+      return node ? node.closest("p, div, h1, h2, h3, h4, h5, h6, pre, li") : null;
     }
 
     function markCollapsedListSelection() {
@@ -2753,7 +3096,7 @@
           if (node.matches("blockquote")) {
             return NodeFilter.FILTER_ACCEPT;
           }
-          if (node.matches("p, div, h1, h2, h3, pre, li") && !node.closest("blockquote")) {
+          if (node.matches("p, div, h1, h2, h3, h4, h5, h6, pre, li") && !node.closest("blockquote")) {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_SKIP;
@@ -4663,7 +5006,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.032-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.033-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
