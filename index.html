@@ -882,7 +882,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.042 beta";
+    const APP_VERSION = "v0.043 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1486,6 +1486,31 @@
       }
       const scheme = schemeMatch[1].toLowerCase();
       return scheme === "http" || scheme === "https" || scheme === "mailto" || scheme === "tel";
+    }
+
+    function isSafeMarkdownImageSource(source) {
+      const normalizedSource = normalizeLinkHref(source);
+      if (!normalizedSource) {
+        return false;
+      }
+      if (/^(\/|\?|\.\.?\/)/.test(normalizedSource)) {
+        return true;
+      }
+      const schemeMatch = normalizedSource.match(/^([a-z][a-z0-9+.-]*):/i);
+      if (!schemeMatch) {
+        return true;
+      }
+      const scheme = schemeMatch[1].toLowerCase();
+      if (scheme === "http" || scheme === "https" || scheme === "blob") {
+        return true;
+      }
+      return /^data:image\//i.test(normalizedSource);
+    }
+
+    function preserveEscapedMarkdownLiteral(markdownLiteral) {
+      return String(markdownLiteral || "")
+        .replace(/\[/g, "&#91;")
+        .replace(/\]/g, "&#93;");
     }
 
     function normalizeReferenceId(value) {
@@ -2404,6 +2429,7 @@
       const { allowImages = true, referenceDefinitions = currentReferenceDefinitions } = options;
       const escaped = escapeHtml(text);
       const fragments = [];
+      const blockedImageLiterals = [];
       let lastIndex = 0;
       const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
       let match;
@@ -2413,6 +2439,13 @@
           fragments.push(escaped.slice(lastIndex, match.index));
           const alt = match[1];
           const originalPath = match[2];
+          if (!isSafeMarkdownImageSource(originalPath)) {
+            const token = "__MD_BLOCKED_IMAGE_" + blockedImageLiterals.length + "__";
+            blockedImageLiterals.push(match[0]);
+            fragments.push(token);
+            lastIndex = match.index + match[0].length;
+            continue;
+          }
           const resolvedPath = await resolveResourcePath(originalPath);
           fragments.push('<img src="' + escapeHtml(resolvedPath) + '" data-md-src="' + escapeHtml(originalPath) + '" alt="' + alt + '">');
           lastIndex = match.index + match[0].length;
@@ -2421,7 +2454,7 @@
 
       fragments.push(escaped.slice(lastIndex));
 
-      return fragments.join("")
+      let result = fragments.join("")
         .replace(/`([^`]+)`/g, "<code>$1</code>")
         .replace(/\[([^\]]+)\]\[([^\]]+)\]/g, (match, label, refId) => {
           const definition = getReferenceDefinition(refId, referenceDefinitions);
@@ -2435,6 +2468,12 @@
         .replace(/~~([^~]+)~~/g, "<del>$1</del>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+      blockedImageLiterals.forEach((literal, index) => {
+        result = result.replace("__MD_BLOCKED_IMAGE_" + index + "__", preserveEscapedMarkdownLiteral(literal));
+      });
+
+      return result;
     }
 
       async function markdownToHtml(markdown) {
@@ -2571,6 +2610,10 @@
           closeLists();
           const alt = escapeHtml(image[1]);
           const originalSource = image[2];
+          if (!isSafeMarkdownImageSource(originalSource)) {
+            html += "<p>" + preserveEscapedMarkdownLiteral(escapeHtml(line)) + "</p>";
+            continue;
+          }
           const src = escapeHtml(await resolveResourcePath(originalSource));
           html += '<figure><img src="' + src + '" data-md-src="' + escapeHtml(originalSource) + '" alt="' + alt + '">' + (alt ? "<figcaption>" + alt + "</figcaption>" : "") + "</figure>";
           continue;
@@ -5463,7 +5506,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.042-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.043-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
