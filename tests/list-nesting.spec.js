@@ -66,6 +66,32 @@ test.describe("list nesting", () => {
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Third item");
   });
 
+  test("renders nested task list items below and indented from the parent item", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("1. First item\n2. Second item\n  - [ ] Third item\n  - [ ] Fourth item");
+
+    const previewParent = page.locator("#preview > ol > li").nth(1);
+    const previewNested = page.locator("#preview > ol > li").nth(1).locator("ul.task-list > li").first();
+    const visualParent = page.locator("#visualEditor > ol > li").nth(1);
+    const visualNested = page.locator("#visualEditor > ol > li").nth(1).locator("ul.task-list > li").first();
+
+    const previewParentBox = await previewParent.boundingBox();
+    const previewNestedBox = await previewNested.boundingBox();
+    const visualParentBox = await visualParent.boundingBox();
+    const visualNestedBox = await visualNested.boundingBox();
+
+    expect(previewParentBox).not.toBeNull();
+    expect(previewNestedBox).not.toBeNull();
+    expect(visualParentBox).not.toBeNull();
+    expect(visualNestedBox).not.toBeNull();
+
+    expect(previewNestedBox.y).toBeGreaterThan(previewParentBox.y + 8);
+    expect(previewNestedBox.x).toBeGreaterThan(previewParentBox.x + 8);
+    expect(visualNestedBox.y).toBeGreaterThan(visualParentBox.y + 8);
+    expect(visualNestedBox.x).toBeGreaterThan(visualParentBox.x + 8);
+  });
+
   test("outdents a nested list item back to the parent level with Shift+Tab", async ({ page }) => {
     await page.goto("/");
 
