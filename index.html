@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.039-beta">
+  <link rel="manifest" href="./manifest.json?v=0.040-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -843,7 +843,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.039 beta</div>
+      <div class="build-badge" id="buildBadge">v0.040 beta</div>
     </footer>
   </main>
 
@@ -882,7 +882,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.039 beta";
+    const APP_VERSION = "v0.040 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -3595,15 +3595,32 @@
       if (!parent) {
         return false;
       }
+      listItem.remove();
+      if (!list.querySelector("li")) {
+        list.remove();
+      }
+
+      if (parent.matches && parent.matches("li")) {
+        const parentList = parent.parentNode;
+        if (!parentList || !parentList.insertBefore) {
+          return false;
+        }
+        const siblingItem = parentList.classList.contains("task-list")
+          ? createTaskListItem("", false)
+          : document.createElement("li");
+        parentList.insertBefore(siblingItem, parent.nextSibling);
+        const target = siblingItem.querySelector(".task-text") || siblingItem;
+        moveCaretToElementEnd(target);
+        updateToolbarState();
+        void syncFromVisual(false);
+        return true;
+      }
+
       const afterList = list.nextSibling;
       const paragraph = document.createElement("p");
       const placeholder = document.createElement("br");
       placeholder.setAttribute("data-caret-placeholder", "true");
       paragraph.appendChild(placeholder);
-      listItem.remove();
-      if (!list.querySelector("li")) {
-        list.remove();
-      }
       parent.insertBefore(paragraph, afterList);
       moveCaretBeforeNode(placeholder);
       updateToolbarState();
@@ -5377,7 +5394,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.039-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.040-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

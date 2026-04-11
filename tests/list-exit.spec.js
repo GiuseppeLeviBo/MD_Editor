@@ -58,4 +58,19 @@ test.describe("list exit behavior", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/# Outside/);
     await expect(page.locator("#visualEditor h1")).toContainText("Outside");
   });
+
+  test("double Enter exits a nested task list back to the parent ordered list level", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("1. First item\n2. Parent item\n  - [ ] Nested task");
+    await placeCursorAtEndOfVisualText(page, "Nested task");
+
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Back to numbering");
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Parent item\n  - \[ \] Nested task\n3\. Back to numbering/);
+    await expect(page.locator("#preview > ol > li")).toHaveCount(3);
+    await expect(page.locator("#preview > ol > li").nth(2)).toContainText("Back to numbering");
+  });
 });

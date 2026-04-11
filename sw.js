@@ -1,4 +1,4 @@
-const CACHE_NAME = "md-editor-shell-v0.039-beta";
+const CACHE_NAME = "md-editor-shell-v0.040-beta";
 const APP_SHELL = [
   "./",
   "./index.html",
