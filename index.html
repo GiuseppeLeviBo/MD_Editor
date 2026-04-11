@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.040-beta">
+  <link rel="manifest" href="./manifest.json?v=0.041-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -843,7 +843,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.040 beta</div>
+      <div class="build-badge" id="buildBadge">v0.041 beta</div>
     </footer>
   </main>
 
@@ -882,7 +882,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.040 beta";
+    const APP_VERSION = "v0.041 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1134,6 +1134,7 @@
         statusListSoftBreak: "Negli elenchi i ritorni a capo interni vengono normalizzati come testo semplice.",
         statusListIndentUnavailable: "Per rientrare, il punto corrente deve avere un elemento precedente nello stesso elenco.",
         statusListOutdentUnavailable: "Questo elemento e gia al livello piu esterno dell'elenco.",
+        statusUnsafeLinkBlocked: "Questo tipo di link e bloccato per sicurezza.",
         promptInsertUrl: "Inserisci l'URL del link",
         promptTableColumns: "Numero di colonne della tabella",
         promptTableRows: "Numero di righe dati della tabella",
@@ -1254,6 +1255,7 @@
         statusListSoftBreak: "Inside lists, soft line breaks are normalized as plain text.",
         statusListIndentUnavailable: "To indent, the current item needs a previous sibling in the same list.",
         statusListOutdentUnavailable: "This item is already at the outermost list level.",
+        statusUnsafeLinkBlocked: "This link scheme is blocked for safety.",
         promptInsertUrl: "Enter the link URL",
         promptTableColumns: "Number of table columns",
         promptTableRows: "Number of table data rows",
@@ -1464,6 +1466,26 @@
         .replace(/>/g, "&gt;");
     }
 
+    function normalizeLinkHref(href) {
+      return String(href || "").trim();
+    }
+
+    function isSafeMarkdownHref(href) {
+      const normalizedHref = normalizeLinkHref(href);
+      if (!normalizedHref) {
+        return false;
+      }
+      if (/^(#|\/|\?|\.\.?\/)/.test(normalizedHref)) {
+        return true;
+      }
+      const schemeMatch = normalizedHref.match(/^([a-z][a-z0-9+.-]*):/i);
+      if (!schemeMatch) {
+        return true;
+      }
+      const scheme = schemeMatch[1].toLowerCase();
+      return scheme === "http" || scheme === "https" || scheme === "mailto" || scheme === "tel";
+    }
+
     function normalizeReferenceId(value) {
       return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
     }
@@ -1509,9 +1531,16 @@
 
     function createMarkdownAnchorHtml(label, href, options = {}) {
       const { referenceId = "", title = "" } = options;
+      const normalizedHref = normalizeLinkHref(href);
+      if (!isSafeMarkdownHref(normalizedHref)) {
+        if (referenceId) {
+          return "[" + label + "][" + escapeHtml(referenceId) + "]";
+        }
+        return "[" + label + "](" + escapeHtml(normalizedHref) + ")";
+      }
       const titleAttr = title ? ' title="' + escapeHtml(title) + '"' : "";
       const referenceAttr = referenceId ? ' data-md-ref="' + escapeHtml(referenceId) + '"' : "";
-      return '<a href="' + escapeHtml(href) + '" data-md-href="' + escapeHtml(href) + '"' + referenceAttr + titleAttr + ' target="_blank" rel="noreferrer">' + label + "</a>";
+      return '<a href="' + escapeHtml(normalizedHref) + '" data-md-href="' + escapeHtml(normalizedHref) + '"' + referenceAttr + titleAttr + ' target="_blank" rel="noreferrer">' + label + "</a>";
     }
 
     function getMarkdownListLineInfo(line) {
@@ -2085,7 +2114,17 @@
       }
 
       const href = getMarkdownLinkSource(link);
-      if (!href || isProbablyExternalUrl(href)) {
+      if (!href) {
+        return;
+      }
+
+      if (!isSafeMarkdownHref(href)) {
+        event.preventDefault();
+        setStatus(t("statusUnsafeLinkBlocked"));
+        return;
+      }
+
+      if (isProbablyExternalUrl(href)) {
         return;
       }
 
@@ -2390,7 +2429,7 @@
           const definition = getReferenceDefinition(label, referenceDefinitions);
           return definition ? createMarkdownAnchorHtml(label, definition.href, { referenceId: definition.label, title: definition.title }) : match;
         })
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" data-md-href="$2" target="_blank" rel="noreferrer">$1</a>')
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, href) => createMarkdownAnchorHtml(label, href))
         .replace(/~~([^~]+)~~/g, "<del>$1</del>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*]+)\*/g, "<em>$1</em>");
@@ -4655,14 +4694,19 @@
     function insertLink() {
       const selection = window.getSelection().toString().trim();
       const url = window.prompt(t("promptInsertUrl"), "https://");
-      if (!url) {
+      const normalizedUrl = normalizeLinkHref(url);
+      if (!normalizedUrl) {
+        return;
+      }
+      if (!isSafeMarkdownHref(normalizedUrl)) {
+        setStatus(t("statusUnsafeLinkBlocked"));
         return;
       }
       visualEditor.focus();
       if (selection) {
-        document.execCommand("createLink", false, url);
+        document.execCommand("createLink", false, normalizedUrl);
       } else {
-        document.execCommand("insertHTML", false, '<a href="' + url + '">' + url + "</a>");
+        document.execCommand("insertHTML", false, '<a href="' + escapeHtml(normalizedUrl) + '">' + escapeHtml(normalizedUrl) + "</a>");
       }
       void syncFromVisual();
     }
@@ -5394,7 +5438,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.040-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.041-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
