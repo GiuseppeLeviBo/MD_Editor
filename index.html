@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.028-beta">
+<link rel="manifest" href="./manifest.json?v=0.029-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -777,7 +777,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.028 beta</div>
+    <div class="build-badge" id="buildBadge">v0.029 beta</div>
     </footer>
   </main>
 
@@ -816,7 +816,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.028 beta";
+      const APP_VERSION = "v0.029 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -2649,6 +2649,32 @@
       return true;
     }
 
+    function moveCaretToElementEnd(element) {
+      if (!element) {
+        return false;
+      }
+
+      let targetNode = null;
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let currentNode = null;
+      while ((currentNode = walker.nextNode())) {
+        targetNode = currentNode;
+      }
+
+      if (!targetNode) {
+        targetNode = document.createTextNode("");
+        element.appendChild(targetNode);
+      }
+
+      const range = document.createRange();
+      range.setStart(targetNode, targetNode.textContent.length);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+
     function getSelectionBlock() {
       const node = getSelectionAnchorElement();
       if (!node) {
@@ -2659,6 +2685,34 @@
         return quoteBlock;
       }
       return node ? node.closest("p, h1, h2, h3, pre, li") : null;
+    }
+
+    function markCollapsedListSelection() {
+      if (!isSelectionCollapsedInEditor()) {
+        return null;
+      }
+      const block = getSelectionBlock();
+      if (!block || block.tagName.toLowerCase() !== "li") {
+        return null;
+      }
+      const markerId = "list-marker-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+      block.dataset.selectionMarker = markerId;
+      return markerId;
+    }
+
+    function restoreMarkedListSelection(markerId) {
+      if (!markerId) {
+        return false;
+      }
+      const listItem = visualEditor.querySelector('li[data-selection-marker="' + markerId + '"]');
+      if (!listItem) {
+        return false;
+      }
+      delete listItem.dataset.selectionMarker;
+      const target = listItem.querySelector(".task-text") || listItem;
+      const restored = moveCaretToElementEnd(target);
+      updateToolbarState();
+      return restored;
     }
 
     function getSelectedBlocks() {
@@ -3030,6 +3084,7 @@
       const desiredListTag = command === "insertOrderedList" ? "ol" : "ul";
       const currentListType = getSelectionListType();
       const selectionCollapsed = isSelectionCollapsedInEditor();
+      const selectionMarker = selectionCollapsed ? markCollapsedListSelection() : null;
 
       function getAffectedLists() {
         const selectedBlocks = getSelectedBlocks();
@@ -3067,6 +3122,7 @@
               });
             }
           });
+          restoreMarkedListSelection(selectionMarker);
           void syncFromVisual(currentListType === "task");
           updateToolbarState();
           return true;
@@ -3351,6 +3407,7 @@
 
       const uniqueBlocks = Array.from(new Set(selectedBlocks));
       const selectionCollapsed = isSelectionCollapsedInEditor();
+      const selectionMarker = selectionCollapsed ? markCollapsedListSelection() : null;
       const affectedLists = Array.from(new Set(
         uniqueBlocks
           .map(block => block && block.closest ? block.closest("ul, ol") : null)
@@ -3368,6 +3425,7 @@
               }
             });
           });
+          restoreMarkedListSelection(selectionMarker);
           void syncFromVisual(false);
         } else {
           uniqueBlocks.forEach(block => convertTaskItemToBullet(block));
@@ -3389,6 +3447,7 @@
               }
             });
           });
+          restoreMarkedListSelection(selectionMarker);
           void syncFromVisual(false);
         } else {
           uniqueBlocks.forEach(block => convertListItemToTask(block, false));
@@ -4231,7 +4290,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.028-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.029-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

@@ -65,6 +65,17 @@ async function clickTaskText(page, text) {
   await textLocator.click();
 }
 
+async function getCurrentVisualListItemText(page) {
+  return page.evaluate(() => {
+    const selection = window.getSelection();
+    const node = selection && selection.anchorNode
+      ? (selection.anchorNode.nodeType === Node.TEXT_NODE ? selection.anchorNode.parentElement : selection.anchorNode)
+      : null;
+    const listItem = node && node.closest ? node.closest("li") : null;
+    return listItem ? listItem.textContent.replace(/\s+/g, " ").trim() : null;
+  });
+}
+
 test.describe("task list", () => {
   test("renders markdown task list items as checkboxes in visual editor and preview", async ({ page }) => {
     await page.goto("/");
@@ -129,6 +140,26 @@ test.describe("task list", () => {
     await expect(page.locator('#visualEditor li[data-task="true"] input[type="checkbox"]')).toHaveCount(3);
   });
 
+  test("keeps the cursor on the same list item when switching bullets to numbered and back", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- First item\n- Second item\n- Third item");
+    await placeCursorInVisualText(page, "Second item");
+
+    await page.locator('[data-command="insertOrderedList"]').click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/2\. Second item/);
+    await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second item");
+
+    await page.locator('[data-command="insertUnorderedList"]').click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/- First item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- Second item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- Third item/);
+    await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second item");
+  });
+
   test("clicking task text keeps it editable instead of toggling the checkbox", async ({ page }) => {
     await page.goto("/");
 
@@ -164,5 +195,19 @@ test.describe("task list", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/2\. Second task/);
     await expect(page.locator("#markdownInput")).toHaveValue(/3\. Third task/);
     await expect(page.locator("#markdownInput")).not.toHaveValue(/\[x\]|\[ \]/);
+  });
+
+  test("keeps the cursor on the same item when converting numbered lists to task lists", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("1. First item\n2. Second item\n3. Third item");
+    await placeCursorInVisualText(page, "Second item");
+
+    await page.locator('[data-command="insertTaskList"]').click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] First item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] Second item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/- \[ \] Third item/);
+    await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Second item");
   });
 });
