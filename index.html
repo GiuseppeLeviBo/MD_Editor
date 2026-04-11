@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.029-beta">
+<link rel="manifest" href="./manifest.json?v=0.030-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -777,7 +777,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.029 beta</div>
+    <div class="build-badge" id="buildBadge">v0.030 beta</div>
     </footer>
   </main>
 
@@ -816,7 +816,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.029 beta";
+      const APP_VERSION = "v0.030 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -2346,6 +2346,7 @@
           case "h3":
             return "### " + clean.trim() + "\n\n";
           case "p":
+          case "div":
             return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML)) + "\n\n";
           case "strong":
           case "b":
@@ -2684,7 +2685,7 @@
       if (quoteBlock) {
         return quoteBlock;
       }
-      return node ? node.closest("p, h1, h2, h3, pre, li") : null;
+      return node ? node.closest("p, div, h1, h2, h3, pre, li") : null;
     }
 
     function markCollapsedListSelection() {
@@ -2731,7 +2732,7 @@
           if (node.matches("blockquote")) {
             return NodeFilter.FILTER_ACCEPT;
           }
-          if (node.matches("p, h1, h2, h3, pre, li") && !node.closest("blockquote")) {
+          if (node.matches("p, div, h1, h2, h3, pre, li") && !node.closest("blockquote")) {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_SKIP;
@@ -2838,6 +2839,114 @@
       return selection.isCollapsed && (!anchorNode || visualEditor.contains(anchorNode));
     }
 
+    function getSelectionListItem() {
+      const block = getSelectionBlock();
+      return block && block.tagName && block.tagName.toLowerCase() === "li" ? block : null;
+    }
+
+    function isCaretAtEndOfListItem(range, listItem) {
+      if (!range || !listItem) {
+        return false;
+      }
+      const tailRange = document.createRange();
+      tailRange.selectNodeContents(listItem);
+      tailRange.setStart(range.endContainer, range.endOffset);
+      const tailText = (tailRange.cloneContents().textContent || "")
+        .replace(/[\u200B\u00A0]/g, " ")
+        .replace(/\s+/g, "")
+        .trim();
+      const hasTailContent = !!tailRange.cloneContents().querySelector?.("img, table, pre, blockquote, ul, ol");
+      return !tailText && !hasTailContent;
+    }
+
+    function isListItemEffectivelyEmpty(listItem) {
+      if (!listItem) {
+        return true;
+      }
+      const html = listItem.dataset.task === "true" ? getTaskItemContentHtml(listItem) : listItem.innerHTML;
+      const probe = document.createElement("div");
+      probe.innerHTML = html;
+      const text = (probe.textContent || "")
+        .replace(/[\u200B\u00A0]/g, " ")
+        .replace(/\s+/g, "")
+        .trim();
+      const hasEmbeddedContent = !!probe.querySelector("img, table, pre, blockquote, ul, ol");
+      return !text && !hasEmbeddedContent;
+    }
+
+    function exitListAtCurrentItem(listItem) {
+      const list = listItem && listItem.closest ? listItem.closest("ul, ol") : null;
+      if (!list || list.lastElementChild !== listItem) {
+        return false;
+      }
+      const parent = list.parentNode;
+      if (!parent) {
+        return false;
+      }
+      const afterList = list.nextSibling;
+      const paragraph = document.createElement("p");
+      const placeholder = document.createElement("br");
+      placeholder.setAttribute("data-caret-placeholder", "true");
+      paragraph.appendChild(placeholder);
+      listItem.remove();
+      if (!list.querySelector("li")) {
+        list.remove();
+      }
+      parent.insertBefore(paragraph, afterList);
+      moveCaretBeforeNode(placeholder);
+      updateToolbarState();
+      void syncFromVisual(false);
+      return true;
+    }
+
+    function insertListItemAfterCurrent(listItem) {
+      if (!listItem || !listItem.parentNode) {
+        return false;
+      }
+      const newItem = listItem.dataset.task === "true"
+        ? createTaskListItem("", false)
+        : document.createElement("li");
+      listItem.parentNode.insertBefore(newItem, listItem.nextSibling);
+      const target = newItem.querySelector(".task-text") || newItem;
+      moveCaretToElementEnd(target);
+      updateToolbarState();
+      void syncFromVisual(false);
+      return true;
+    }
+
+    function handleListEnterKey(event) {
+      const isParagraphInsertion = event.type === "beforeinput"
+        ? event.inputType === "insertParagraph"
+        : event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+      if (!isParagraphInsertion) {
+        return false;
+      }
+      if (!isSelectionCollapsedInEditor() || isSelectionInsideTable()) {
+        return false;
+      }
+      const listItem = getSelectionListItem();
+      if (!listItem) {
+        return false;
+      }
+      const selection = window.getSelection();
+      const range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+      if (!range) {
+        return false;
+      }
+      if (isListItemEffectivelyEmpty(listItem)) {
+        if (!exitListAtCurrentItem(listItem)) {
+          return false;
+        }
+        event.preventDefault();
+        return true;
+      }
+      if (!isCaretAtEndOfListItem(range, listItem)) {
+        return false;
+      }
+      event.preventDefault();
+      return insertListItemAfterCurrent(listItem);
+    }
+
     function shouldNormalizeAfterCommand(command) {
       return ["insertUnorderedList", "insertOrderedList"].includes(command);
     }
@@ -2885,7 +2994,7 @@
       document.getElementById("paragraphButton").disabled = insideTable;
       document.getElementById("codeBlockButton").disabled = insideTable;
       document.getElementById("imageButton").disabled = insideTable;
-      document.getElementById("paragraphButton").classList.toggle("is-active", !insideTable && ["p", "li"].includes(blockTag));
+      document.getElementById("paragraphButton").classList.toggle("is-active", !insideTable && ["p", "div", "li"].includes(blockTag));
       document.getElementById("codeBlockButton").classList.toggle("is-active", !insideTable && blockTag === "pre");
     }
 
@@ -3134,6 +3243,10 @@
 
     function handleEditorShortcut(event) {
       if (handleTableNavigationKey(event)) {
+        return;
+      }
+
+      if (handleListEnterKey(event)) {
         return;
       }
 
@@ -4248,6 +4361,9 @@
     visualEditor.addEventListener("keydown", event => {
       handleEditorShortcut(event);
     });
+    visualEditor.addEventListener("beforeinput", event => {
+      handleListEnterKey(event);
+    });
 
     document.addEventListener("selectionchange", () => {
       if (document.activeElement === visualEditor || visualEditor.contains(document.activeElement) || visualEditor.contains(window.getSelection().anchorNode)) {
@@ -4290,7 +4406,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.029-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.030-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
