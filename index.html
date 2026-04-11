@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-<link rel="manifest" href="./manifest.json?v=0.027-beta">
+<link rel="manifest" href="./manifest.json?v=0.028-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -777,7 +777,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-    <div class="build-badge" id="buildBadge">v0.027 beta</div>
+    <div class="build-badge" id="buildBadge">v0.028 beta</div>
     </footer>
   </main>
 
@@ -816,7 +816,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-      const APP_VERSION = "v0.027 beta";
+      const APP_VERSION = "v0.028 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -959,6 +959,27 @@
     let currentMobilePanel = "visual";
     let lastKnownBlockTag = "p";
     let syncVersion = 0;
+    const HISTORY_LIMIT = 500;
+    const shortcutHints = {
+      bold: "Ctrl/Cmd + B",
+      italic: "Ctrl/Cmd + I",
+      strike: "Ctrl/Cmd + Shift + E",
+      bulletList: "Ctrl/Cmd + U",
+      numberedList: "Ctrl/Cmd + O",
+      quote: "Ctrl/Cmd + 9",
+      heading1: "Ctrl/Cmd + 1",
+      heading2: "Ctrl/Cmd + 2",
+      heading3: "Ctrl/Cmd + 3",
+      paragraph: "Ctrl/Cmd + 0",
+      saveAs: "Ctrl/Cmd + S",
+      downloadMarkdown: "Ctrl/Cmd + S",
+      printPreview: "Ctrl/Cmd + P"
+    };
+    let historyEntries = [];
+    let historyIndex = -1;
+    let isApplyingHistoryState = false;
+    let pendingHistoryValue = null;
+    let pendingHistoryTimer = null;
     const translations = {
       it: {
         heroTitle: "Editor Markdown WYSIWYG",
@@ -1028,6 +1049,8 @@
         statusDownloaded: "File Markdown scaricato",
         statusPrintOpened: "Anteprima di stampa aperta in una nuova finestra",
         statusPrintBlocked: "Il browser ha bloccato la finestra di stampa",
+        statusUndo: "Annullata l'ultima modifica",
+        statusRedo: "Ripristinata la modifica successiva",
         statusMixedStructureSelection: "La selezione include strutture diverse. Per evitare risultati confusi, modifica una struttura alla volta.",
         statusTableInvalid: "Tabella Markdown non valida: la mostro come testo normale.",
         statusTableBlocksDisabled: "Dentro una tabella puoi usare gli stili inline, ma non i comandi di blocco.",
@@ -1132,6 +1155,8 @@
         statusDownloaded: "Markdown file downloaded",
         statusPrintOpened: "Print preview opened in a new window",
         statusPrintBlocked: "The browser blocked the print window",
+        statusUndo: "Undid the latest change",
+        statusRedo: "Restored the next change",
         statusMixedStructureSelection: "This selection includes different structures. To avoid confusing results, edit one structure at a time.",
         statusTableInvalid: "Invalid Markdown table: showing it as plain text.",
         statusTableBlocksDisabled: "Inside a table you can use inline styles, but not block commands.",
@@ -1246,9 +1271,26 @@
         "",
         "## Nota sull'editor visuale",
         "",
-        "> Questo e un editor semplice e gratuito, pensato per scrivere e modificare Markdown con facilita.",
+        "> Questo e un editor semplice e gratuito, pensato per scrivere e modificare Markdown con facilità.",
         "> Per trasformazioni strutturali complesse o selezioni su più righe, il pannello Markdown resta il metodo più affidabile.",
-        "> Scorciatoie da tastiera disponibili: Desktop only."
+        "> Scorciatoie da tastiera disponibili: Desktop only.",
+        "",
+        "## Scorciatoie da tastiera",
+        "",
+        "| Comando | Scorciatoia |",
+        "| --- | --- |",
+        "| Grassetto | Ctrl/Cmd + B |",
+        "| Corsivo | Ctrl/Cmd + I |",
+        "| Barrato | Ctrl/Cmd + Shift + E |",
+        "| Lista puntata | Ctrl/Cmd + U |",
+        "| Lista numerata | Ctrl/Cmd + O |",
+        "| Paragrafo | Ctrl/Cmd + 0 |",
+        "| Titolo 1 | Ctrl/Cmd + 1 |",
+        "| Titolo 2 | Ctrl/Cmd + 2 |",
+        "| Titolo 3 | Ctrl/Cmd + 3 |",
+        "| Citazione | Ctrl/Cmd + 9 |",
+        "| Salva come | Ctrl/Cmd + S |",
+        "| Anteprima di stampa | Ctrl/Cmd + P |"
       ].join("\n"),
       en: [
         "# Markdown WYSIWYG Editor",
@@ -1284,7 +1326,24 @@
         "",
         "> This is a simple and free editor designed to make Markdown writing and editing easy.",
         "> For complex structural changes across multiple lines, such as turning several blocks into headings or switching between lists and headings, the Markdown panel is still the most reliable editing surface.",
-        "> Keyboard shortcuts are available: Desktop only."
+        "> Keyboard shortcuts are available: Desktop only.",
+        "",
+        "## Keyboard shortcuts",
+        "",
+        "| Command | Shortcut |",
+        "| --- | --- |",
+        "| Bold | Ctrl/Cmd + B |",
+        "| Italic | Ctrl/Cmd + I |",
+        "| Strikethrough | Ctrl/Cmd + Shift + E |",
+        "| Bulleted list | Ctrl/Cmd + U |",
+        "| Numbered list | Ctrl/Cmd + O |",
+        "| Paragraph | Ctrl/Cmd + 0 |",
+        "| Heading 1 | Ctrl/Cmd + 1 |",
+        "| Heading 2 | Ctrl/Cmd + 2 |",
+        "| Heading 3 | Ctrl/Cmd + 3 |",
+        "| Quote | Ctrl/Cmd + 9 |",
+        "| Save as | Ctrl/Cmd + S |",
+        "| Print preview | Ctrl/Cmd + P |"
       ].join("\n")
     };
 
@@ -1335,6 +1394,100 @@
       }
     }
 
+    function resetHistory(value = markdownInput.value) {
+      if (pendingHistoryTimer) {
+        window.clearTimeout(pendingHistoryTimer);
+        pendingHistoryTimer = null;
+      }
+      pendingHistoryValue = null;
+      historyEntries = [String(value || "")];
+      historyIndex = 0;
+    }
+
+    function commitHistorySnapshot(value = markdownInput.value) {
+      if (isApplyingHistoryState) {
+        return;
+      }
+      const snapshot = String(value || "");
+      if (historyIndex >= 0 && historyEntries[historyIndex] === snapshot) {
+        return;
+      }
+      historyEntries = historyEntries.slice(0, historyIndex + 1);
+      historyEntries.push(snapshot);
+      if (historyEntries.length > HISTORY_LIMIT) {
+        historyEntries.shift();
+      }
+      historyIndex = historyEntries.length - 1;
+    }
+
+    function queueHistorySnapshot(value = markdownInput.value) {
+      if (isApplyingHistoryState) {
+        return;
+      }
+      pendingHistoryValue = String(value || "");
+      if (pendingHistoryTimer) {
+        window.clearTimeout(pendingHistoryTimer);
+      }
+      pendingHistoryTimer = window.setTimeout(() => {
+        commitHistorySnapshot(pendingHistoryValue);
+        pendingHistoryTimer = null;
+        pendingHistoryValue = null;
+      }, 300);
+    }
+
+    function flushPendingHistorySnapshot() {
+      if (!pendingHistoryTimer) {
+        return;
+      }
+      window.clearTimeout(pendingHistoryTimer);
+      pendingHistoryTimer = null;
+      commitHistorySnapshot(pendingHistoryValue);
+      pendingHistoryValue = null;
+    }
+
+    async function restoreHistorySnapshot(nextIndex, statusKey) {
+      if (nextIndex < 0 || nextIndex >= historyEntries.length) {
+        return false;
+      }
+      historyIndex = nextIndex;
+      isApplyingHistoryState = true;
+      try {
+        markdownInput.value = historyEntries[historyIndex];
+        await syncFromMarkdown();
+        setStatus(t(statusKey));
+        updateToolbarState();
+        return true;
+      } finally {
+        isApplyingHistoryState = false;
+      }
+    }
+
+    async function undoHistory() {
+      flushPendingHistorySnapshot();
+      if (historyIndex <= 0) {
+        return false;
+      }
+      return restoreHistorySnapshot(historyIndex - 1, "statusUndo");
+    }
+
+    async function redoHistory() {
+      flushPendingHistorySnapshot();
+      if (historyIndex >= historyEntries.length - 1) {
+        return false;
+      }
+      return restoreHistorySnapshot(historyIndex + 1, "statusRedo");
+    }
+
+    function isEditingSurfaceActive() {
+      const activeElement = document.activeElement;
+      const selection = window.getSelection();
+      const anchorNode = selection ? selection.anchorNode : null;
+      return activeElement === markdownInput
+        || activeElement === visualEditor
+        || visualEditor.contains(activeElement)
+        || (anchorNode && visualEditor.contains(anchorNode));
+    }
+
     function clearSessionValue(key) {
       try {
         sessionStorage.removeItem(getSessionKey(key));
@@ -1371,10 +1524,12 @@
         node.textContent = t(node.dataset.i18n);
       });
 
-      document.querySelectorAll("[data-i18n-title]").forEach(node => {
-        node.title = t(node.dataset.i18nTitle + "Title");
-        node.setAttribute("aria-label", t(node.dataset.i18nTitle));
-      });
+        document.querySelectorAll("[data-i18n-title]").forEach(node => {
+          const shortcutHint = shortcutHints[node.dataset.i18nTitle];
+          const baseTitle = t(node.dataset.i18nTitle + "Title");
+          node.title = shortcutHint ? baseTitle + " (" + shortcutHint + ")" : baseTitle;
+          node.setAttribute("aria-label", t(node.dataset.i18nTitle));
+        });
 
       symbolSearch.placeholder = t("symbolSearchPlaceholder");
       symbolCategorySelect.setAttribute("aria-label", t("symbolCategoryLabel"));
@@ -2366,6 +2521,7 @@
       visualEditor.innerHTML = renderResult.html;
       preview.innerHTML = renderResult.html;
       saveSessionValue("draft_markdown", markdownInput.value);
+      queueHistorySnapshot(markdownInput.value);
       setStatus(renderResult.warnings.length ? t(renderResult.warnings[0]) : t("statusFromMarkdown"));
     }
 
@@ -2384,6 +2540,7 @@
       }
       preview.innerHTML = renderResult.html;
       saveSessionValue("draft_markdown", markdown);
+      queueHistorySnapshot(markdown);
       setStatus(renderResult.warnings.length ? t(renderResult.warnings[0]) : t("statusFromVisual"));
     }
 
@@ -3536,6 +3693,7 @@
             lastLoadedMarkdown = String(event.target.result || "");
             lastDownloadedMarkdown = lastLoadedMarkdown;
             markdownInput.value = lastLoadedMarkdown;
+            resetHistory(lastLoadedMarkdown);
             await syncFromMarkdown();
             if (/blob:null\//i.test(lastLoadedMarkdown)) {
               setStatus(t("statusBlobImageWarning"));
@@ -3590,6 +3748,7 @@
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
       markdownInput.value = getInitialMarkdown();
+      resetHistory(markdownInput.value);
       clearSessionValue("draft_markdown");
       await syncFromMarkdown();
       setStatus(t("statusDocumentClosed"));
@@ -3611,6 +3770,7 @@
       const defaultLanguage = detectPreferredLanguage();
       currentLanguage = defaultLanguage;
       markdownInput.value = initialMarkdownByLanguage[defaultLanguage] || initialMarkdownByLanguage.en;
+      resetHistory(markdownInput.value);
       setLanguage(defaultLanguage);
       const defaultViewInput = document.querySelector('input[name="previewMode"][value="all"]');
       if (defaultViewInput) {
@@ -3915,6 +4075,8 @@
       void syncFromVisual();
       updateToolbarState();
     });
+    visualEditor.addEventListener("focus", flushPendingHistorySnapshot);
+    markdownInput.addEventListener("focus", flushPendingHistorySnapshot);
 
     visualEditor.addEventListener("change", event => {
       if (event.target.matches('input[type="checkbox"]')) {
@@ -3994,6 +4156,20 @@
       const isModifierPressed = event.ctrlKey || event.metaKey;
       if (isModifierPressed && !event.altKey) {
         const key = event.key.toLowerCase();
+        if (isEditingSurfaceActive() && key === "z") {
+          event.preventDefault();
+          if (event.shiftKey) {
+            void redoHistory();
+          } else {
+            void undoHistory();
+          }
+          return;
+        }
+        if (isEditingSurfaceActive() && key === "y") {
+          event.preventDefault();
+          void redoHistory();
+          return;
+        }
         if (key === "s") {
           event.preventDefault();
           void saveMarkdownAs();
@@ -4042,6 +4218,7 @@
     currentMobilePanel = ["visual", "markdown", "preview"].includes(savedMobilePanel) ? savedMobilePanel : "visual";
     setLanguage(savedLanguage);
     markdownInput.value = savedDraft || getInitialMarkdown() || seedMarkdown;
+    resetHistory(markdownInput.value);
     const activeViewInput = document.querySelector('input[name="previewMode"][value="' + savedViewMode + '"]');
     if (activeViewInput) {
       activeViewInput.checked = true;
@@ -4054,7 +4231,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.027-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.028-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
