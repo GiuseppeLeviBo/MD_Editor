@@ -54,6 +54,16 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("local resources", () => {
+  test("does not resolve a relative local image against the app origin before folder linking", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("![Diagram](diagram.svg)");
+
+    await expect(page.locator("#preview img")).toHaveCount(0);
+    await expect(page.locator("#visualEditor img")).toHaveCount(0);
+    await expect(page.locator("#preview")).toContainText("![Diagram](diagram.svg)");
+  });
+
   test("renders a linked local image after folder linking", async ({ page }) => {
     await page.goto("/");
 
