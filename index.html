@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.038-beta">
+  <link rel="manifest" href="./manifest.json?v=0.039-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -843,7 +843,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.038 beta</div>
+      <div class="build-badge" id="buildBadge">v0.039 beta</div>
     </footer>
   </main>
 
@@ -882,7 +882,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.038 beta";
+    const APP_VERSION = "v0.039 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -3258,11 +3258,11 @@
       if (!block) {
         return null;
       }
-      if (block.matches('li[data-task="true"]') || block.closest('ul.task-list, ol.task-list')) {
+      const parentList = block.closest("ul, ol");
+      if (block.matches('li[data-task="true"]') || (parentList && parentList.classList.contains("task-list"))) {
         return "task";
       }
-      const list = block.closest("ul, ol");
-      return list ? list.tagName.toLowerCase() : null;
+      return parentList ? parentList.tagName.toLowerCase() : null;
     }
 
     function getBlockStructureKind(block) {
@@ -5377,7 +5377,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-          void navigator.serviceWorker.register("./sw.js?v=0.038-beta", { updateViaCache: "none" }).then(registration => {
+          void navigator.serviceWorker.register("./sw.js?v=0.039-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

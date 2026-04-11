@@ -118,4 +118,14 @@ test.describe("list nesting", () => {
     await expect(page.locator("#markdownInput")).not.toHaveValue(/Parent task updated/);
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("updated");
   });
+
+  test("treats a nested bullet under a task item as a bullet, not as another task", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("- [ ] Parent task\n  - Child bullet");
+    await placeCursorInVisualText(page, "Child bullet");
+
+    await expect(page.locator('[data-command="insertUnorderedList"]')).toHaveClass(/is-active/);
+    await expect(page.locator('[data-command="insertTaskList"]')).not.toHaveClass(/is-active/);
+  });
 });
