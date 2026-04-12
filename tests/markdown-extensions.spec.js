@@ -123,4 +123,28 @@ test.describe("markdown extensions", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/\[oa\]: https:\/\/openai\.com/);
     await expect(page.locator("#preview")).toContainText("OpenAI Docs");
   });
+
+  test("keeps ordered-list numbering when items are separated by blank lines", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("## References\n\n1. First source\n\n2. Second source\n\n3. Third source");
+
+    await expect(page.locator("#preview ol")).toHaveCount(1);
+    await expect(page.locator("#visualEditor ol")).toHaveCount(1);
+    await expect(page.locator("#preview ol > li")).toHaveCount(3);
+    await expect(page.locator("#visualEditor ol > li")).toHaveCount(3);
+    await expect(page.locator("#preview ol > li").nth(1)).toContainText("Second source");
+    await expect(page.locator("#preview ol > li").nth(2)).toContainText("Third source");
+  });
+
+  test("preserves ordered-list start numbers when a list begins from a later index", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("3. Third item\n4. Fourth item");
+
+    await expect(page.locator("#preview ol")).toHaveAttribute("start", "3");
+    await expect(page.locator("#visualEditor ol")).toHaveAttribute("start", "3");
+    await expect(page.locator("#preview ol > li").first()).toContainText("Third item");
+    await expect(page.locator("#preview ol > li").nth(1)).toContainText("Fourth item");
+  });
 });

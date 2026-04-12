@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.042-beta">
+  <link rel="manifest" href="./manifest.json?v=0.046-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -843,7 +843,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.042 beta</div>
+      <div class="build-badge" id="buildBadge">v0.046 beta</div>
     </footer>
   </main>
 
@@ -882,7 +882,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.045 beta";
+    const APP_VERSION = "v0.046 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1630,7 +1630,8 @@
           type: "ol",
           containerTag: "ol",
           checked: false,
-          content: olMatch[3] || ""
+          content: olMatch[3] || "",
+          number: Number.parseInt(olMatch[2], 10) || 1
         };
       }
 
@@ -1661,6 +1662,18 @@
       let index = startIndex;
 
       while (index < lines.length) {
+        if (!lines[index].trim()) {
+          let nextIndex = index + 1;
+          while (nextIndex < lines.length && !lines[nextIndex].trim()) {
+            nextIndex += 1;
+          }
+          if (nextIndex >= lines.length || !getMarkdownListLineInfo(lines[nextIndex])) {
+            break;
+          }
+          index = nextIndex;
+          continue;
+        }
+
         const info = getMarkdownListLineInfo(lines[index]);
         if (!info) {
           break;
@@ -1677,6 +1690,9 @@
 
         if (!currentList || currentList.tagName.toLowerCase() !== desiredTag || (info.type === "task" && !currentList.classList.contains("task-list")) || (info.type !== "task" && currentList.classList.contains("task-list"))) {
           const list = document.createElement(desiredTag);
+          if (desiredTag === "ol" && Number.isFinite(info.number) && info.number > 1) {
+            list.start = info.number;
+          }
           if (info.type === "task") {
             list.classList.add("task-list");
           }
@@ -5550,7 +5566,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.045-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.046-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
