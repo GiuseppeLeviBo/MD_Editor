@@ -73,4 +73,19 @@ test.describe("list exit behavior", () => {
     await expect(page.locator("#preview > ol > li")).toHaveCount(3);
     await expect(page.locator("#preview > ol > li").nth(2)).toContainText("Back to numbering");
   });
+
+  test("Enter then Delete on an empty ordered-list item creates a loose gap and restores numbering", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("1. First item\n2. Second item\n3. Third item");
+    await placeCursorAtEndOfVisualText(page, "Second item");
+
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Delete");
+
+    await expect(page.locator("#markdownInput")).toHaveValue("1. First item\n2. Second item\n\n3. Third item");
+    await expect(page.locator("#preview ol > li").nth(1)).toHaveClass(/list-gap-after/);
+    await expect(page.locator("#preview ol > li")).toHaveCount(3);
+    await expect(page.locator("#preview ol > li").nth(2)).toContainText("Third item");
+  });
 });

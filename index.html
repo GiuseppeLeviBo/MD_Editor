@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.046-beta">
+  <link rel="manifest" href="./manifest.json?v=0.047-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -201,6 +201,16 @@
     .preview ol.task-list {
       list-style: none;
       padding-left: 0;
+    }
+
+    .editor li.list-gap-after,
+    .preview li.list-gap-after {
+      margin-bottom: 0.9em;
+    }
+
+    .editor li.list-gap-after:last-child,
+    .preview li.list-gap-after:last-child {
+      margin-bottom: 0;
     }
 
     .editor li[data-task="true"] > .task-item,
@@ -843,7 +853,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.046 beta</div>
+      <div class="build-badge" id="buildBadge">v0.047 beta</div>
     </footer>
   </main>
 
@@ -882,7 +892,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.046 beta";
+    const APP_VERSION = "v0.047 beta";
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1667,8 +1677,13 @@
           while (nextIndex < lines.length && !lines[nextIndex].trim()) {
             nextIndex += 1;
           }
-          if (nextIndex >= lines.length || !getMarkdownListLineInfo(lines[nextIndex])) {
+          const nextInfo = nextIndex < lines.length ? getMarkdownListLineInfo(lines[nextIndex]) : null;
+          if (!nextInfo) {
             break;
+          }
+          const gapItem = lastItems[nextInfo.depth];
+          if (gapItem) {
+            gapItem.classList.add("list-gap-after");
           }
           index = nextIndex;
           continue;
@@ -2822,15 +2837,28 @@
       }
 
       function listNodeToMarkdown(node, depth = 0, addTrailingGap = true) {
+        const isOrderedList = node.tagName.toLowerCase() === "ol";
+        const startNumber = isOrderedList ? Number.parseInt(node.getAttribute("start") || "1", 10) || 1 : 1;
         const lines = Array.from(node.children)
-          .map((item, index) => listItemToMarkdown(item, node.tagName.toLowerCase() === "ol" ? (index + 1) + "." : "-", depth))
-          .filter(Boolean);
+          .map((item, index) => ({
+            markdown: listItemToMarkdown(item, isOrderedList ? (startNumber + index) + "." : "-", depth),
+            gapAfter: item.classList.contains("list-gap-after")
+          }))
+          .filter(entry => entry.markdown);
 
         if (!lines.length) {
           return "";
         }
 
-        return lines.join("\n") + (addTrailingGap && depth === 0 ? "\n\n" : "");
+        let markdown = "";
+        lines.forEach((entry, index) => {
+          markdown += entry.markdown;
+          if (index < lines.length - 1) {
+            markdown += entry.gapAfter ? "\n\n" : "\n";
+          }
+        });
+
+        return markdown + (addTrailingGap && depth === 0 ? "\n\n" : "");
       }
 
       function blockquoteNodeToMarkdown(node, depth = 1) {
@@ -3481,6 +3509,9 @@
       if (list.classList.contains("task-list")) {
         clone.classList.add("task-list");
       }
+      if (list.tagName.toLowerCase() === "ol" && list.hasAttribute("start")) {
+        clone.setAttribute("start", list.getAttribute("start"));
+      }
       return clone;
     }
 
@@ -3814,6 +3845,52 @@
       updateToolbarState();
       void syncFromVisual(false);
       return true;
+    }
+
+    function convertEmptyListItemToLooseGap(listItem) {
+      const list = listItem && listItem.closest ? listItem.closest("ul, ol") : null;
+      if (!list) {
+        return false;
+      }
+      const previousItem = listItem.previousElementSibling && listItem.previousElementSibling.tagName === "LI"
+        ? listItem.previousElementSibling
+        : null;
+      const nextItem = listItem.nextElementSibling && listItem.nextElementSibling.tagName === "LI"
+        ? listItem.nextElementSibling
+        : null;
+      if (!previousItem || !nextItem) {
+        return false;
+      }
+
+      previousItem.classList.add("list-gap-after");
+      listItem.remove();
+
+      const editableTarget = nextItem.querySelector ? (nextItem.querySelector(".task-text") || nextItem) : nextItem;
+      moveCaretToElementStart(editableTarget);
+      updateToolbarState();
+      void syncFromVisual(false);
+      return true;
+    }
+
+    function handleListGapDeleteKey(event) {
+      const isDeleteAction = event.type === "beforeinput"
+        ? ["deleteContentBackward", "deleteContentForward"].includes(event.inputType)
+        : (event.key === "Backspace" || event.key === "Delete") && !event.ctrlKey && !event.metaKey && !event.altKey;
+      if (!isDeleteAction) {
+        return false;
+      }
+      if (!isSelectionCollapsedInEditor() || isSelectionInsideTable()) {
+        return false;
+      }
+      const listItem = getSelectionListItem();
+      if (!listItem || !isListItemEffectivelyEmpty(listItem)) {
+        return false;
+      }
+      if (!listItem.previousElementSibling && !listItem.nextElementSibling) {
+        return false;
+      }
+      event.preventDefault();
+      return convertEmptyListItemToLooseGap(listItem);
     }
 
     function handleListSoftBreakKey(event) {
@@ -4299,6 +4376,10 @@
 
     function handleEditorShortcut(event) {
       if (handleTableNavigationKey(event)) {
+        return;
+      }
+
+      if (handleListGapDeleteKey(event)) {
         return;
       }
 
@@ -5512,6 +5593,9 @@
       handleEditorShortcut(event);
     });
     visualEditor.addEventListener("beforeinput", event => {
+      if (handleListGapDeleteKey(event)) {
+        return;
+      }
       if (handleListSoftBreakKey(event)) {
         return;
       }
@@ -5566,7 +5650,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.046-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.047-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
