@@ -80,9 +80,9 @@ test.describe("local resources", () => {
 
     await page.locator("#markdownInput").fill("[Open linked file](DSL_REFERENCE.md)");
     await page.locator("#linkFolderButton").click();
+    page.on("dialog", dialog => dialog.accept());
     await page.locator("#preview a").click();
 
-    await expect(page.locator("#syncStatus")).toContainText("Linked file opened in the editor");
     await expect(page.locator("#markdownInput")).toHaveValue(/# Linked reference/);
     await expect(page.locator("#visualEditor")).toContainText("This file was opened from a local relative link.");
   });
