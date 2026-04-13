@@ -32,6 +32,7 @@ test.describe("document lifecycle", () => {
 
     await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
     await expect(page.locator("#markdownInput")).toHaveValue(/# Opened file/);
+    await expect(page.locator("#folderSuggestion")).toHaveClass(/is-visible/);
     expect(sawDialog).toBe(false);
   });
 
@@ -61,7 +62,8 @@ test.describe("document lifecycle", () => {
 
     await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
     await expect(page.locator("#markdownInput")).toHaveValue(/# Opened file/);
-    await expect(page.locator("#syncStatus")).toContainText(/markdown file loaded|file markdown caricato/i);
+    await expect(page.locator("#folderSuggestion")).toHaveClass(/is-visible/);
+    await expect(page.locator("#syncStatus")).toContainText(/linked project folder|cartella progetto/i);
   });
 
   test("close document turns an unsaved initial draft into a blank document", async ({ page }) => {
