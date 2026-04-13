@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.048-beta">
+  <link rel="manifest" href="./manifest.json?v=0.049-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -109,6 +109,12 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+    }
+
+    .shell.is-drop-target {
+      outline: 3px dashed rgba(182, 87, 44, 0.45);
+      outline-offset: 8px;
+      box-shadow: 0 0 0 6px rgba(182, 87, 44, 0.08), var(--shadow);
     }
 
     .mobile-panel-switch {
@@ -853,7 +859,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.048 beta</div>
+      <div class="build-badge" id="buildBadge">v0.049 beta</div>
     </footer>
   </main>
 
@@ -879,6 +885,7 @@
     const visualPanel = document.getElementById("visualPanel");
     const markdownPanel = document.getElementById("markdownPanel");
     const previewPanel = document.getElementById("previewPanel");
+    const shell = document.querySelector(".shell");
     const symbolDialog = document.getElementById("symbolDialog");
     const symbolGrid = document.getElementById("symbolGrid");
     const symbolSearch = document.getElementById("symbolSearch");
@@ -892,7 +899,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.048 beta";
+    const APP_VERSION = "v0.049 beta";
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
       ".html", ".htm",
@@ -1133,6 +1140,8 @@
         statusLoadedHint: " - usa 'Collega cartella' per immagini e file locali",
         statusLoaded: "File Markdown caricato",
         statusBlobImageWarning: "Attenzione: questo file Markdown contiene URL immagine temporanei blob:. Ripristina i path relativi originali prima di salvarlo.",
+        statusDropReady: "Rilascia un documento Markdown o testo compatibile per aprirlo.",
+        statusDropSingleOnly: "Puoi trascinare un solo documento per volta.",
         statusOpenFirst: "Apri prima un file Markdown",
         statusLinkedFileOpened: "File collegato aperto nell'editor",
         statusLinkedFileMissing: "Il file collegato non e stato trovato nella cartella progetto",
@@ -1257,6 +1266,8 @@
         statusLoadedHint: " - use 'Link folder' for local images and files",
         statusLoaded: "Markdown file loaded",
         statusBlobImageWarning: "Warning: this Markdown file contains temporary blob image URLs. Restore the original relative image paths before saving.",
+        statusDropReady: "Drop a Markdown or compatible text document to open it.",
+        statusDropSingleOnly: "You can drop only one document at a time.",
         statusOpenFirst: "Open a Markdown file first",
         statusLinkedFileOpened: "Linked file opened in the editor",
         statusLinkedFileMissing: "The linked file was not found in the project folder",
@@ -3093,6 +3104,33 @@
 
     function setStatus(text) {
       syncStatus.textContent = text;
+    }
+
+    let activeFileDragDepth = 0;
+
+    function isExternalFileDrag(event) {
+      const types = Array.from((event && event.dataTransfer && event.dataTransfer.types) || []);
+      return types.includes("Files");
+    }
+
+    function setDropTargetActive(isActive) {
+      shell.classList.toggle("is-drop-target", Boolean(isActive));
+    }
+
+    async function handleDroppedDocumentFiles(files) {
+      const droppedFiles = Array.from(files || []);
+      if (!droppedFiles.length) {
+        return;
+      }
+      if (droppedFiles.length !== 1) {
+        setStatus(t("statusDropSingleOnly"));
+        return;
+      }
+      if (!confirmDiscardCurrentDocument()) {
+        return;
+      }
+      currentFileHandle = null;
+      await openMarkdownFile(droppedFiles[0], null);
     }
 
     function showFolderSuggestion(handle = null) {
@@ -5564,6 +5602,47 @@
       void syncFromMarkdown();
     });
 
+    document.addEventListener("dragenter", event => {
+      if (!isExternalFileDrag(event)) {
+        return;
+      }
+      activeFileDragDepth += 1;
+      event.preventDefault();
+      setDropTargetActive(true);
+      setStatus(t("statusDropReady"));
+    });
+
+    document.addEventListener("dragover", event => {
+      if (!isExternalFileDrag(event)) {
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "copy";
+      }
+      setDropTargetActive(true);
+    });
+
+    document.addEventListener("dragleave", event => {
+      if (!isExternalFileDrag(event)) {
+        return;
+      }
+      activeFileDragDepth = Math.max(0, activeFileDragDepth - 1);
+      if (activeFileDragDepth === 0) {
+        setDropTargetActive(false);
+      }
+    });
+
+    document.addEventListener("drop", event => {
+      if (!isExternalFileDrag(event)) {
+        return;
+      }
+      event.preventDefault();
+      activeFileDragDepth = 0;
+      setDropTargetActive(false);
+      void handleDroppedDocumentFiles(event.dataTransfer ? event.dataTransfer.files : []);
+    });
+
     preview.addEventListener("click", event => {
       if (event.target.matches('input[type="checkbox"]')) {
         event.preventDefault();
@@ -5743,7 +5822,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.048-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.049-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
