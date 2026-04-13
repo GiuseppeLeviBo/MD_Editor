@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.049-beta">
+  <link rel="manifest" href="./manifest.json?v=0.050-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -22,6 +22,19 @@
       --shadow: 0 18px 60px rgba(83, 57, 31, 0.12);
     }
 
+    body[data-theme="dark"] {
+      --bg: #18110d;
+      --panel: rgba(29, 23, 19, 0.9);
+      --panel-strong: #241b16;
+      --border: #4c3e33;
+      --border-strong: #7a614e;
+      --text: #f3e9dd;
+      --muted: #c9b7a6;
+      --accent: #df8a5f;
+      --accent-soft: #4f3226;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -36,6 +49,14 @@
         radial-gradient(circle at bottom right, rgba(101, 129, 92, 0.18), transparent 30%),
         linear-gradient(135deg, #f7f3ec 0%, #ebe3d5 100%);
       padding: 24px;
+      transition: background 180ms ease, color 180ms ease;
+    }
+
+    body[data-theme="dark"] {
+      background:
+        radial-gradient(circle at top left, rgba(223, 138, 95, 0.16), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(85, 118, 99, 0.14), transparent 30%),
+        linear-gradient(135deg, #120d0a 0%, #1d1611 100%);
     }
 
     .shell {
@@ -49,12 +70,23 @@
       overflow: visible;
     }
 
+    body[data-theme="dark"] .shell {
+      border-color: rgba(122, 97, 78, 0.32);
+    }
+
     .hero {
       padding: 28px 32px 18px;
       border-bottom: 1px solid rgba(189, 169, 138, 0.35);
       background:
         linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 248, 240, 0.6)),
         linear-gradient(90deg, rgba(244, 216, 203, 0.7), rgba(248, 236, 223, 0));
+    }
+
+    body[data-theme="dark"] .hero {
+      border-bottom-color: rgba(122, 97, 78, 0.4);
+      background:
+        linear-gradient(135deg, rgba(36, 27, 22, 0.95), rgba(28, 20, 16, 0.88)),
+        linear-gradient(90deg, rgba(79, 50, 38, 0.7), rgba(34, 24, 19, 0));
     }
 
     .hero h1 {
@@ -85,6 +117,11 @@
       backdrop-filter: blur(10px);
     }
 
+    body[data-theme="dark"] .toolbar {
+      border-bottom-color: rgba(122, 97, 78, 0.4);
+      background: rgba(28, 20, 16, 0.88);
+    }
+
     .folder-suggestion {
       display: none;
       align-items: center;
@@ -93,6 +130,11 @@
       padding: 14px 24px;
       border-bottom: 1px solid rgba(189, 169, 138, 0.35);
       background: rgba(244, 216, 203, 0.35);
+    }
+
+    body[data-theme="dark"] .folder-suggestion {
+      border-bottom-color: rgba(122, 97, 78, 0.4);
+      background: rgba(79, 50, 38, 0.4);
     }
 
     .folder-suggestion.is-visible {
@@ -154,6 +196,7 @@
       margin-left: auto;
       border-right: 0;
       padding-right: 0;
+      align-items: center;
     }
 
     button,
@@ -181,6 +224,11 @@
       border-color: transparent;
     }
 
+    body[data-theme="dark"] .tool-button.is-active,
+    body[data-theme="dark"] .mobile-panel-switch button.is-active {
+      color: #1b110b;
+    }
+
     .tool-button:disabled,
     button:disabled {
       opacity: 0.5;
@@ -199,6 +247,10 @@
     .tool-icon {
       font-size: 1rem;
       line-height: 1;
+    }
+
+    .theme-toggle {
+      min-width: 0;
     }
 
     .editor ul.task-list,
@@ -321,6 +373,13 @@
       min-height: 68vh;
     }
 
+    body[data-theme="dark"] .workspace,
+    body[data-theme="dark"] .panel,
+    body[data-theme="dark"] .panel-header,
+    body[data-theme="dark"] .footer {
+      border-color: rgba(122, 97, 78, 0.38);
+    }
+
     .workspace.mode-write {
       grid-template-columns: minmax(340px, 1.25fr) minmax(340px, 1fr);
     }
@@ -335,6 +394,10 @@
       min-height: 0;
       border-right: 1px solid rgba(189, 169, 138, 0.35);
       background: rgba(255, 252, 247, 0.62);
+    }
+
+    body[data-theme="dark"] .panel {
+      background: rgba(31, 24, 19, 0.72);
     }
 
     .panel:last-child {
@@ -383,6 +446,10 @@
     .editor:empty::before {
       content: attr(data-placeholder);
       color: #948676;
+    }
+
+    body[data-theme="dark"] .editor:empty::before {
+      color: #9f8b7a;
     }
 
     .editor h1,
@@ -467,6 +534,11 @@
       overflow: auto;
     }
 
+    body[data-theme="dark"] .editor pre,
+    body[data-theme="dark"] .preview pre {
+      background: #2a2019;
+    }
+
     .editor pre[data-language]::before,
     .preview pre[data-language]::before {
       content: attr(data-language);
@@ -511,6 +583,10 @@
       border-radius: 999px;
     }
 
+    body[data-theme="dark"] .mode-switch {
+      background: rgba(79, 50, 38, 0.6);
+    }
+
     .mode-switch input {
       position: absolute;
       opacity: 0;
@@ -521,6 +597,10 @@
       background: var(--accent);
       color: #fff9f5;
       border-color: transparent;
+    }
+
+    body[data-theme="dark"] .mode-switch input:checked + label {
+      color: #1b110b;
     }
 
     .panel-hidden {
@@ -551,6 +631,10 @@
       border-radius: 24px;
       box-shadow: var(--shadow);
       padding: 22px;
+    }
+
+    body[data-theme="dark"] .dialog {
+      background: rgba(30, 22, 17, 0.98);
     }
 
     .dialog-header {
@@ -616,6 +700,10 @@
       color: var(--muted);
       border-top: 1px solid rgba(189, 169, 138, 0.35);
       background: rgba(255, 252, 247, 0.7);
+    }
+
+    body[data-theme="dark"] .footer {
+      background: rgba(28, 20, 16, 0.7);
     }
 
     .build-badge {
@@ -797,6 +885,10 @@
       </div>
 
       <div class="tool-group mode-group">
+        <button type="button" class="tool-button theme-toggle" id="themeToggleButton" aria-pressed="false">
+          <span class="tool-icon" id="themeToggleIcon">☾</span>
+          <span id="themeToggleLabel">Dark mode</span>
+        </button>
         <select class="lang-select" id="languageSelect" aria-label="Language">
           <option value="it">IT</option>
           <option value="en">EN</option>
@@ -859,7 +951,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.049 beta</div>
+      <div class="build-badge" id="buildBadge">v0.050 beta</div>
     </footer>
   </main>
 
@@ -891,15 +983,20 @@
     const symbolSearch = document.getElementById("symbolSearch");
     const symbolCategorySelect = document.getElementById("symbolCategorySelect");
     const languageSelect = document.getElementById("languageSelect");
+    const themeToggleButton = document.getElementById("themeToggleButton");
+    const themeToggleIcon = document.getElementById("themeToggleIcon");
+    const themeToggleLabel = document.getElementById("themeToggleLabel");
     const buildBadge = document.getElementById("buildBadge");
     const folderSuggestion = document.getElementById("folderSuggestion");
     const folderSuggestionText = document.getElementById("folderSuggestionText");
     const folderSuggestionAction = document.getElementById("folderSuggestionAction");
     const mobilePanelSwitch = document.getElementById("mobilePanelSwitch");
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.049 beta";
+    const APP_VERSION = "v0.050 beta";
+    const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
       ".html", ".htm",
@@ -1112,6 +1209,8 @@
         copyMarkdown: "Copia Markdown",
         saveAs: "Salva come...",
         downloadMarkdown: "Scarica .md",
+        themeDarkMode: "Tema scuro",
+        themeLightMode: "Tema chiaro",
         viewAll: "Tutto",
         viewWrite: "Scrittura",
         viewPreview: "Preview",
@@ -1238,6 +1337,8 @@
         copyMarkdown: "Copy Markdown",
         saveAs: "Save as...",
         downloadMarkdown: "Download .md",
+        themeDarkMode: "Dark mode",
+        themeLightMode: "Light mode",
         viewAll: "All",
         viewWrite: "Write",
         viewPreview: "Preview",
@@ -1898,6 +1999,14 @@
       return translations[currentLanguage][key] || translations.it[key] || key;
     }
 
+    function detectPreferredTheme() {
+      try {
+        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      } catch {
+        return "light";
+      }
+    }
+
     function getStorageKey(key) {
       return "wysiwyg_markdown_editor_" + key;
     }
@@ -1932,6 +2041,36 @@
       } catch {
         return fallback;
       }
+    }
+
+    let currentTheme = "light";
+
+    function updateThemeToggleUi() {
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+      const label = t(nextTheme === "dark" ? "themeDarkMode" : "themeLightMode");
+      themeToggleButton.setAttribute("aria-pressed", String(currentTheme === "dark"));
+      themeToggleButton.dataset.themeTarget = nextTheme;
+      themeToggleButton.title = label;
+      themeToggleButton.setAttribute("aria-label", label);
+      themeToggleIcon.textContent = nextTheme === "dark" ? "☾" : "☀";
+      themeToggleLabel.textContent = label;
+      if (themeColorMeta) {
+        themeColorMeta.setAttribute("content", THEME_COLORS[currentTheme] || THEME_COLORS.light);
+      }
+    }
+
+    function applyTheme(theme, options = {}) {
+      const { persist = true } = options;
+      currentTheme = theme === "dark" ? "dark" : "light";
+      document.body.dataset.theme = currentTheme;
+      updateThemeToggleUi();
+      if (persist) {
+        savePreference("theme", currentTheme);
+      }
+    }
+
+    function toggleTheme() {
+      applyTheme(currentTheme === "dark" ? "light" : "dark");
     }
 
     function resetHistory(value = markdownInput.value) {
@@ -2054,6 +2193,7 @@
       languageSelect.value = currentLanguage;
       savePreference("language", currentLanguage);
       buildBadge.textContent = APP_VERSION;
+      updateThemeToggleUi();
       folderSuggestionText.textContent = t("promptAutoLinkFolder");
       folderSuggestionAction.textContent = t("actionLinkFolderNow");
       mobilePanelSwitch.querySelector('[data-mobile-panel="visual"]').textContent = t("mobileVisual");
@@ -5550,6 +5690,7 @@
       void saveMarkdownAs();
     });
     document.getElementById("downloadButton").addEventListener("click", downloadMarkdown);
+    themeToggleButton.addEventListener("click", toggleTheme);
 
     imageInput.addEventListener("change", event => {
       const [file] = event.target.files || [];
@@ -5801,11 +5942,13 @@
     });
 
     const savedLanguage = loadPreference("language", detectPreferredLanguage());
+    const savedTheme = loadPreference("theme", "");
     const savedDraft = loadSessionValue("draft_markdown", "");
     const savedViewMode = loadPreference("view_mode", "all");
     const savedMobilePanel = loadPreference("mobile_panel", "visual");
 
     currentMobilePanel = ["visual", "markdown", "preview"].includes(savedMobilePanel) ? savedMobilePanel : "visual";
+    applyTheme(savedTheme || detectPreferredTheme(), { persist: Boolean(savedTheme) });
     setLanguage(savedLanguage);
     markdownInput.value = savedDraft || getInitialMarkdown() || seedMarkdown;
     hasPersistedDocumentVersion = false;
@@ -5822,7 +5965,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.049-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.050-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
