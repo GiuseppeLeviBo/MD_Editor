@@ -61,7 +61,7 @@ test.describe("document lifecycle", () => {
 
     await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
     await expect(page.locator("#markdownInput")).toHaveValue(/# Opened file/);
-    await expect(page.locator("#syncStatus")).toContainText(/linked project folder|cartella progetto/i);
+    await expect(page.locator("#syncStatus")).toContainText(/markdown file loaded|file markdown caricato/i);
   });
 
   test("close document turns an unsaved initial draft into a blank document", async ({ page }) => {

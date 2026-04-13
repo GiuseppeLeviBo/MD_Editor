@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.047-beta">
+  <link rel="manifest" href="./manifest.json?v=0.048-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -853,7 +853,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.047 beta</div>
+      <div class="build-badge" id="buildBadge">v0.048 beta</div>
     </footer>
   </main>
 
@@ -892,7 +892,18 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.047 beta";
+    const APP_VERSION = "v0.048 beta";
+    const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
+      ".md", ".markdown", ".txt",
+      ".html", ".htm",
+      ".js", ".mjs", ".cjs",
+      ".ts", ".tsx", ".jsx",
+      ".css",
+      ".json",
+      ".xml",
+      ".yaml", ".yml",
+      ".csv"
+    ]);
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -1147,6 +1158,8 @@
         statusListIndentUnavailable: "Per rientrare, il punto corrente deve avere un elemento precedente nello stesso elenco.",
         statusListOutdentUnavailable: "Questo elemento e gia al livello piu esterno dell'elenco.",
         statusUnsafeLinkBlocked: "Questo tipo di link e bloccato per sicurezza.",
+        statusUnsupportedDocumentFile: "Questo file non sembra un documento Markdown o testo compatibile.",
+        statusBinaryFileBlocked: "File binario o non supportato: l'editor apre solo documenti testuali compatibili.",
         promptInsertUrl: "Inserisci l'URL del link",
         promptTableColumns: "Numero di colonne della tabella",
         promptTableRows: "Numero di righe dati della tabella",
@@ -1269,6 +1282,8 @@
         statusListIndentUnavailable: "To indent, the current item needs a previous sibling in the same list.",
         statusListOutdentUnavailable: "This item is already at the outermost list level.",
         statusUnsafeLinkBlocked: "This link scheme is blocked for safety.",
+        statusUnsupportedDocumentFile: "This file does not look like a compatible Markdown or text document.",
+        statusBinaryFileBlocked: "Unsupported or binary file: the editor only opens compatible text documents.",
         promptInsertUrl: "Enter the link URL",
         promptTableColumns: "Number of table columns",
         promptTableRows: "Number of table data rows",
@@ -1320,7 +1335,7 @@
     directoryInput.setAttribute("directory", "");
 
     markdownFileInput.type = "file";
-    markdownFileInput.accept = ".md,.markdown,text/markdown";
+    markdownFileInput.accept = ".md,.markdown,.txt,text/markdown,text/plain";
     markdownFileInput.hidden = true;
 
     document.body.append(imageInput, directoryInput, markdownFileInput);
@@ -1479,6 +1494,88 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
+    }
+
+    function getFilenameExtension(filename) {
+      const normalized = String(filename || "").trim().toLowerCase();
+      const lastDotIndex = normalized.lastIndexOf(".");
+      return lastDotIndex >= 0 ? normalized.slice(lastDotIndex) : "";
+    }
+
+    function isAllowedTextDocumentExtension(extension) {
+      return ACCEPTED_TEXT_DOCUMENT_EXTENSIONS.has(String(extension || "").toLowerCase());
+    }
+
+    function isLikelyTextDocumentMimeType(type) {
+      const normalized = String(type || "").trim().toLowerCase();
+      if (!normalized) {
+        return false;
+      }
+      return normalized.startsWith("text/")
+        || normalized === "application/json"
+        || normalized === "application/ld+json"
+        || normalized === "application/xml"
+        || normalized === "application/yaml"
+        || normalized === "application/x-yaml"
+        || normalized === "application/javascript"
+        || normalized === "application/x-javascript"
+        || normalized === "application/ecmascript"
+        || normalized === "image/svg+xml";
+    }
+
+    function hasKnownBinarySignature(bytes) {
+      if (!bytes || !bytes.length) {
+        return false;
+      }
+      const matches = signature => signature.every((value, index) => bytes[index] === value);
+      return matches([0x25, 0x50, 0x44, 0x46]) // %PDF
+        || matches([0x4d, 0x5a]) // MZ
+        || matches([0x50, 0x4b, 0x03, 0x04]) // ZIP / Office / archives
+        || matches([0x89, 0x50, 0x4e, 0x47]) // PNG
+        || matches([0xff, 0xd8, 0xff]) // JPEG
+        || matches([0x47, 0x49, 0x46, 0x38]) // GIF
+        || matches([0x52, 0x49, 0x46, 0x46]) // RIFF
+        || matches([0x00, 0x00, 0x01, 0x00]); // ICO
+    }
+
+    function looksLikeBinaryContent(bytes) {
+      if (!bytes || !bytes.length) {
+        return false;
+      }
+      if (hasKnownBinarySignature(bytes)) {
+        return true;
+      }
+      let suspiciousControlBytes = 0;
+      const sampleLength = Math.min(bytes.length, 4096);
+      for (let index = 0; index < sampleLength; index += 1) {
+        const byte = bytes[index];
+        if (byte === 0) {
+          return true;
+        }
+        const isAllowedWhitespace = byte === 9 || byte === 10 || byte === 13;
+        if (!isAllowedWhitespace && ((byte >= 1 && byte <= 8) || (byte >= 14 && byte <= 31) || byte === 127)) {
+          suspiciousControlBytes += 1;
+        }
+      }
+      return suspiciousControlBytes > Math.max(8, Math.floor(sampleLength * 0.03));
+    }
+
+    async function readValidatedDocumentFile(file) {
+      const extension = getFilenameExtension(file && file.name);
+      const allowedByExtension = isAllowedTextDocumentExtension(extension);
+      const allowedByType = isLikelyTextDocumentMimeType(file && file.type);
+      if (!allowedByExtension && !allowedByType) {
+        return { ok: false, reason: "unsupported" };
+      }
+
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      if (looksLikeBinaryContent(bytes)) {
+        return { ok: false, reason: "binary" };
+      }
+
+      const decoder = new TextDecoder("utf-8");
+      return { ok: true, text: decoder.decode(bytes) };
     }
 
     function normalizeLinkHref(href) {
@@ -2188,8 +2285,11 @@
         return false;
       }
 
-      currentFileHandle = entry.handle || null;
-      await openMarkdownFile(entry.file, null);
+      const opened = await openMarkdownFile(entry.file, null);
+      currentFileHandle = opened ? (entry.handle || null) : null;
+      if (!opened) {
+        return false;
+      }
       setStatus(t("statusLinkedFileOpened"));
       return true;
     }
@@ -5004,57 +5104,49 @@
           startIn: currentDirectoryHandle || "documents",
           types: [
             {
-              description: "Markdown",
+              description: "Markdown or plain text",
               accept: {
                 "text/markdown": [".md", ".markdown"],
-                "text/plain": [".md", ".markdown"]
+                "text/plain": [".md", ".markdown", ".txt"]
               }
             }
           ]
         });
-        currentFileHandle = fileHandle;
         const file = await fileHandle.getFile();
-        await openMarkdownFile(file, null);
+        const opened = await openMarkdownFile(file, null);
+        currentFileHandle = opened ? fileHandle : null;
       } catch {
         setStatus(t("statusOpenCancelled"));
       }
     }
 
     async function openMarkdownFile(file, directoryHandle = null) {
+      const validationResult = await readValidatedDocumentFile(file);
+      if (!validationResult.ok) {
+        setStatus(t(validationResult.reason === "binary" ? "statusBinaryFileBlocked" : "statusUnsupportedDocumentFile"));
+        return false;
+      }
+
       currentDocumentName = file.name || "documento.md";
       hasPersistedDocumentVersion = true;
       if (directoryHandle !== null) {
         currentDirectoryHandle = directoryHandle;
       }
       clearResolvedResources();
-      await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async event => {
-          try {
-            lastLoadedMarkdown = String(event.target.result || "");
-            lastDownloadedMarkdown = lastLoadedMarkdown;
-            markdownInput.value = lastLoadedMarkdown;
-            resetHistory(lastLoadedMarkdown);
-            await syncFromMarkdown();
-            if (/blob:null\//i.test(lastLoadedMarkdown)) {
-              setStatus(t("statusBlobImageWarning"));
-              resolve();
-              return;
-            }
-            const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
-            const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
-            setStatus(t("statusLoaded") + suffix + hint);
-            await maybeSuggestProjectFolderLink();
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.onerror = () => {
-          reject(reader.error || new Error("Unable to read Markdown file."));
-        };
-        reader.readAsText(file, "utf-8");
-      });
+      lastLoadedMarkdown = String(validationResult.text || "");
+      lastDownloadedMarkdown = lastLoadedMarkdown;
+      markdownInput.value = lastLoadedMarkdown;
+      resetHistory(lastLoadedMarkdown);
+      await syncFromMarkdown();
+      if (/blob:null\//i.test(lastLoadedMarkdown)) {
+        setStatus(t("statusBlobImageWarning"));
+        return true;
+      }
+      const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
+      const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
+      setStatus(t("statusLoaded") + suffix + hint);
+      await maybeSuggestProjectFolderLink();
+      return true;
     }
 
     async function linkCurrentDirectory() {
@@ -5432,6 +5524,7 @@
     markdownFileInput.addEventListener("change", event => {
       const [file] = event.target.files || [];
       if (file && confirmDiscardCurrentDocument()) {
+        currentFileHandle = null;
         void openMarkdownFile(file);
       }
       event.target.value = "";
@@ -5650,7 +5743,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.047-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.048-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
@@ -5669,8 +5762,8 @@
           }
           const [fileHandle] = fileHandles;
           const file = await fileHandle.getFile();
-          currentFileHandle = fileHandle;
-          await openMarkdownFile(file, null);
+          const opened = await openMarkdownFile(file, null);
+          currentFileHandle = opened ? fileHandle : null;
         } catch {
           setStatus(t("statusOpenCancelled"));
         }
