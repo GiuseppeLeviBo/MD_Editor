@@ -105,7 +105,9 @@ test.describe("RTF export", () => {
     expect(result.startInName).toBe("linked-project");
     expect(result.suggestedName).toBe("documento.rtf");
     expect(result.content).toContain("{\\rtf1\\ansi");
+    expect(result.content).toContain("\\viewkind4\\uc0\\fs22");
     expect(result.content).toContain("Working draft");
+    expect(result.content).toContain("\\fs28");
     expect(result.content).toContain("\\trowd");
     expect(result.content).toContain('HYPERLINK "https://example.com"');
     expect(result.content).toContain("\\f1");
@@ -117,6 +119,7 @@ test.describe("RTF export", () => {
     expect(result.content).toContain("Serial Monitor screenshot");
     expect(result.content).not.toContain("[Serial Monitor screenshot]");
     expect(result.content).not.toContain("\\qc\\b\\fs40 documento");
+    expect(result.content).not.toContain("\\fs36");
 
     await expect(page.locator("#syncStatus")).toContainText(/RTF|Documento RTF|RTF document/i);
   });

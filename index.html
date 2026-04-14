@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.057-beta">
+  <link rel="manifest" href="./manifest.json?v=0.058-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -961,7 +961,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.057 beta</div>
+      <div class="build-badge" id="buildBadge">v0.058 beta</div>
     </footer>
   </main>
 
@@ -1005,7 +1005,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.057 beta";
+    const APP_VERSION = "v0.058 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -5520,6 +5520,15 @@
     }
 
     const MAX_RTF_IMAGE_TWIPS = 9000;
+    const RTF_BODY_FONT_SIZE = 22;
+    const RTF_HEADING_FONT_SIZES = {
+      h1: 28,
+      h2: 26,
+      h3: 24,
+      h4: 23,
+      h5: 22,
+      h6: 22
+    };
 
     function getImageRtfDimensions(imageNode) {
       const sourceWidth = imageNode.naturalWidth || imageNode.width || 1;
@@ -5628,9 +5637,7 @@
       if (options.spaceAfter) {
         commands.push(`\\sa${options.spaceAfter}`);
       }
-      if (options.fontSize) {
-        commands.push(`\\fs${options.fontSize}`);
-      }
+      commands.push(`\\fs${options.fontSize || RTF_BODY_FONT_SIZE}`);
       if (options.bold) {
         commands.push("\\b");
       }
@@ -5744,22 +5751,22 @@
       const indent = context.blockquoteDepth ? context.blockquoteDepth * 720 : 0;
 
       if (tag === "h1") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 36, bold: true, keepWithNext: true, spaceBefore: 140, spaceAfter: 80, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h1, bold: true, keepWithNext: true, spaceBefore: 140, spaceAfter: 80, leftIndent: indent });
       }
       if (tag === "h2") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 30, bold: true, keepWithNext: true, spaceBefore: 120, spaceAfter: 80, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h2, bold: true, keepWithNext: true, spaceBefore: 120, spaceAfter: 80, leftIndent: indent });
       }
       if (tag === "h3") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 26, bold: true, keepWithNext: true, spaceBefore: 100, spaceAfter: 70, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h3, bold: true, keepWithNext: true, spaceBefore: 100, spaceAfter: 70, leftIndent: indent });
       }
       if (tag === "h4") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 24, bold: true, keepWithNext: true, spaceBefore: 90, spaceAfter: 60, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h4, bold: true, keepWithNext: true, spaceBefore: 90, spaceAfter: 60, leftIndent: indent });
       }
       if (tag === "h5") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 22, bold: true, keepWithNext: true, spaceBefore: 80, spaceAfter: 50, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h5, bold: true, keepWithNext: true, spaceBefore: 80, spaceAfter: 50, leftIndent: indent });
       }
       if (tag === "h6") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 20, bold: true, keepWithNext: true, spaceBefore: 70, spaceAfter: 50, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h6, bold: true, keepWithNext: true, spaceBefore: 70, spaceAfter: 50, leftIndent: indent });
       }
       if (tag === "p") {
         return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
@@ -5824,7 +5831,7 @@
         "{\\rtf1\\ansi\\ansicpg1252\\deff0",
         "{\\fonttbl{\\f0 Georgia;}{\\f1 Courier New;}}",
         "{\\colortbl;\\red47\\green36\\blue29;\\red182\\green87\\blue44;\\red95\\green75\\blue63;}",
-        "\\viewkind4\\uc0",
+        `\\viewkind4\\uc0\\fs${RTF_BODY_FONT_SIZE}`,
         body || "\\pard\\par\n",
         "}"
       ].join("\n");
@@ -6458,7 +6465,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.057-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.058-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
