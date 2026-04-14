@@ -6,13 +6,14 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.040 beta
+## Release notes - v0.051 beta
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
+- Validated drag-and-drop opening with the same safety checks as `Open .md`
 - Project-folder linking for relative images and local Markdown links
 - Installable PWA shell with desktop-style usage on supported Chromium browsers
-- Italian/English UI, symbol picker, mobile mode, and privacy-oriented local reset
+- Italian/English UI, dark mode, symbol picker, mobile mode, and privacy-oriented local reset
 - Close-warning protection when the current document has unsaved changes
 
 This is a stabilization beta focused on simplicity, portability, and standard Markdown. For complex structural edits across multiple selected lines, the Markdown panel is still the most reliable editing surface.
