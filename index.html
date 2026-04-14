@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.053-beta">
+  <link rel="manifest" href="./manifest.json?v=0.054-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -890,6 +890,7 @@
         <button type="button" class="tool-button" id="resetPrivacyButton" data-i18n-title="resetPrivacy"><span class="tool-icon">🧼</span><span data-i18n="resetPrivacy">Reset privacy</span></button>
         <button type="button" class="tool-button" id="copyMarkdownButton" data-i18n-title="copyMarkdown"><span class="tool-icon">📋</span><span data-i18n="copyMarkdown">Copia Markdown</span></button>
         <button type="button" class="tool-button" id="saveAsButton" data-i18n-title="saveAs"><span class="tool-icon">📁</span><span data-i18n="saveAs">Salva come...</span></button>
+        <button type="button" class="tool-button" id="exportRtfButton" data-i18n-title="exportRtf"><span class="tool-icon">📝</span><span data-i18n="exportRtf">Esporta .rtf</span></button>
         <button type="button" class="tool-button primary" id="downloadButton" data-i18n-title="downloadMarkdown"><span class="tool-icon">💾</span><span data-i18n="downloadMarkdown">Scarica .md</span></button>
       </div>
 
@@ -960,7 +961,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.053 beta</div>
+      <div class="build-badge" id="buildBadge">v0.054 beta</div>
     </footer>
   </main>
 
@@ -1004,7 +1005,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.053 beta";
+    const APP_VERSION = "v0.054 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1217,6 +1218,7 @@
         resetPrivacy: "Pulisci dati locali",
         copyMarkdown: "Copia Markdown",
         saveAs: "Salva come...",
+        exportRtf: "Esporta .rtf",
         downloadMarkdown: "Scarica .md",
         themeDarkMode: "Tema scuro",
         themeLightMode: "Tema chiaro",
@@ -1263,6 +1265,7 @@
         statusCopied: "Markdown copiato negli appunti",
         statusCopyFailed: "Copia non riuscita",
         statusDownloaded: "File Markdown scaricato",
+        statusRtfExported: "Documento RTF esportato",
         statusPrintOpened: "Anteprima di stampa aperta in una nuova finestra",
         statusPrintBlocked: "Il browser ha bloccato la finestra di stampa",
         statusUndo: "Annullata l'ultima modifica",
@@ -1313,6 +1316,7 @@
         resetPrivacyTitle: "Rimuovi bozza, preferenze e dati locali da questo browser. Non cancella i file originali.",
         copyMarkdownTitle: "Copia il Markdown negli appunti",
         saveAsTitle: "Salva con un nuovo nome o in una nuova posizione",
+        exportRtfTitle: "Esporta il documento in formato RTF modificabile",
         downloadMarkdownTitle: "Scarica il file Markdown"
       },
       en: {
@@ -1345,6 +1349,7 @@
         resetPrivacy: "Clear local data",
         copyMarkdown: "Copy Markdown",
         saveAs: "Save as...",
+        exportRtf: "Export .rtf",
         downloadMarkdown: "Download .md",
         themeDarkMode: "Dark mode",
         themeLightMode: "Light mode",
@@ -1391,6 +1396,7 @@
         statusCopied: "Markdown copied to clipboard",
         statusCopyFailed: "Copy failed",
         statusDownloaded: "Markdown file downloaded",
+        statusRtfExported: "RTF document exported",
         statusPrintOpened: "Print preview opened in a new window",
         statusPrintBlocked: "The browser blocked the print window",
         statusUndo: "Undid the latest change",
@@ -1441,6 +1447,7 @@
         resetPrivacyTitle: "Remove the draft, preferences, and local browser data. Original files are not deleted.",
         copyMarkdownTitle: "Copy Markdown to clipboard",
         saveAsTitle: "Save with a new name or to a new location",
+        exportRtfTitle: "Export the document as editable RTF",
         downloadMarkdownTitle: "Download the Markdown file"
       }
     };
@@ -5413,6 +5420,353 @@
       });
     }
 
+    function getDocumentNameWithExtension(extension) {
+      const baseName = (currentDocumentName || "documento.md").replace(/\.[^.]+$/i, "");
+      return `${baseName}${extension}`;
+    }
+
+    function downloadBlobFile(blob, filename) {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function escapeRtfText(value) {
+      let result = "";
+      for (const symbol of String(value || "")) {
+        const codePoint = symbol.codePointAt(0);
+        if (symbol === "\\") {
+          result += "\\\\";
+          continue;
+        }
+        if (symbol === "{") {
+          result += "\\{";
+          continue;
+        }
+        if (symbol === "}") {
+          result += "\\}";
+          continue;
+        }
+        if (symbol === "\t") {
+          result += "\\tab ";
+          continue;
+        }
+        if (codePoint === 10 || codePoint === 13) {
+          continue;
+        }
+        if (codePoint <= 0x7f) {
+          result += symbol;
+          continue;
+        }
+        if (codePoint <= 0xffff) {
+          const signed = codePoint > 0x7fff ? codePoint - 0x10000 : codePoint;
+          result += `\\u${signed}?`;
+          continue;
+        }
+        const adjusted = codePoint - 0x10000;
+        const highSurrogate = 0xd800 + ((adjusted >> 10) & 0x3ff);
+        const lowSurrogate = 0xdc00 + (adjusted & 0x3ff);
+        const highSigned = highSurrogate > 0x7fff ? highSurrogate - 0x10000 : highSurrogate;
+        const lowSigned = lowSurrogate > 0x7fff ? lowSurrogate - 0x10000 : lowSurrogate;
+        result += `\\u${highSigned}?\\u${lowSigned}?`;
+      }
+      return result;
+    }
+
+    function escapeRtfUrl(value) {
+      return String(value || "")
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+    }
+
+    function serializeInlineNodesToRtf(nodes) {
+      return Array.from(nodes || []).map(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return escapeRtfText(node.textContent || "");
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return "";
+        }
+        const tag = node.tagName.toLowerCase();
+        if (tag === "br") {
+          return "\\line ";
+        }
+        if (tag === "strong" || tag === "b") {
+          return `\\b ${serializeInlineNodesToRtf(node.childNodes)}\\b0 `;
+        }
+        if (tag === "em" || tag === "i") {
+          return `\\i ${serializeInlineNodesToRtf(node.childNodes)}\\i0 `;
+        }
+        if (tag === "del" || tag === "s") {
+          return `\\strike ${serializeInlineNodesToRtf(node.childNodes)}\\strike0 `;
+        }
+        if (tag === "code") {
+          return `\\f1 ${serializeInlineNodesToRtf(node.childNodes)}\\f0 `;
+        }
+        if (tag === "a") {
+          const href = node.getAttribute("href") || "";
+          const label = serializeInlineNodesToRtf(node.childNodes) || escapeRtfText(href);
+          return `{\\field{\\*\\fldinst HYPERLINK "${escapeRtfUrl(href)}"}{\\fldrslt ${label}}}`;
+        }
+        if (tag === "img") {
+          const alt = node.getAttribute("alt") || node.getAttribute("src") || "image";
+          return `[${escapeRtfText(alt)}]`;
+        }
+        if (tag === "input" && node.getAttribute("type") === "checkbox") {
+          return node.checked ? "\\u9745? " : "\\u9744? ";
+        }
+        return serializeInlineNodesToRtf(node.childNodes);
+      }).join("");
+    }
+
+    function makeRtfParagraph(content, options = {}) {
+      const commands = ["\\pard"];
+      if (options.keepWithNext) {
+        commands.push("\\keepn");
+      }
+      if (options.leftIndent) {
+        commands.push(`\\li${options.leftIndent}`);
+      }
+      if (options.firstLineIndent) {
+        commands.push(`\\fi${options.firstLineIndent}`);
+      }
+      if (options.spaceBefore) {
+        commands.push(`\\sb${options.spaceBefore}`);
+      }
+      if (options.spaceAfter) {
+        commands.push(`\\sa${options.spaceAfter}`);
+      }
+      if (options.fontSize) {
+        commands.push(`\\fs${options.fontSize}`);
+      }
+      if (options.bold) {
+        commands.push("\\b");
+      }
+      if (options.italic) {
+        commands.push("\\i");
+      }
+      if (options.monospace) {
+        commands.push("\\f1");
+      } else {
+        commands.push("\\f0");
+      }
+
+      let paragraph = `${commands.join("")} ${content || ""}`;
+      if (options.bold) {
+        paragraph += "\\b0";
+      }
+      if (options.italic) {
+        paragraph += "\\i0";
+      }
+      if (options.monospace) {
+        paragraph += "\\f0";
+      }
+      paragraph += "\\par\n";
+      return paragraph;
+    }
+
+    function serializeListToRtf(list, depth = 0) {
+      const isOrdered = list.tagName.toLowerCase() === "ol";
+      let counter = Number(list.getAttribute("start") || 1);
+      let rtf = "";
+
+      Array.from(list.children).forEach(item => {
+        if (!item.matches || !item.matches("li")) {
+          return;
+        }
+
+        let marker = "\\u8226? ";
+        let inlineNodes = [];
+        const nestedLists = Array.from(item.children).filter(child => child.matches && child.matches("ul, ol"));
+
+        if (item.dataset.task === "true") {
+          const checkbox = item.querySelector(':scope > .task-item input[type="checkbox"]');
+          const taskText = item.querySelector(':scope > .task-item .task-text');
+          marker = checkbox && checkbox.checked ? "\\u9745? " : "\\u9744? ";
+          inlineNodes = taskText ? Array.from(taskText.childNodes) : [];
+        } else {
+          if (isOrdered) {
+            marker = `${counter}. `;
+          }
+          inlineNodes = Array.from(item.childNodes).filter(child => !(child.matches && child.matches("ul, ol")));
+        }
+
+        const inlineContent = serializeInlineNodesToRtf(inlineNodes).trim() || " ";
+        rtf += makeRtfParagraph(`${escapeRtfText(marker)}${inlineContent}`, {
+          leftIndent: 720 * (depth + 1),
+          firstLineIndent: -360,
+          spaceAfter: 80
+        });
+
+        nestedLists.forEach(nestedList => {
+          rtf += serializeListToRtf(nestedList, depth + 1);
+        });
+
+        if (isOrdered) {
+          counter += 1;
+        }
+      });
+
+      return rtf;
+    }
+
+    function serializeTableToRtf(table) {
+      const rows = Array.from(table.querySelectorAll(":scope > thead > tr, :scope > tbody > tr"));
+      if (!rows.length) {
+        return "";
+      }
+
+      const columnCount = Math.max(...rows.map(row => row.children.length));
+      const pageWidth = 9000;
+      const cellWidth = Math.floor(pageWidth / Math.max(1, columnCount));
+      let rtf = "";
+
+      rows.forEach(row => {
+        rtf += "\\trowd\\trgaph108";
+        for (let columnIndex = 1; columnIndex <= columnCount; columnIndex += 1) {
+          rtf += `\\cellx${cellWidth * columnIndex}`;
+        }
+        rtf += "\n";
+
+        Array.from(row.children).forEach(cell => {
+          const isHeader = cell.tagName.toLowerCase() === "th";
+          let content = serializeInlineNodesToRtf(cell.childNodes).trim() || " ";
+          if (isHeader) {
+            content = `\\b ${content}\\b0`;
+          }
+          rtf += `\\intbl ${content}\\cell\n`;
+        });
+
+        rtf += "\\row\n";
+      });
+
+      return rtf + "\\pard\\sa120\\par\n";
+    }
+
+    function serializeBlockNodeToRtf(node, context = { blockquoteDepth: 0 }) {
+      if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+        return "";
+      }
+
+      const tag = node.tagName.toLowerCase();
+      const indent = context.blockquoteDepth ? context.blockquoteDepth * 720 : 0;
+
+      if (tag === "h1") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 36, bold: true, keepWithNext: true, spaceBefore: 140, spaceAfter: 80, leftIndent: indent });
+      }
+      if (tag === "h2") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 30, bold: true, keepWithNext: true, spaceBefore: 120, spaceAfter: 80, leftIndent: indent });
+      }
+      if (tag === "h3") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 26, bold: true, keepWithNext: true, spaceBefore: 100, spaceAfter: 70, leftIndent: indent });
+      }
+      if (tag === "h4") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 24, bold: true, keepWithNext: true, spaceBefore: 90, spaceAfter: 60, leftIndent: indent });
+      }
+      if (tag === "h5") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 22, bold: true, keepWithNext: true, spaceBefore: 80, spaceAfter: 50, leftIndent: indent });
+      }
+      if (tag === "h6") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: 20, bold: true, keepWithNext: true, spaceBefore: 70, spaceAfter: 50, leftIndent: indent });
+      }
+      if (tag === "p") {
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
+      }
+      if (tag === "ul" || tag === "ol") {
+        return serializeListToRtf(node, context.blockquoteDepth);
+      }
+      if (tag === "blockquote") {
+        return Array.from(node.children).map(child =>
+          serializeBlockNodeToRtf(child, { blockquoteDepth: context.blockquoteDepth + 1 })
+        ).join("");
+      }
+      if (tag === "pre") {
+        const codeNode = node.querySelector("code");
+        const codeText = escapeRtfText((codeNode ? codeNode.textContent : node.textContent) || "").replace(/\n/g, "\\line ");
+        return makeRtfParagraph(codeText, {
+          leftIndent: indent + 360,
+          spaceAfter: 140,
+          monospace: true
+        });
+      }
+      if (tag === "table") {
+        return serializeTableToRtf(node);
+      }
+      if (tag === "figure") {
+        const imageNode = node.querySelector("img");
+        const captionNode = node.querySelector("figcaption");
+        let rtf = "";
+        if (imageNode) {
+          const imageLabel = imageNode.getAttribute("alt") || imageNode.getAttribute("src") || "Image";
+          rtf += makeRtfParagraph(`[${escapeRtfText(imageLabel)}]`, { leftIndent: indent, italic: true, spaceAfter: 40 });
+        }
+        if (captionNode) {
+          rtf += makeRtfParagraph(serializeInlineNodesToRtf(captionNode.childNodes), { leftIndent: indent, italic: true, spaceAfter: 120 });
+        }
+        return rtf;
+      }
+      if (tag === "hr") {
+        return makeRtfParagraph("__________________________________________________", { leftIndent: indent, spaceAfter: 120 });
+      }
+      if (tag === "div" || tag === "section" || tag === "article") {
+        return Array.from(node.children).map(child => serializeBlockNodeToRtf(child, context)).join("");
+      }
+
+      return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
+    }
+
+    function buildRtfDocumentFromPreview() {
+      const documentTitle = (currentDocumentName || "documento.md").replace(/\.[^.]+$/i, "");
+      const titleText = escapeRtfText(documentTitle);
+      const body = Array.from(preview.children).map(child => serializeBlockNodeToRtf(child)).join("");
+      return [
+        "{\\rtf1\\ansi\\deff0",
+        "{\\fonttbl{\\f0 Georgia;}{\\f1 Courier New;}}",
+        "{\\colortbl;\\red47\\green36\\blue29;\\red182\\green87\\blue44;\\red95\\green75\\blue63;}",
+        "\\viewkind4\\uc1",
+        `\\pard\\qc\\b\\fs40 ${titleText}\\b0\\par`,
+        "\\pard\\sa160\\par",
+        body || "\\pard\\par\n",
+        "}"
+      ].join("\n");
+    }
+
+    async function exportRtfDocument() {
+      const rtf = buildRtfDocumentFromPreview();
+      const blob = new Blob([rtf], { type: "application/rtf;charset=utf-8" });
+      const suggestedName = getDocumentNameWithExtension(".rtf");
+
+      if (window.showSaveFilePicker) {
+        try {
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName,
+            startIn: currentDirectoryHandle || "documents",
+            types: [
+              {
+                description: "Rich Text Format",
+                accept: {
+                  "application/rtf": [".rtf"],
+                  "text/rtf": [".rtf"]
+                }
+              }
+            ]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(rtf);
+          await writable.close();
+          setStatus(t("statusRtfExported"));
+          return;
+        } catch {
+          return;
+        }
+      }
+
+      downloadBlobFile(blob, suggestedName);
+      setStatus(t("statusRtfExported"));
+    }
+
     async function downloadMarkdown() {
       if (currentFileHandle) {
         try {
@@ -5458,11 +5812,7 @@
       }
 
       const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = currentDocumentName;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      downloadBlobFile(blob, currentDocumentName);
       hasPersistedDocumentVersion = true;
       lastDownloadedMarkdown = markdownInput.value;
       setStatus(t("statusDownloaded"));
@@ -5501,11 +5851,7 @@
 
       // Fallback al download standard
       const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = currentDocumentName;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      downloadBlobFile(blob, currentDocumentName);
       hasPersistedDocumentVersion = true;
       lastDownloadedMarkdown = markdownInput.value;
       setStatus(t("statusDownloaded"));
@@ -5738,6 +6084,7 @@
     document.getElementById("saveAsButton").addEventListener("click", () => {
       void saveMarkdownAs();
     });
+    document.getElementById("exportRtfButton").addEventListener("click", exportRtfDocument);
     document.getElementById("downloadButton").addEventListener("click", downloadMarkdown);
     themeToggleButton.addEventListener("click", toggleTheme);
 
@@ -6014,7 +6361,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.053-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.054-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
