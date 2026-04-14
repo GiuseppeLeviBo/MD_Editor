@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.056-beta">
+  <link rel="manifest" href="./manifest.json?v=0.057-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -961,7 +961,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.056 beta</div>
+      <div class="build-badge" id="buildBadge">v0.057 beta</div>
     </footer>
   </main>
 
@@ -1005,7 +1005,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.056 beta";
+    const APP_VERSION = "v0.057 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -5519,14 +5519,23 @@
       }
     }
 
+    const MAX_RTF_IMAGE_TWIPS = 9000;
+
     function getImageRtfDimensions(imageNode) {
-      const width = imageNode.naturalWidth || imageNode.width || 1;
-      const height = imageNode.naturalHeight || imageNode.height || 1;
+      const sourceWidth = imageNode.naturalWidth || imageNode.width || 1;
+      const sourceHeight = imageNode.naturalHeight || imageNode.height || 1;
+      const rect = imageNode.getBoundingClientRect ? imageNode.getBoundingClientRect() : null;
+      const renderedWidth = rect && rect.width ? rect.width : (imageNode.width || sourceWidth);
+      const renderedHeight = rect && rect.height ? rect.height : (imageNode.height || sourceHeight);
+      const renderedTwipWidth = Math.max(15, Math.round(renderedWidth * 15));
+      const renderedTwipHeight = Math.max(15, Math.round(renderedHeight * 15));
+      const scale = Math.min(1, MAX_RTF_IMAGE_TWIPS / renderedTwipWidth);
+
       return {
-        pixelWidth: Math.max(1, Math.round(width)),
-        pixelHeight: Math.max(1, Math.round(height)),
-        twipWidth: Math.max(15, Math.round(width * 15)),
-        twipHeight: Math.max(15, Math.round(height * 15))
+        pixelWidth: Math.max(1, Math.round(sourceWidth)),
+        pixelHeight: Math.max(1, Math.round(sourceHeight)),
+        twipWidth: Math.max(15, Math.round(renderedTwipWidth * scale)),
+        twipHeight: Math.max(15, Math.round(renderedTwipHeight * scale))
       };
     }
 
@@ -6449,7 +6458,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.056-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.057-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

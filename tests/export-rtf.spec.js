@@ -120,4 +120,69 @@ test.describe("RTF export", () => {
 
     await expect(page.locator("#syncStatus")).toContainText(/RTF|Documento RTF|RTF document/i);
   });
+
+  test("scales wide embedded images to stay within the RTF page width", async ({ page }) => {
+    await page.addInitScript(() => {
+      function createDirectoryHandle(tree, name = "linked-project") {
+        return {
+          kind: "directory",
+          name,
+          async getFileHandle(entryName) {
+            const entry = tree[entryName];
+            if (!entry || entry.kind !== "file") {
+              throw new Error(`Missing file: ${entryName}`);
+            }
+            return entry.handle;
+          },
+          async getDirectoryHandle(entryName) {
+            const entry = tree[entryName];
+            if (!entry || entry.kind !== "directory") {
+              throw new Error(`Missing directory: ${entryName}`);
+            }
+            return entry.handle;
+          }
+        };
+      }
+
+      window.showDirectoryPicker = async () => createDirectoryHandle({});
+
+      window.__rtfExportWide = { content: null };
+      window.showSaveFilePicker = async options => ({
+        name: options.suggestedName,
+        async createWritable() {
+          return {
+            async write(value) {
+              window.__rtfExportWide.content = value;
+            },
+            async close() {}
+          };
+        }
+      });
+    });
+
+    await page.goto("/");
+    const wideImageDataUrl = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 4000;
+      canvas.height = 1000;
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#b85b27";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = "#fff4ea";
+      context.fillRect(200, 200, 3600, 600);
+      return canvas.toDataURL("image/png");
+    });
+
+    await page.locator("#markdownInput").fill(`![Wide test](${wideImageDataUrl})`);
+    await page.locator("#linkFolderButton").click();
+    await page.locator("#exportRtfButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__rtfExportWide.content)).not.toBeNull();
+    const content = await page.evaluate(() => window.__rtfExportWide.content);
+    expect(content).toContain("\\pict\\pngblip");
+    const match = content.match(/\\picwgoal(\d+)\\pichgoal(\d+)/);
+    expect(match).not.toBeNull();
+    expect(Number(match[1])).toBeLessThanOrEqual(9000);
+    expect(Number(match[2])).toBeGreaterThan(0);
+  });
 });
