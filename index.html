@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.054-beta">
+  <link rel="manifest" href="./manifest.json?v=0.055-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -961,7 +961,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.054 beta</div>
+      <div class="build-badge" id="buildBadge">v0.055 beta</div>
     </footer>
   </main>
 
@@ -1005,7 +1005,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.054 beta";
+    const APP_VERSION = "v0.055 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -5462,7 +5462,7 @@
         }
         if (codePoint <= 0xffff) {
           const signed = codePoint > 0x7fff ? codePoint - 0x10000 : codePoint;
-          result += `\\u${signed}?`;
+          result += `\\u${signed}`;
           continue;
         }
         const adjusted = codePoint - 0x10000;
@@ -5470,7 +5470,7 @@
         const lowSurrogate = 0xdc00 + (adjusted & 0x3ff);
         const highSigned = highSurrogate > 0x7fff ? highSurrogate - 0x10000 : highSurrogate;
         const lowSigned = lowSurrogate > 0x7fff ? lowSurrogate - 0x10000 : lowSurrogate;
-        result += `\\u${highSigned}?\\u${lowSigned}?`;
+        result += `\\u${highSigned}\\u${lowSigned}`;
       }
       return result;
     }
@@ -5515,7 +5515,7 @@
           return `[${escapeRtfText(alt)}]`;
         }
         if (tag === "input" && node.getAttribute("type") === "checkbox") {
-          return node.checked ? "\\u9745? " : "\\u9744? ";
+          return node.checked ? "\\u9745 " : "\\u9744 ";
         }
         return serializeInlineNodesToRtf(node.childNodes);
       }).join("");
@@ -5577,24 +5577,24 @@
           return;
         }
 
-        let marker = "\\u8226? ";
+        let marker = "\\u8226 ";
         let inlineNodes = [];
         const nestedLists = Array.from(item.children).filter(child => child.matches && child.matches("ul, ol"));
 
         if (item.dataset.task === "true") {
           const checkbox = item.querySelector(':scope > .task-item input[type="checkbox"]');
           const taskText = item.querySelector(':scope > .task-item .task-text');
-          marker = checkbox && checkbox.checked ? "\\u9745? " : "\\u9744? ";
+          marker = checkbox && checkbox.checked ? "\\u9745 " : "\\u9744 ";
           inlineNodes = taskText ? Array.from(taskText.childNodes) : [];
         } else {
           if (isOrdered) {
-            marker = `${counter}. `;
+            marker = escapeRtfText(`${counter}. `);
           }
           inlineNodes = Array.from(item.childNodes).filter(child => !(child.matches && child.matches("ul, ol")));
         }
 
         const inlineContent = serializeInlineNodesToRtf(inlineNodes).trim() || " ";
-        rtf += makeRtfParagraph(`${escapeRtfText(marker)}${inlineContent}`, {
+        rtf += makeRtfParagraph(`${marker}${inlineContent}`, {
           leftIndent: 720 * (depth + 1),
           firstLineIndent: -360,
           spaceAfter: 80
@@ -5700,7 +5700,11 @@
         let rtf = "";
         if (imageNode) {
           const imageLabel = imageNode.getAttribute("alt") || imageNode.getAttribute("src") || "Image";
-          rtf += makeRtfParagraph(`[${escapeRtfText(imageLabel)}]`, { leftIndent: indent, italic: true, spaceAfter: 40 });
+          const captionText = captionNode ? (captionNode.textContent || "").trim() : "";
+          const normalizedLabel = imageLabel.trim();
+          if (!captionText || captionText !== normalizedLabel) {
+            rtf += makeRtfParagraph(`Image: ${escapeRtfText(normalizedLabel)}`, { leftIndent: indent, italic: true, spaceAfter: 40 });
+          }
         }
         if (captionNode) {
           rtf += makeRtfParagraph(serializeInlineNodesToRtf(captionNode.childNodes), { leftIndent: indent, italic: true, spaceAfter: 120 });
@@ -5718,16 +5722,12 @@
     }
 
     function buildRtfDocumentFromPreview() {
-      const documentTitle = (currentDocumentName || "documento.md").replace(/\.[^.]+$/i, "");
-      const titleText = escapeRtfText(documentTitle);
       const body = Array.from(preview.children).map(child => serializeBlockNodeToRtf(child)).join("");
       return [
-        "{\\rtf1\\ansi\\deff0",
+        "{\\rtf1\\ansi\\ansicpg1252\\deff0",
         "{\\fonttbl{\\f0 Georgia;}{\\f1 Courier New;}}",
         "{\\colortbl;\\red47\\green36\\blue29;\\red182\\green87\\blue44;\\red95\\green75\\blue63;}",
-        "\\viewkind4\\uc1",
-        `\\pard\\qc\\b\\fs40 ${titleText}\\b0\\par`,
-        "\\pard\\sa160\\par",
+        "\\viewkind4\\uc0",
         body || "\\pard\\par\n",
         "}"
       ].join("\n");
@@ -6361,7 +6361,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.054-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.055-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

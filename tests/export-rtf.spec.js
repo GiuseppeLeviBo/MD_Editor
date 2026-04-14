@@ -74,12 +74,18 @@ test.describe("RTF export", () => {
       "",
       "This is a **bold** paragraph with a [link](https://example.com).",
       "",
+      "Exported symbols: È già pronto.",
+      "",
       "1. First item",
       "2. Second item",
+      "",
+      "- [ ] Checkbox task",
       "",
       "| Col A | Col B |",
       "| --- | --- |",
       "| One | Two |",
+      "",
+      "![Serial Monitor screenshot](data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==)",
       "",
       "```js",
       "const ready = true;",
@@ -103,6 +109,13 @@ test.describe("RTF export", () => {
     expect(result.content).toContain("\\trowd");
     expect(result.content).toContain('HYPERLINK "https://example.com"');
     expect(result.content).toContain("\\f1");
+    expect(result.content).toContain("\\uc0");
+    expect(result.content).toContain("\\u200 ");
+    expect(result.content).toContain("\\u224 ");
+    expect(result.content).toContain("\\u9744 ");
+    expect(result.content).toContain("Serial Monitor screenshot");
+    expect(result.content).not.toContain("[Serial Monitor screenshot]");
+    expect(result.content).not.toContain("\\qc\\b\\fs40 documento");
 
     await expect(page.locator("#syncStatus")).toContainText(/RTF|Documento RTF|RTF document/i);
   });
