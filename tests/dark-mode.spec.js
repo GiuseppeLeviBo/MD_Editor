@@ -37,4 +37,24 @@ test.describe("dark mode", () => {
     await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
     await expect(page.locator("#themeToggleLabel")).toHaveText("Tema chiaro");
   });
+
+  test("keeps disabled toolbar buttons readable in dark mode", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/");
+
+    const disabledButton = page.locator("#indentListButton");
+    await expect(disabledButton).toBeDisabled();
+
+    const styles = await disabledButton.evaluate(node => {
+      const computed = window.getComputedStyle(node);
+      return {
+        opacity: computed.opacity,
+        color: computed.color,
+        backgroundColor: computed.backgroundColor
+      };
+    });
+
+    expect(Number(styles.opacity)).toBeGreaterThan(0.75);
+    expect(styles.color).not.toBe(styles.backgroundColor);
+  });
 });
