@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.051-beta">
+  <link rel="manifest" href="./manifest.json?v=0.052-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -951,7 +951,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.051 beta</div>
+      <div class="build-badge" id="buildBadge">v0.052 beta</div>
     </footer>
   </main>
 
@@ -995,7 +995,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.051 beta";
+    const APP_VERSION = "v0.052 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -5550,13 +5550,52 @@
       border-left: 4px solid #b6572c;
       color: #5f4b3f;
     }
+    h1, h2, h3, h4, h5, h6 {
+      break-after: avoid-page;
+      page-break-after: avoid;
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+      margin-bottom: 0.35em;
+    }
+    h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+    h1 + ul, h2 + ul, h3 + ul, h4 + ul, h5 + ul, h6 + ul,
+    h1 + ol, h2 + ol, h3 + ol, h4 + ol, h5 + ol, h6 + ol,
+    h1 + blockquote, h2 + blockquote, h3 + blockquote, h4 + blockquote, h5 + blockquote, h6 + blockquote,
+    h1 + pre, h2 + pre, h3 + pre, h4 + pre, h5 + pre, h6 + pre,
+    h1 + table, h2 + table, h3 + table, h4 + table, h5 + table, h6 + table,
+    h1 + figure, h2 + figure, h3 + figure, h4 + figure, h5 + figure, h6 + figure {
+      break-before: avoid-page;
+      page-break-before: avoid;
+    }
+    p, li, blockquote {
+      orphans: 3;
+      widows: 3;
+    }
+    ul, ol, blockquote, pre, table, figure {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tr, img {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+    }
     @media print {
+      @page {
+        margin: 16mm 14mm 18mm;
+      }
       body {
         padding: 0;
         background: #fff;
       }
       main {
         max-width: none;
+      }
+      a {
+        color: inherit;
+        text-decoration-thickness: 1px;
       }
     }
   </style>
@@ -5966,7 +6005,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.051-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.052-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
