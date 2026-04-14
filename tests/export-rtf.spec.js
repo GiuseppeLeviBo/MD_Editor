@@ -113,6 +113,7 @@ test.describe("RTF export", () => {
     expect(result.content).toContain("\\u200 ");
     expect(result.content).toContain("\\u224 ");
     expect(result.content).toContain("\\u9744 ");
+    expect(result.content).toContain("\\pict\\pngblip");
     expect(result.content).toContain("Serial Monitor screenshot");
     expect(result.content).not.toContain("[Serial Monitor screenshot]");
     expect(result.content).not.toContain("\\qc\\b\\fs40 documento");

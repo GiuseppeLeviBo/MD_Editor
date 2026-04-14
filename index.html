@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.055-beta">
+  <link rel="manifest" href="./manifest.json?v=0.056-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -961,7 +961,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.055 beta</div>
+      <div class="build-badge" id="buildBadge">v0.056 beta</div>
     </footer>
   </main>
 
@@ -1005,7 +1005,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.055 beta";
+    const APP_VERSION = "v0.056 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -5481,6 +5481,87 @@
         .replace(/"/g, '\\"');
     }
 
+    function arrayBufferToHex(buffer) {
+      return Array.from(new Uint8Array(buffer)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function blobToArrayBuffer(blob) {
+      return await blob.arrayBuffer();
+    }
+
+    async function convertImageBlobToPngBlob(blob) {
+      const imageUrl = URL.createObjectURL(blob);
+      try {
+        const image = await new Promise((resolve, reject) => {
+          const element = new Image();
+          element.onload = () => resolve(element);
+          element.onerror = () => reject(new Error("Image conversion failed"));
+          element.src = imageUrl;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth || image.width || 1;
+        canvas.height = image.naturalHeight || image.height || 1;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0);
+
+        return await new Promise((resolve, reject) => {
+          canvas.toBlob(result => {
+            if (result) {
+              resolve(result);
+            } else {
+              reject(new Error("PNG conversion failed"));
+            }
+          }, "image/png");
+        });
+      } finally {
+        URL.revokeObjectURL(imageUrl);
+      }
+    }
+
+    function getImageRtfDimensions(imageNode) {
+      const width = imageNode.naturalWidth || imageNode.width || 1;
+      const height = imageNode.naturalHeight || imageNode.height || 1;
+      return {
+        pixelWidth: Math.max(1, Math.round(width)),
+        pixelHeight: Math.max(1, Math.round(height)),
+        twipWidth: Math.max(15, Math.round(width * 15)),
+        twipHeight: Math.max(15, Math.round(height * 15))
+      };
+    }
+
+    async function imageNodeToRtfPict(imageNode) {
+      const source = imageNode?.getAttribute("src") || "";
+      if (!source || /^data:image\/svg\+xml/i.test(source)) {
+        return "";
+      }
+
+      try {
+        const response = await fetch(source);
+        if (!response.ok) {
+          return "";
+        }
+
+        let blob = await response.blob();
+        let mimeType = (blob.type || "").toLowerCase();
+        if (!/^image\/(png|jpeg|jpg|gif)$/i.test(mimeType)) {
+          return "";
+        }
+
+        if (mimeType === "image/gif") {
+          blob = await convertImageBlobToPngBlob(blob);
+          mimeType = "image/png";
+        }
+
+        const dimensions = getImageRtfDimensions(imageNode);
+        const hexPayload = arrayBufferToHex(await blobToArrayBuffer(blob));
+        const formatControl = mimeType === "image/png" ? "\\pngblip" : "\\jpegblip";
+        return `{\\pard\\qc{\\pict${formatControl}\\picw${dimensions.pixelWidth}\\pich${dimensions.pixelHeight}\\picwgoal${dimensions.twipWidth}\\pichgoal${dimensions.twipHeight}\n${hexPayload}}\n\\par}\n`;
+      } catch {
+        return "";
+      }
+    }
+
     function serializeInlineNodesToRtf(nodes) {
       return Array.from(nodes || []).map(node => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -5645,7 +5726,7 @@
       return rtf + "\\pard\\sa120\\par\n";
     }
 
-    function serializeBlockNodeToRtf(node, context = { blockquoteDepth: 0 }) {
+    async function serializeBlockNodeToRtf(node, context = { blockquoteDepth: 0 }) {
       if (!node || node.nodeType !== Node.ELEMENT_NODE) {
         return "";
       }
@@ -5678,9 +5759,10 @@
         return serializeListToRtf(node, context.blockquoteDepth);
       }
       if (tag === "blockquote") {
-        return Array.from(node.children).map(child =>
+        const blocks = await Promise.all(Array.from(node.children).map(child =>
           serializeBlockNodeToRtf(child, { blockquoteDepth: context.blockquoteDepth + 1 })
-        ).join("");
+        ));
+        return blocks.join("");
       }
       if (tag === "pre") {
         const codeNode = node.querySelector("code");
@@ -5699,10 +5781,14 @@
         const captionNode = node.querySelector("figcaption");
         let rtf = "";
         if (imageNode) {
+          const pict = await imageNodeToRtfPict(imageNode);
+          if (pict) {
+            rtf += pict;
+          }
           const imageLabel = imageNode.getAttribute("alt") || imageNode.getAttribute("src") || "Image";
           const captionText = captionNode ? (captionNode.textContent || "").trim() : "";
           const normalizedLabel = imageLabel.trim();
-          if (!captionText || captionText !== normalizedLabel) {
+          if (!pict && (!captionText || captionText !== normalizedLabel)) {
             rtf += makeRtfParagraph(`Image: ${escapeRtfText(normalizedLabel)}`, { leftIndent: indent, italic: true, spaceAfter: 40 });
           }
         }
@@ -5715,14 +5801,16 @@
         return makeRtfParagraph("__________________________________________________", { leftIndent: indent, spaceAfter: 120 });
       }
       if (tag === "div" || tag === "section" || tag === "article") {
-        return Array.from(node.children).map(child => serializeBlockNodeToRtf(child, context)).join("");
+        const blocks = await Promise.all(Array.from(node.children).map(child => serializeBlockNodeToRtf(child, context)));
+        return blocks.join("");
       }
 
       return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
     }
 
-    function buildRtfDocumentFromPreview() {
-      const body = Array.from(preview.children).map(child => serializeBlockNodeToRtf(child)).join("");
+    async function buildRtfDocumentFromPreview() {
+      const bodyBlocks = await Promise.all(Array.from(preview.children).map(child => serializeBlockNodeToRtf(child)));
+      const body = bodyBlocks.join("");
       return [
         "{\\rtf1\\ansi\\ansicpg1252\\deff0",
         "{\\fonttbl{\\f0 Georgia;}{\\f1 Courier New;}}",
@@ -5734,7 +5822,7 @@
     }
 
     async function exportRtfDocument() {
-      const rtf = buildRtfDocumentFromPreview();
+      const rtf = await buildRtfDocumentFromPreview();
       const blob = new Blob([rtf], { type: "application/rtf;charset=utf-8" });
       const suggestedName = getDocumentNameWithExtension(".rtf");
 
@@ -6361,7 +6449,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.055-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.056-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
