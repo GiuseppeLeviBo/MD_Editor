@@ -6,12 +6,13 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.051 beta
+## Release notes - v0.058 beta
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
 - Validated drag-and-drop opening with the same safety checks as `Open .md`
 - Project-folder linking for relative images and local Markdown links
+- Editable `RTF` export for Word/LibreOffice workflows
 - Installable PWA shell with desktop-style usage on supported Chromium browsers
 - Italian/English UI, dark mode, symbol picker, mobile mode, and privacy-oriented local reset
 - Close-warning protection when the current document has unsaved changes
@@ -39,6 +40,17 @@ This is a stabilization beta focused on simplicity, portability, and standard Ma
 4. Open the Markdown document you want to edit.
 
 If the browser supports it, the file picker will try to reopen from the linked folder.
+
+## RTF export notes
+
+The editor can export the current rendered document as an editable `.rtf` file for Word-compatible word processors.
+
+- Text structure is preserved: headings, paragraphs, lists, tables, links, blockquotes, and code blocks.
+- Safe bitmap images are embedded when available: `PNG`, `JPEG`, and `GIF`.
+- `SVG` images are currently not embedded in the `RTF` output.
+- This is intentional for now: bitmap embedding is stable, while `SVG` would require an extra rendering/conversion step that goes beyond the current single-file safety model.
+
+So if an `SVG` image is not embedded in the exported `RTF`, that is currently a supported limitation rather than a broken export.
 
 ## Notes about `Documents`
 
