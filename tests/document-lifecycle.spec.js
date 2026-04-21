@@ -4,13 +4,14 @@ test.describe("document lifecycle", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.__openPickerCalls = 0;
+      window.__mockMarkdownContent = "# Opened file\n\nLoaded from the file picker.";
       window.showOpenFilePicker = async () => {
         window.__openPickerCalls += 1;
         return [{
           name: "opened.md",
           async getFile() {
             return new File(
-              ["# Opened file\n\nLoaded from the file picker."],
+              [window.__mockMarkdownContent],
               "opened.md",
               { type: "text/markdown" }
             );
@@ -75,5 +76,21 @@ test.describe("document lifecycle", () => {
 
     await expect(page.locator("#markdownInput")).toHaveValue("");
     await expect(page.locator("#preview")).not.toContainText("GETTING STARTED");
+  });
+
+  test("reload button restores disk content after confirming discard", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#openMarkdownButton").click();
+    await expect(page.locator("#markdownInput")).toHaveValue(/Loaded from the file picker/);
+
+    await page.evaluate(() => {
+      window.__mockMarkdownContent = "# Opened file\n\nUpdated by another agent.";
+    });
+    await page.locator("#markdownInput").fill("# Local draft\n\nTemporary local edits.");
+
+    page.once("dialog", dialog => dialog.accept());
+    await page.locator("#reloadDocumentButton").click();
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/Updated by another agent/);
   });
 });

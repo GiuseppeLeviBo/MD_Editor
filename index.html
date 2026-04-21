@@ -885,6 +885,7 @@
 
       <div class="tool-group">
         <button type="button" class="tool-button" id="openMarkdownButton" data-i18n-title="openMarkdown"><span class="tool-icon">📂</span><span data-i18n="openMarkdown">Apri .md</span></button>
+        <button type="button" class="tool-button" id="reloadDocumentButton" data-i18n-title="reloadDocument"><span class="tool-icon">↻</span><span data-i18n="reloadDocument">Ricarica file</span></button>
         <button type="button" class="tool-button" id="linkFolderButton" data-i18n-title="linkFolder"><span class="tool-icon">📁</span><span data-i18n="linkFolder">Collega cartella</span></button>
         <button type="button" class="tool-button" id="closeDocumentButton" data-i18n-title="closeDocument"><span class="tool-icon">✕</span><span data-i18n="closeDocument">Chiudi documento</span></button>
         <button type="button" class="tool-button" id="resetPrivacyButton" data-i18n-title="resetPrivacy"><span class="tool-icon">🧼</span><span data-i18n="resetPrivacy">Reset privacy</span></button>
@@ -1156,6 +1157,9 @@
     let pendingFolderLinkHandle = null;
     let lastLoadedMarkdown = "";
     let lastDownloadedMarkdown = "";
+    let lastKnownFileSignature = "";
+    let lastPromptedExternalSignature = "";
+    let fileChangeCheckInFlight = false;
     let hasPersistedDocumentVersion = false;
     let currentLanguage = "it";
     let currentMobilePanel = "visual";
@@ -1213,6 +1217,7 @@
         image: "Immagine",
         symbols: "Simboli",
         openMarkdown: "Apri .md",
+        reloadDocument: "Ricarica file",
         linkFolder: "Collega cartella",
         closeDocument: "Chiudi documento",
         resetPrivacy: "Pulisci dati locali",
@@ -1249,6 +1254,11 @@
         statusLoadedSuffix: " con risoluzione risorse relative",
         statusLoadedHint: " - usa 'Collega cartella' per immagini e file locali",
         statusLoaded: "File Markdown caricato",
+        statusReloaded: "Documento ricaricato dal file su disco",
+        statusReloadNoLinkedFile: "Nessun file collegato da ricaricare",
+        statusExternalChangeIgnored: "Il file su disco e cambiato, ma la ricarica e stata rimandata",
+        statusExternalReloadPrompt: "Il file su disco e stato aggiornato: ricarico disponibile",
+        statusReloadFailed: "Ricarica non riuscita: impossibile leggere il file collegato",
         statusBlobImageWarning: "Attenzione: questo file Markdown contiene URL immagine temporanei blob:. Ripristina i path relativi originali prima di salvarlo.",
         statusDropReady: "Rilascia un documento Markdown o testo compatibile per aprirlo.",
         statusDropSingleOnly: "Puoi trascinare un solo documento per volta.",
@@ -1286,6 +1296,8 @@
         promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
         promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
         promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
+        promptDiscardReload: "Vuoi ricaricare il documento dal file su disco e scartare le modifiche locali non salvate?",
+        promptExternalReload: "Il file su disco e stato modificato da un'altra applicazione. Vuoi ricaricarlo adesso? Le modifiche locali non scaricate verranno perse.",
         promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata.",
         actionLinkFolderNow: "Collega cartella ora",
         promptFolderHelp: "I browser non espongono automaticamente la cartella del file scelto. Usa 'Collega cartella' dopo l'apertura per risolvere immagini e file locali.",
@@ -1311,6 +1323,7 @@
         imageTitle: "Carica un'immagine",
         symbolsTitle: "Apri il pannello simboli",
         openMarkdownTitle: "Apri un file Markdown",
+        reloadDocumentTitle: "Ricarica il documento dal file aperto su disco",
         linkFolderTitle: "Collega la cartella delle risorse locali",
         closeDocumentTitle: "Chiudi il documento corrente e torna alla schermata iniziale",
         resetPrivacyTitle: "Rimuovi bozza, preferenze e dati locali da questo browser. Non cancella i file originali.",
@@ -1344,6 +1357,7 @@
         image: "Image",
         symbols: "Symbols",
         openMarkdown: "Open .md",
+        reloadDocument: "Reload file",
         linkFolder: "Link folder",
         closeDocument: "Close document",
         resetPrivacy: "Clear local data",
@@ -1380,6 +1394,11 @@
         statusLoadedSuffix: " with relative resource resolution",
         statusLoadedHint: " - use 'Link folder' for local images and files",
         statusLoaded: "Markdown file loaded",
+        statusReloaded: "Document reloaded from disk",
+        statusReloadNoLinkedFile: "No linked file available to reload",
+        statusExternalChangeIgnored: "Disk file changed, reload deferred",
+        statusExternalReloadPrompt: "Disk file changed: reload is available",
+        statusReloadFailed: "Reload failed: unable to read the linked file",
         statusBlobImageWarning: "Warning: this Markdown file contains temporary blob image URLs. Restore the original relative image paths before saving.",
         statusDropReady: "Drop a Markdown or compatible text document to open it.",
         statusDropSingleOnly: "You can drop only one document at a time.",
@@ -1417,6 +1436,8 @@
         promptCodeLanguage: "Code block language (optional)",
         promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
         promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
+        promptDiscardReload: "Do you want to reload this document from disk and discard local unsaved changes?",
+        promptExternalReload: "This file changed on disk from another app. Reload now? Local undownloaded changes will be lost.",
         promptAutoLinkFolder: "You opened a Markdown file without a linked project folder.",
         actionLinkFolderNow: "Link folder now",
         promptFolderHelp: "Browsers do not automatically expose the folder of the selected file. Use 'Link folder' after opening the file to resolve local images and files.",
@@ -1442,6 +1463,7 @@
         imageTitle: "Upload an image",
         symbolsTitle: "Open the symbols panel",
         openMarkdownTitle: "Open a Markdown file",
+        reloadDocumentTitle: "Reload the document from the currently linked disk file",
         linkFolderTitle: "Link the local resources folder",
         closeDocumentTitle: "Close the current document and return to the initial screen",
         resetPrivacyTitle: "Remove the draft, preferences, and local browser data. Original files are not deleted.",
@@ -2349,6 +2371,21 @@
       currentDirectoryFiles = new Map();
     }
 
+    function buildFileSignature(file) {
+      if (!file) {
+        return "";
+      }
+      return [file.name || "", Number(file.lastModified) || 0, Number(file.size) || 0].join(":");
+    }
+
+    function updateReloadButtonState() {
+      const reloadButton = document.getElementById("reloadDocumentButton");
+      if (!reloadButton) {
+        return;
+      }
+      reloadButton.disabled = !currentFileHandle;
+    }
+
     function hasLinkedDirectoryContext() {
       return Boolean(currentDirectoryHandle) || currentDirectoryFiles.size > 0;
     }
@@ -2454,6 +2491,7 @@
 
       const opened = await openMarkdownFile(entry.file, null);
       currentFileHandle = opened ? (entry.handle || null) : null;
+      updateReloadButtonState();
       if (!opened) {
         return false;
       }
@@ -3286,6 +3324,9 @@
         return;
       }
       currentFileHandle = null;
+      lastKnownFileSignature = "";
+      lastPromptedExternalSignature = "";
+      updateReloadButtonState();
       await openMarkdownFile(droppedFiles[0], null);
     }
 
@@ -5309,6 +5350,7 @@
         const file = await fileHandle.getFile();
         const opened = await openMarkdownFile(file, null, fileHandle);
         currentFileHandle = opened ? fileHandle : null;
+        updateReloadButtonState();
       } catch {
         setStatus(t("statusOpenCancelled"));
       }
@@ -5324,6 +5366,9 @@
       currentDocumentName = file.name || "documento.md";
       hasPersistedDocumentVersion = true;
       currentFileHandle = fileHandle;
+      lastKnownFileSignature = buildFileSignature(file);
+      lastPromptedExternalSignature = "";
+      updateReloadButtonState();
       if (directoryHandle !== null) {
         currentDirectoryHandle = directoryHandle;
       }
@@ -5342,6 +5387,66 @@
       setStatus(t("statusLoaded") + suffix + hint);
       await maybeSuggestProjectFolderLink(fileHandle);
       return true;
+    }
+
+    async function reloadCurrentDocumentFromDisk(options = {}) {
+      const {
+        skipUnsavedPrompt = false,
+        preloadedFile = null
+      } = options;
+
+      if (!currentFileHandle) {
+        setStatus(t("statusReloadNoLinkedFile"));
+        return false;
+      }
+
+      if (!skipUnsavedPrompt && hasUndownloadedChanges() && !window.confirm(t("promptDiscardReload"))) {
+        return false;
+      }
+
+      try {
+        const file = preloadedFile || await currentFileHandle.getFile();
+        const reloaded = await openMarkdownFile(file, null, currentFileHandle);
+        if (reloaded) {
+          setStatus(t("statusReloaded"));
+          return true;
+        }
+      } catch {
+        setStatus(t("statusReloadFailed"));
+      }
+
+      return false;
+    }
+
+    async function checkExternalFileChanges() {
+      if (!currentFileHandle || document.hidden || fileChangeCheckInFlight) {
+        return;
+      }
+
+      fileChangeCheckInFlight = true;
+      try {
+        const diskFile = await currentFileHandle.getFile();
+        const diskSignature = buildFileSignature(diskFile);
+        if (!diskSignature || !lastKnownFileSignature || diskSignature === lastKnownFileSignature || diskSignature === lastPromptedExternalSignature) {
+          return;
+        }
+
+        lastPromptedExternalSignature = diskSignature;
+        setStatus(t("statusExternalReloadPrompt"));
+        if (window.confirm(t("promptExternalReload"))) {
+          const reloaded = await reloadCurrentDocumentFromDisk({ skipUnsavedPrompt: true, preloadedFile: diskFile });
+          if (!reloaded) {
+            lastPromptedExternalSignature = "";
+          }
+          return;
+        }
+
+        setStatus(t("statusExternalChangeIgnored"));
+      } catch {
+        setStatus(t("statusReloadFailed"));
+      } finally {
+        fileChangeCheckInFlight = false;
+      }
     }
 
     async function linkCurrentDirectory() {
@@ -5371,6 +5476,9 @@
       const shouldRestoreBlankDraft = !hasPersistedDocumentVersion;
       clearResolvedResources();
       currentFileHandle = null;
+      lastKnownFileSignature = "";
+      lastPromptedExternalSignature = "";
+      updateReloadButtonState();
       clearDirectoryContext();
       hideFolderSuggestion();
       currentDocumentName = "documento.md";
@@ -5392,6 +5500,9 @@
       clearResolvedResources();
       clearAllPreferences();
       currentFileHandle = null;
+      lastKnownFileSignature = "";
+      lastPromptedExternalSignature = "";
+      updateReloadButtonState();
       clearDirectoryContext();
       hideFolderSuggestion();
       currentDocumentName = "documento.md";
@@ -5908,6 +6019,9 @@
           currentDocumentName = fileHandle.name;
           hasPersistedDocumentVersion = true;
           lastDownloadedMarkdown = markdownInput.value;
+          lastKnownFileSignature = buildFileSignature(await fileHandle.getFile());
+          lastPromptedExternalSignature = "";
+          updateReloadButtonState();
           setStatus(t("statusDownloaded"));
           return;
         } catch {
@@ -5946,6 +6060,9 @@
           currentDocumentName = fileHandle.name;
           hasPersistedDocumentVersion = true;
           lastDownloadedMarkdown = markdownInput.value;
+          lastKnownFileSignature = buildFileSignature(await fileHandle.getFile());
+          lastPromptedExternalSignature = "";
+          updateReloadButtonState();
           setStatus(t("statusDownloaded"));
           return;
         } catch {
@@ -6171,6 +6288,9 @@
     document.getElementById("openMarkdownButton").addEventListener("click", () => {
       void openMarkdownWithPicker();
     });
+    document.getElementById("reloadDocumentButton").addEventListener("click", () => {
+      void reloadCurrentDocumentFromDisk();
+    });
     document.getElementById("linkFolderButton").addEventListener("click", () => {
       void linkCurrentDirectory();
     });
@@ -6204,6 +6324,9 @@
       const [file] = event.target.files || [];
       if (file && confirmDiscardCurrentDocument()) {
         currentFileHandle = null;
+        lastKnownFileSignature = "";
+        lastPromptedExternalSignature = "";
+        updateReloadButtonState();
         void openMarkdownFile(file);
       }
       event.target.value = "";
@@ -6486,11 +6609,17 @@
           const file = await fileHandle.getFile();
           const opened = await openMarkdownFile(file, null);
           currentFileHandle = opened ? fileHandle : null;
+          updateReloadButtonState();
         } catch {
           setStatus(t("statusOpenCancelled"));
         }
       });
     }
+
+    updateReloadButtonState();
+    window.setInterval(() => {
+      void checkExternalFileChanges();
+    }, 7000);
   </script>
 </body>
 </html>
