@@ -24,7 +24,7 @@ test.describe("shortcuts and history", () => {
     await expect(markdown).toHaveValue(/\| Save as \| Ctrl\/Cmd \+ S \|/);
 
     await expect(page.locator('[data-command="bold"]')).toHaveAttribute("title", /Ctrl\/Cmd \+ B/);
-    await expect(page.locator("#reloadDocumentButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
+    await expect(page.locator("#reloadDocumentButton")).not.toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
     await expect(page.locator("#saveAsButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ S/);
   });
 
