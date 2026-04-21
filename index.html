@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.058-beta">
+  <link rel="manifest" href="./manifest.json?v=0.059-beta">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -216,6 +216,16 @@
       align-items: center;
       gap: 8px;
       white-space: nowrap;
+    }
+
+    .tool-group.file-actions .tool-button {
+      justify-content: center;
+      min-width: 44px;
+      padding-inline: 12px;
+    }
+
+    .tool-group.file-actions .tool-button span[data-i18n] {
+      display: none;
     }
 
     .tool-button.is-active {
@@ -883,7 +893,7 @@
         <button type="button" class="tool-button" id="symbolButton" data-i18n-title="symbols"><span class="tool-icon">☺</span><span data-i18n="symbols">Simboli</span></button>
       </div>
 
-      <div class="tool-group">
+      <div class="tool-group file-actions">
         <button type="button" class="tool-button" id="openMarkdownButton" data-i18n-title="openMarkdown"><span class="tool-icon">📂</span><span data-i18n="openMarkdown">Apri .md</span></button>
         <button type="button" class="tool-button" id="reloadDocumentButton" data-i18n-title="reloadDocument"><span class="tool-icon">↻</span><span data-i18n="reloadDocument">Ricarica file</span></button>
         <button type="button" class="tool-button" id="linkFolderButton" data-i18n-title="linkFolder"><span class="tool-icon">📁</span><span data-i18n="linkFolder">Collega cartella</span></button>
@@ -962,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.058 beta</div>
+      <div class="build-badge" id="buildBadge">v0.059 beta</div>
     </footer>
   </main>
 
@@ -1006,7 +1016,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.058 beta";
+    const APP_VERSION = "v0.059 beta";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1175,6 +1185,7 @@
       strike: "Ctrl/Cmd + Shift + E",
       bulletList: "Ctrl/Cmd + U",
       numberedList: "Ctrl/Cmd + O",
+      reloadDocument: "Ctrl/Cmd + Shift + R",
       indentList: "Tab",
       outdentList: "Shift + Tab",
       quote: "Ctrl/Cmd + 9",
@@ -1573,6 +1584,7 @@
         "| Titolo 2 | Ctrl/Cmd + 2 |",
         "| Titolo 3 | Ctrl/Cmd + 3 |",
         "| Citazione | Ctrl/Cmd + 9 |",
+        "| Ricarica file | Ctrl/Cmd + Shift + R |",
         "| Salva come | Ctrl/Cmd + S |",
         "| Anteprima di stampa | Ctrl/Cmd + P |"
       ].join("\n"),
@@ -1632,6 +1644,7 @@
         "| Heading 2 | Ctrl/Cmd + 2 |",
         "| Heading 3 | Ctrl/Cmd + 3 |",
         "| Quote | Ctrl/Cmd + 9 |",
+        "| Reload file | Ctrl/Cmd + Shift + R |",
         "| Save as | Ctrl/Cmd + S |",
         "| Print preview | Ctrl/Cmd + P |"
       ].join("\n")
@@ -6511,6 +6524,11 @@
           void saveMarkdownAs();
           return;
         }
+        if (key === "r" && event.shiftKey) {
+          event.preventDefault();
+          void reloadCurrentDocumentFromDisk();
+          return;
+        }
         if (key === "p") {
           event.preventDefault();
           printRenderedDocument();
@@ -6588,7 +6606,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.058-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.059-beta", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
