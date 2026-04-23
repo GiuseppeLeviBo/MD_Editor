@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.059.1">
+  <link rel="manifest" href="./manifest.json?v=0.59.2">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -972,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.1</div>
+      <div class="build-badge" id="buildBadge">v0.59.2</div>
     </footer>
   </main>
 
@@ -1016,7 +1016,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.1";
+    const APP_VERSION = "v0.59.2";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1270,6 +1270,8 @@
         statusExternalReloadPrompt: "Il file su disco e stato aggiornato: ricarico disponibile",
         statusReloadFailed: "Ricarica non riuscita: impossibile leggere il file collegato",
         statusBlobImageWarning: "Attenzione: questo file Markdown contiene URL immagine temporanei blob:. Ripristina i path relativi originali prima di salvarlo.",
+        statusImageEmbedded: "Immagine incorporata nel Markdown come data URL",
+        statusImageLinked: "Immagine inserita come link Markdown. Per l'anteprima locale, collega la cartella progetto se serve.",
         statusDropReady: "Rilascia un documento Markdown o testo compatibile per aprirlo.",
         statusDropSingleOnly: "Puoi trascinare un solo documento per volta.",
         statusOpenFirst: "Apri prima un file Markdown",
@@ -1301,6 +1303,8 @@
         statusUnsupportedDocumentFile: "Questo file non sembra un documento Markdown o testo compatibile.",
         statusBinaryFileBlocked: "File binario o non supportato: l'editor apre solo documenti testuali compatibili.",
         promptInsertUrl: "Inserisci l'URL del link",
+        promptInsertImageMode: "Inserisci immagine come 'embed' per incorporarla nel Markdown, oppure 'link' per usare un path o URL esterno",
+        promptInsertImagePath: "Inserisci il path o URL Markdown dell'immagine",
         promptTableColumns: "Numero di colonne della tabella",
         promptTableRows: "Numero di righe dati della tabella",
         promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
@@ -1410,6 +1414,8 @@
         statusExternalReloadPrompt: "Disk file changed: reload is available",
         statusReloadFailed: "Reload failed: unable to read the linked file",
         statusBlobImageWarning: "Warning: this Markdown file contains temporary blob image URLs. Restore the original relative image paths before saving.",
+        statusImageEmbedded: "Image embedded in Markdown as a data URL",
+        statusImageLinked: "Image inserted as a Markdown link. Link the project folder if you need a local preview.",
         statusDropReady: "Drop a Markdown or compatible text document to open it.",
         statusDropSingleOnly: "You can drop only one document at a time.",
         statusOpenFirst: "Open a Markdown file first",
@@ -1441,6 +1447,8 @@
         statusUnsupportedDocumentFile: "This file does not look like a compatible Markdown or text document.",
         statusBinaryFileBlocked: "Unsupported or binary file: the editor only opens compatible text documents.",
         promptInsertUrl: "Enter the link URL",
+        promptInsertImageMode: "Type 'embed' to store the image inside Markdown, or 'link' to use an external path or URL",
+        promptInsertImagePath: "Enter the image Markdown path or URL",
         promptTableColumns: "Number of table columns",
         promptTableRows: "Number of table data rows",
         promptCodeLanguage: "Code block language (optional)",
@@ -3292,7 +3300,7 @@
               return clean;
             }
             const caption = node.querySelector("figcaption");
-            const alt = image.getAttribute("alt") || (caption ? caption.textContent.trim() : "");
+            const alt = caption ? caption.textContent.trim() : (image.getAttribute("alt") || "");
             return "![" + alt + "](" + getMarkdownImageSource(image) + ")\n\n";
           }
           case "figcaption":
@@ -5260,24 +5268,84 @@
       void syncFromVisual();
     }
 
-    function insertImageFromFile(file) {
+    function buildImageFigureHtml(source, alt) {
+      return '<figure><img src="' + source + '" data-md-src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>";
+    }
+
+    function promptImageInsertMode() {
+      const defaultMode = hasLinkedDirectoryContext() ? "link" : "embed";
+      const answer = window.prompt(t("promptInsertImageMode"), defaultMode);
+      if (answer == null) {
+        return null;
+      }
+
+      const normalized = String(answer).trim().toLowerCase();
+      if (!normalized) {
+        return defaultMode;
+      }
+      if (["embed", "embedded", "base64", "data", "1"].includes(normalized)) {
+        return "embed";
+      }
+      if (["link", "linked", "path", "url", "2"].includes(normalized)) {
+        return "link";
+      }
+      return defaultMode;
+    }
+
+    function promptImageMarkdownSource(file) {
+      const defaultSource = normalizeResourcePath(file?.webkitRelativePath || file?.name || "image");
+      const answer = window.prompt(t("promptInsertImagePath"), defaultSource || "image");
+      if (answer == null) {
+        return null;
+      }
+      return String(answer).trim().replace(/\\/g, "/");
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = event => resolve(event.target.result);
+        reader.onerror = () => reject(new Error("Image read failed"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function insertImageFromFile(file) {
       if (isSelectionInsideTable()) {
         showTableBlockCommandStatus();
         return;
       }
-      const reader = new FileReader();
-      reader.onload = event => {
-        const source = event.target.result;
-        const alt = file.name.replace(/\.[^.]+$/, "");
-        visualEditor.focus();
-        document.execCommand(
-          "insertHTML",
-          false,
-          '<figure><img src="' + source + '" data-md-src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>"
-        );
-        void syncFromVisual();
-      };
-      reader.readAsDataURL(file);
+
+      const mode = promptImageInsertMode();
+      if (!mode) {
+        return;
+      }
+
+      const alt = file.name.replace(/\.[^.]+$/, "");
+      let source = "";
+
+      if (mode === "link") {
+        source = promptImageMarkdownSource(file);
+        if (!source) {
+          return;
+        }
+        if (!isSafeMarkdownImageSource(source)) {
+          setStatus(t("statusUnsafeLinkBlocked"));
+          return;
+        }
+      } else {
+        try {
+          source = await readFileAsDataUrl(file);
+        } catch {
+          setStatus(t("statusUnsupportedDocumentFile"));
+          return;
+        }
+      }
+
+      visualEditor.focus();
+      document.execCommand("insertHTML", false, buildImageFigureHtml(source, alt));
+      await syncFromVisual();
+      setStatus(t(mode === "link" ? "statusImageLinked" : "statusImageEmbedded"));
     }
 
     function renderSymbolCategoryOptions() {
@@ -6611,7 +6679,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.059.1", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.2", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

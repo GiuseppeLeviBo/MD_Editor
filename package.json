@@ -1,6 +1,6 @@
 {
   "name": "new-project",
-  "version": "0.59.1",
+  "version": "0.59.2",
   "description": "A lightweight, free Markdown/WYSIWYG editor that started as a single self-contained HTML file and later gained optional PWA support for installation, offline shell caching, and file handling where supported.",
   "main": "sw.js",
   "scripts": {
