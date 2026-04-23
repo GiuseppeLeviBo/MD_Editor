@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.3">
+  <link rel="manifest" href="./manifest.json?v=0.59.4">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -972,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.3</div>
+      <div class="build-badge" id="buildBadge">v0.59.4</div>
     </footer>
   </main>
 
@@ -1031,7 +1031,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.3";
+    const APP_VERSION = "v0.59.4";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -5289,7 +5289,9 @@
     }
 
     function buildImageFigureHtml(source, alt) {
-      return '<figure><img src="' + source + '" data-md-src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>";
+      const escapedSource = escapeHtml(source);
+      const escapedAlt = escapeHtml(alt);
+      return '<figure><img src="' + escapedSource + '" data-md-src="' + escapedSource + '" alt="' + escapedAlt + '"><figcaption>' + escapedAlt + "</figcaption></figure><p><br></p>";
     }
 
     function readFileAsDataUrl(file) {
@@ -6709,7 +6711,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.3", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.4", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

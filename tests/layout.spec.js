@@ -26,6 +26,6 @@ test.describe("layout behavior", () => {
     await expect(page.locator("#reloadDocumentButton span[data-i18n='reloadDocument']")).toBeHidden();
     await expect(page.locator("#downloadButton span[data-i18n='downloadMarkdown']")).toBeHidden();
     await expect(page.locator("#reloadDocumentButton")).toHaveAttribute("aria-label", /Reload file/);
-    await expect(page.locator("#reloadDocumentButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
+    await expect(page.locator("#reloadDocumentButton")).not.toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
   });
 });
