@@ -4,7 +4,9 @@ test.describe("document lifecycle", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.__openPickerCalls = 0;
+      window.__writeCalls = 0;
       window.__mockMarkdownContent = "# Opened file\n\nLoaded from the file picker.";
+      window.__mockMarkdownLastModified = 1700000000000;
       window.showOpenFilePicker = async () => {
         window.__openPickerCalls += 1;
         return [{
@@ -13,8 +15,24 @@ test.describe("document lifecycle", () => {
             return new File(
               [window.__mockMarkdownContent],
               "opened.md",
-              { type: "text/markdown" }
+              {
+                type: "text/markdown",
+                lastModified: window.__mockMarkdownLastModified
+              }
             );
+          },
+          async createWritable() {
+            let nextContent = "";
+            return {
+              async write(chunk) {
+                nextContent += typeof chunk === "string" ? chunk : String(chunk || "");
+              },
+              async close() {
+                window.__mockMarkdownContent = nextContent;
+                window.__mockMarkdownLastModified += 1000;
+                window.__writeCalls += 1;
+              }
+            };
           }
         }];
       };
@@ -92,5 +110,30 @@ test.describe("document lifecycle", () => {
     await page.locator("#reloadDocumentButton").click();
 
     await expect(page.locator("#markdownInput")).toHaveValue(/Updated by another agent/);
+  });
+
+  test("saving a linked file does not trigger a false external-change reload prompt", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#openMarkdownButton").click();
+    await expect(page.locator("#markdownInput")).toHaveValue(/Loaded from the file picker/);
+
+    await page.locator("#markdownInput").fill("# Opened file\n\nSaved version.");
+    await page.locator("#downloadButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__writeCalls)).toBe(1);
+    await expect.poll(async () => page.evaluate(() => window.__mockMarkdownContent)).toBe("# Opened file\n\nSaved version.");
+
+    await page.locator("#markdownInput").fill("# Opened file\n\nSaved version.\n\nUnsaved follow-up.");
+
+    const dialogs = [];
+    page.on("dialog", async dialog => {
+      dialogs.push(dialog.message());
+      await dialog.dismiss();
+    });
+
+    await page.evaluate(() => window.checkExternalFileChanges());
+
+    expect(dialogs).toHaveLength(0);
+    await expect(page.locator("#markdownInput")).toHaveValue("# Opened file\n\nSaved version.\n\nUnsaved follow-up.");
   });
 });

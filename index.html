@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.059-beta">
+  <link rel="manifest" href="./manifest.json?v=0.059.1">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -2388,6 +2388,19 @@
         return "";
       }
       return [file.name || "", Number(file.lastModified) || 0, Number(file.size) || 0].join(":");
+    }
+
+    async function refreshLinkedDocumentState(fileHandle) {
+      if (!fileHandle) {
+        return;
+      }
+
+      const file = await fileHandle.getFile();
+      currentFileHandle = fileHandle;
+      currentDocumentName = fileHandle.name || file.name || currentDocumentName;
+      lastKnownFileSignature = buildFileSignature(file);
+      lastPromptedExternalSignature = "";
+      updateReloadButtonState();
     }
 
     function updateReloadButtonState() {
@@ -6002,6 +6015,7 @@
           await writable.close();
           hasPersistedDocumentVersion = true;
           lastDownloadedMarkdown = markdownInput.value;
+          await refreshLinkedDocumentState(currentFileHandle);
           setStatus(t("statusDownloaded"));
           return;
         } catch {
@@ -6027,13 +6041,9 @@
           const writable = await fileHandle.createWritable();
           await writable.write(markdownInput.value);
           await writable.close();
-          currentFileHandle = fileHandle;
-          currentDocumentName = fileHandle.name;
           hasPersistedDocumentVersion = true;
           lastDownloadedMarkdown = markdownInput.value;
-          lastKnownFileSignature = buildFileSignature(await fileHandle.getFile());
-          lastPromptedExternalSignature = "";
-          updateReloadButtonState();
+          await refreshLinkedDocumentState(fileHandle);
           setStatus(t("statusDownloaded"));
           return;
         } catch {
@@ -6068,13 +6078,9 @@
           const writable = await fileHandle.createWritable();
           await writable.write(markdownInput.value);
           await writable.close();
-          currentFileHandle = fileHandle;
-          currentDocumentName = fileHandle.name;
           hasPersistedDocumentVersion = true;
           lastDownloadedMarkdown = markdownInput.value;
-          lastKnownFileSignature = buildFileSignature(await fileHandle.getFile());
-          lastPromptedExternalSignature = "";
-          updateReloadButtonState();
+          await refreshLinkedDocumentState(fileHandle);
           setStatus(t("statusDownloaded"));
           return;
         } catch {
@@ -6605,7 +6611,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.059-beta", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.059.1", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
