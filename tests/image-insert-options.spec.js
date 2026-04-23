@@ -85,5 +85,8 @@ test.describe("image insert options", () => {
 
     await expect(page.locator("#markdownInput")).toHaveValue("![diagram](diagram.png)");
     await expect(page.locator("#syncStatus")).toContainText(/link markdown|markdown link/i);
+    await expect(page.locator("#visualEditor img")).toHaveCount(1);
+    await expect(page.locator("#visualEditor img")).toHaveAttribute("data-md-src", "diagram.png");
+    await expect(page.locator("#visualEditor figure figcaption")).toHaveText("diagram");
   });
 });

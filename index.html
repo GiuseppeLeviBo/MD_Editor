@@ -5361,7 +5361,7 @@
 
       visualEditor.focus();
       document.execCommand("insertHTML", false, buildImageFigureHtml(source, alt));
-      await syncFromVisual();
+      await syncFromVisual(true);
       setStatus(t(mode === "link" ? "statusImageLinked" : "statusImageEmbedded"));
     }
 

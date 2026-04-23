@@ -73,6 +73,9 @@ test.describe("local resources", () => {
     await expect(page.locator("#syncStatus")).toContainText("Document folder linked");
     await expect(page.locator("#preview img")).toHaveCount(1);
     await expect(page.locator("#preview img")).toHaveAttribute("data-md-src", "diagram.svg");
+    await expect(page.locator("#visualEditor img")).toHaveCount(1);
+    await expect(page.locator("#visualEditor img")).toHaveAttribute("data-md-src", "diagram.svg");
+    await expect(page.locator("#visualEditor figure figcaption")).toHaveText("Diagram");
   });
 
   test("opens a linked local markdown file from preview", async ({ page }) => {
