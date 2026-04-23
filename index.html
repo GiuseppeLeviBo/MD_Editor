@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.2">
+  <link rel="manifest" href="./manifest.json?v=0.59.3">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -972,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.2</div>
+      <div class="build-badge" id="buildBadge">v0.59.3</div>
     </footer>
   </main>
 
@@ -990,6 +990,20 @@
     </div>
   </div>
 
+  <div class="dialog-backdrop" id="imageInsertDialog" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="imageInsertDialogTitle">
+      <div class="dialog-header">
+        <h3 class="dialog-title" id="imageInsertDialogTitle" data-i18n="imageInsertDialogTitle">Inserisci immagine come</h3>
+        <button type="button" id="cancelImageInsertDialogButton" data-i18n="close">Chiudi</button>
+      </div>
+      <div class="folder-suggestion-actions">
+        <button type="button" id="imageInsertEmbedButton" data-i18n="imageInsertEmbed">Embed</button>
+        <button type="button" id="imageInsertLinkButton" data-i18n="imageInsertLink">Link</button>
+        <button type="button" id="imageInsertCancelButton" data-i18n="close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const visualEditor = document.getElementById("visualEditor");
     const markdownInput = document.getElementById("markdownInput");
@@ -1000,6 +1014,7 @@
     const previewPanel = document.getElementById("previewPanel");
     const shell = document.querySelector(".shell");
     const symbolDialog = document.getElementById("symbolDialog");
+    const imageInsertDialog = document.getElementById("imageInsertDialog");
     const symbolGrid = document.getElementById("symbolGrid");
     const symbolSearch = document.getElementById("symbolSearch");
     const symbolCategorySelect = document.getElementById("symbolCategorySelect");
@@ -1016,7 +1031,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.2";
+    const APP_VERSION = "v0.59.3";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1171,6 +1186,7 @@
     let lastPromptedExternalSignature = "";
     let fileChangeCheckInFlight = false;
     let hasPersistedDocumentVersion = false;
+    let imageInsertDialogResolver = null;
     let currentLanguage = "it";
     let currentMobilePanel = "visual";
       let lastKnownBlockTag = "p";
@@ -1271,7 +1287,8 @@
         statusReloadFailed: "Ricarica non riuscita: impossibile leggere il file collegato",
         statusBlobImageWarning: "Attenzione: questo file Markdown contiene URL immagine temporanei blob:. Ripristina i path relativi originali prima di salvarlo.",
         statusImageEmbedded: "Immagine incorporata nel Markdown come data URL",
-        statusImageLinked: "Immagine inserita come link Markdown. Per l'anteprima locale, collega la cartella progetto se serve.",
+        statusImageLinked: "Immagine inserita come link Markdown usando il file nella cartella collegata.",
+        statusImageLinkRequiresFolder: "Per usare 'Link', collega prima la cartella progetto che contiene l'immagine.",
         statusDropReady: "Rilascia un documento Markdown o testo compatibile per aprirlo.",
         statusDropSingleOnly: "Puoi trascinare un solo documento per volta.",
         statusOpenFirst: "Apri prima un file Markdown",
@@ -1303,8 +1320,9 @@
         statusUnsupportedDocumentFile: "Questo file non sembra un documento Markdown o testo compatibile.",
         statusBinaryFileBlocked: "File binario o non supportato: l'editor apre solo documenti testuali compatibili.",
         promptInsertUrl: "Inserisci l'URL del link",
-        promptInsertImageMode: "Inserisci immagine come 'embed' per incorporarla nel Markdown, oppure 'link' per usare un path o URL esterno",
-        promptInsertImagePath: "Inserisci il path o URL Markdown dell'immagine",
+        imageInsertDialogTitle: "Inserisci immagine come",
+        imageInsertEmbed: "Embed",
+        imageInsertLink: "Link",
         promptTableColumns: "Numero di colonne della tabella",
         promptTableRows: "Numero di righe dati della tabella",
         promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
@@ -1415,7 +1433,8 @@
         statusReloadFailed: "Reload failed: unable to read the linked file",
         statusBlobImageWarning: "Warning: this Markdown file contains temporary blob image URLs. Restore the original relative image paths before saving.",
         statusImageEmbedded: "Image embedded in Markdown as a data URL",
-        statusImageLinked: "Image inserted as a Markdown link. Link the project folder if you need a local preview.",
+        statusImageLinked: "Image inserted as a Markdown link using the file in the linked folder.",
+        statusImageLinkRequiresFolder: "To use 'Link', first link the project folder that contains the image.",
         statusDropReady: "Drop a Markdown or compatible text document to open it.",
         statusDropSingleOnly: "You can drop only one document at a time.",
         statusOpenFirst: "Open a Markdown file first",
@@ -1447,8 +1466,9 @@
         statusUnsupportedDocumentFile: "This file does not look like a compatible Markdown or text document.",
         statusBinaryFileBlocked: "Unsupported or binary file: the editor only opens compatible text documents.",
         promptInsertUrl: "Enter the link URL",
-        promptInsertImageMode: "Type 'embed' to store the image inside Markdown, or 'link' to use an external path or URL",
-        promptInsertImagePath: "Enter the image Markdown path or URL",
+        imageInsertDialogTitle: "Insert image as",
+        imageInsertEmbed: "Embed",
+        imageInsertLink: "Link",
         promptTableColumns: "Number of table columns",
         promptTableRows: "Number of table data rows",
         promptCodeLanguage: "Code block language (optional)",
@@ -5272,35 +5292,6 @@
       return '<figure><img src="' + source + '" data-md-src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>";
     }
 
-    function promptImageInsertMode() {
-      const defaultMode = hasLinkedDirectoryContext() ? "link" : "embed";
-      const answer = window.prompt(t("promptInsertImageMode"), defaultMode);
-      if (answer == null) {
-        return null;
-      }
-
-      const normalized = String(answer).trim().toLowerCase();
-      if (!normalized) {
-        return defaultMode;
-      }
-      if (["embed", "embedded", "base64", "data", "1"].includes(normalized)) {
-        return "embed";
-      }
-      if (["link", "linked", "path", "url", "2"].includes(normalized)) {
-        return "link";
-      }
-      return defaultMode;
-    }
-
-    function promptImageMarkdownSource(file) {
-      const defaultSource = normalizeResourcePath(file?.webkitRelativePath || file?.name || "image");
-      const answer = window.prompt(t("promptInsertImagePath"), defaultSource || "image");
-      if (answer == null) {
-        return null;
-      }
-      return String(answer).trim().replace(/\\/g, "/");
-    }
-
     function readFileAsDataUrl(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -5310,13 +5301,42 @@
       });
     }
 
+    function closeImageInsertDialog(choice = null) {
+      imageInsertDialog.classList.remove("is-open");
+      imageInsertDialog.setAttribute("aria-hidden", "true");
+      const resolver = imageInsertDialogResolver;
+      imageInsertDialogResolver = null;
+      if (resolver) {
+        resolver(choice);
+      }
+    }
+
+    function openImageInsertDialog() {
+      if (typeof window.__testImageInsertMode === "function") {
+        return Promise.resolve(window.__testImageInsertMode());
+      }
+      if (typeof window.__testImageInsertMode === "string") {
+        return Promise.resolve(window.__testImageInsertMode);
+      }
+
+      return new Promise(resolve => {
+        imageInsertDialogResolver = resolve;
+        imageInsertDialog.classList.add("is-open");
+        imageInsertDialog.setAttribute("aria-hidden", "false");
+        const defaultButton = hasLinkedDirectoryContext()
+          ? document.getElementById("imageInsertLinkButton")
+          : document.getElementById("imageInsertEmbedButton");
+        window.setTimeout(() => defaultButton.focus(), 0);
+      });
+    }
+
     async function insertImageFromFile(file) {
       if (isSelectionInsideTable()) {
         showTableBlockCommandStatus();
         return;
       }
 
-      const mode = promptImageInsertMode();
+      const mode = await openImageInsertDialog();
       if (!mode) {
         return;
       }
@@ -5325,14 +5345,11 @@
       let source = "";
 
       if (mode === "link") {
-        source = promptImageMarkdownSource(file);
-        if (!source) {
+        if (!hasLinkedDirectoryContext()) {
+          setStatus(t("statusImageLinkRequiresFolder"));
           return;
         }
-        if (!isSafeMarkdownImageSource(source)) {
-          setStatus(t("statusUnsafeLinkBlocked"));
-          return;
-        }
+        source = normalizeResourcePath(file?.name || "image");
       } else {
         try {
           source = await readFileAsDataUrl(file);
@@ -6371,6 +6388,10 @@
     document.getElementById("imageButton").addEventListener("click", () => imageInput.click());
     document.getElementById("symbolButton").addEventListener("click", openSymbolDialog);
     document.getElementById("closeSymbolDialogButton").addEventListener("click", closeSymbolDialog);
+    document.getElementById("imageInsertEmbedButton").addEventListener("click", () => closeImageInsertDialog("embed"));
+    document.getElementById("imageInsertLinkButton").addEventListener("click", () => closeImageInsertDialog("link"));
+    document.getElementById("imageInsertCancelButton").addEventListener("click", () => closeImageInsertDialog(null));
+    document.getElementById("cancelImageInsertDialogButton").addEventListener("click", () => closeImageInsertDialog(null));
     document.getElementById("openMarkdownButton").addEventListener("click", () => {
       void openMarkdownWithPicker();
     });
@@ -6570,6 +6591,11 @@
         closeSymbolDialog();
       }
     });
+    imageInsertDialog.addEventListener("click", event => {
+      if (event.target === imageInsertDialog) {
+        closeImageInsertDialog(null);
+      }
+    });
 
     document.addEventListener("keydown", event => {
       if (event.defaultPrevented) {
@@ -6610,6 +6636,10 @@
       }
       if (event.key === "Escape" && symbolDialog.classList.contains("is-open")) {
         closeSymbolDialog();
+        return;
+      }
+      if (event.key === "Escape" && imageInsertDialog.classList.contains("is-open")) {
+        closeImageInsertDialog(null);
       }
     });
 
@@ -6679,7 +6709,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.2", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.3", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
