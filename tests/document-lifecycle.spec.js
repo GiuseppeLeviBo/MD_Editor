@@ -7,6 +7,7 @@ test.describe("document lifecycle", () => {
       window.__writeCalls = 0;
       window.__mockMarkdownContent = "# Opened file\n\nLoaded from the file picker.";
       window.__mockMarkdownLastModified = 1700000000000;
+      window.showDirectoryPicker = async () => ({ kind: "directory" });
       window.showOpenFilePicker = async () => {
         window.__openPickerCalls += 1;
         return [{
@@ -51,7 +52,7 @@ test.describe("document lifecycle", () => {
 
     await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
     await expect(page.locator("#markdownInput")).toHaveValue(/# Opened file/);
-    await expect(page.locator("#folderSuggestion")).toHaveClass(/is-visible/);
+    await expect(page.locator("#folderSuggestion")).not.toHaveClass(/is-visible/);
     expect(sawDialog).toBe(false);
   });
 
@@ -81,8 +82,17 @@ test.describe("document lifecycle", () => {
 
     await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
     await expect(page.locator("#markdownInput")).toHaveValue(/# Opened file/);
+    await expect(page.locator("#folderSuggestion")).not.toHaveClass(/is-visible/);
+  });
+
+  test("suggests the document folder when the opened markdown uses local relative resources", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(async () => {
+      await window.openMarkdownFile(new File(["# Opened file\n\n![Diagram](diagram.svg)"], "opened.md", { type: "text/markdown" }));
+    });
+
     await expect(page.locator("#folderSuggestion")).toHaveClass(/is-visible/);
-    await expect(page.locator("#syncStatus")).toContainText(/linked project folder|cartella progetto/i);
+    await expect(page.locator("#syncStatus")).toContainText(/document folder|cartella del documento/i);
   });
 
   test("close document turns an unsaved initial draft into a blank document", async ({ page }) => {

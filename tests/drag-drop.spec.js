@@ -36,8 +36,8 @@ test.describe("drag and drop", () => {
 
     await expect(page.locator("#markdownInput")).toHaveValue("# Dropped file\n\nLoaded by drag and drop.");
     await expect(page.locator("#visualEditor")).toContainText("Loaded by drag and drop.");
-    await expect(page.locator("#folderSuggestion")).toHaveClass(/is-visible/);
-    await expect(page.locator("#syncStatus")).toContainText(/linked project folder|cartella progetto/i);
+    await expect(page.locator("#folderSuggestion")).not.toHaveClass(/is-visible/);
+    await expect(page.locator("#syncStatus")).not.toContainText(/linked project folder|cartella progetto/i);
   });
 
   test("asks before replacing an unsaved draft when dropping a file and keeps the draft when cancelled", async ({ page }) => {
