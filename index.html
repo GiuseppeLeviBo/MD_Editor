@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.3">
+  <link rel="manifest" href="./manifest.json?v=0.59.5">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -972,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.3</div>
+      <div class="build-badge" id="buildBadge">v0.59.5</div>
     </footer>
   </main>
 
@@ -1031,7 +1031,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.3";
+    const APP_VERSION = "v0.59.5";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1175,6 +1175,7 @@
     let savedSelection = null;
     let currentDocumentName = "documento.md";
     let currentFileHandle = null;
+    let currentDocumentNeedsProjectFolder = false;
     let pendingFolderLinkHandle = null;
     let lastLoadedMarkdown = "";
     let lastDownloadedMarkdown = "";
@@ -1389,6 +1390,7 @@
         statusFromVisual: "Aggiornato dall'editor visuale",
         statusBrowserNoFolder: "Questo browser non supporta la selezione di cartelle",
         statusFolderCancelled: "Selezione cartella annullata",
+        statusFolderMismatch: "Seleziona la cartella che contiene davvero questo documento Markdown.",
         statusFolderFallback: "La selezione diretta della cartella e stata rifiutata: provo una modalita compatibile",
         statusOpenCancelled: "Apertura file annullata",
         statusLoadedSuffix: " con risoluzione risorse relative",
@@ -1535,6 +1537,7 @@
         statusFromVisual: "Updated from visual editor",
         statusBrowserNoFolder: "This browser does not support folder selection",
         statusFolderCancelled: "Folder selection canceled",
+        statusFolderMismatch: "Select the folder that actually contains this Markdown document.",
         statusFolderFallback: "Direct folder selection was rejected: trying a compatible mode",
         statusOpenCancelled: "File opening canceled",
         statusLoadedSuffix: " with relative resource resolution",
@@ -2534,6 +2537,31 @@
       resourceResolver.setDirectoryFiles(directoryFiles);
     }
 
+    async function doesDirectoryMatchCurrentDocument(directoryHandle) {
+      if (!hasPersistedDocumentVersion || !currentDocumentName) {
+        return true;
+      }
+
+      if (directoryHandle && directoryHandle.kind === "virtual-directory") {
+        return resourceResolver.directoryFiles.has(currentDocumentName);
+      }
+
+      if (directoryHandle && currentFileHandle && typeof directoryHandle.resolve === "function") {
+        try {
+          const relativeParts = await directoryHandle.resolve(currentFileHandle);
+          return Array.isArray(relativeParts) && relativeParts.length === 1 && relativeParts[0] === currentDocumentName;
+        } catch {}
+      }
+
+      try {
+        const handle = await directoryHandle.getFileHandle(currentDocumentName);
+        const file = await handle.getFile();
+        return (file.name || "") === currentDocumentName;
+      } catch {
+        return false;
+      }
+    }
+
     function buildFileSignature(file) {
       if (!file) {
         return "";
@@ -2568,6 +2596,34 @@
 
     function isProbablyExternalUrl(path) {
       return /^(https?:|data:|blob:|mailto:|tel:|#)/i.test(path);
+    }
+
+    function isRelativeDocumentResourcePath(path) {
+      const normalizedPath = normalizeLinkHref(path);
+      if (!normalizedPath) {
+        return false;
+      }
+      if (isProbablyExternalUrl(normalizedPath)) {
+        return false;
+      }
+      if (/^[\\/]/.test(normalizedPath)) {
+        return false;
+      }
+      if (/^[a-z]:/i.test(normalizedPath)) {
+        return false;
+      }
+      return true;
+    }
+
+    function documentNeedsProjectFolder(markdown) {
+      const source = String(markdown || "");
+      const inlineTargets = [
+        ...source.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g),
+        ...source.matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g),
+        ...source.matchAll(/^\s*\[[^\]]+\]:\s*(\S+)/gm)
+      ];
+
+      return inlineTargets.some(match => isRelativeDocumentResourcePath(match[1]));
     }
 
     function splitResourcePath(path) {
@@ -3457,9 +3513,7 @@
           if (startInHandle) {
             options.startIn = startInHandle;
           }
-          const directoryHandle = await window.showDirectoryPicker(options);
-          setCurrentDirectoryHandle(directoryHandle);
-          return directoryHandle;
+          return await window.showDirectoryPicker(options);
         } catch {
           setStatus(t("statusFolderFallback"));
         }
@@ -3476,7 +3530,7 @@
     }
 
     async function maybeSuggestProjectFolderLink(fileHandle = null) {
-      if (hasLinkedDirectoryContext() || !window.showDirectoryPicker) {
+      if (!currentDocumentNeedsProjectFolder || hasLinkedDirectoryContext()) {
         return;
       }
       showFolderSuggestion(fileHandle || currentFileHandle || null);
@@ -5382,7 +5436,9 @@
     }
 
     function buildImageFigureHtml(source, alt) {
-      return '<figure><img src="' + source + '" data-md-src="' + source + '" alt="' + escapeHtml(alt) + '"><figcaption>' + escapeHtml(alt) + "</figcaption></figure><p><br></p>";
+      const escapedSource = escapeHtml(source);
+      const escapedAlt = escapeHtml(alt);
+      return '<figure><img src="' + escapedSource + '" data-md-src="' + escapedSource + '" alt="' + escapedAlt + '"><figcaption>' + escapedAlt + "</figcaption></figure><p><br></p>";
     }
 
     function readFileAsDataUrl(file) {
@@ -5578,6 +5634,7 @@
         clearResolvedResources();
       }
       lastLoadedMarkdown = String(validationResult.text || "");
+      currentDocumentNeedsProjectFolder = documentNeedsProjectFolder(lastLoadedMarkdown);
       lastDownloadedMarkdown = lastLoadedMarkdown;
       markdownInput.value = lastLoadedMarkdown;
       resetHistory(lastLoadedMarkdown);
@@ -5587,8 +5644,11 @@
         return true;
       }
       const suffix = hasLinkedDirectoryContext() ? t("statusLoadedSuffix") : "";
-      const hint = hasLinkedDirectoryContext() ? "" : t("statusLoadedHint");
+      const hint = hasLinkedDirectoryContext() || !currentDocumentNeedsProjectFolder ? "" : t("statusLoadedHint");
       setStatus(t("statusLoaded") + suffix + hint);
+      if (!currentDocumentNeedsProjectFolder || hasLinkedDirectoryContext()) {
+        hideFolderSuggestion();
+      }
       await maybeSuggestProjectFolderLink(fileHandle);
       return true;
     }
@@ -5659,6 +5719,16 @@
         return;
       }
 
+      const matchesCurrentDocument = await doesDirectoryMatchCurrentDocument(directoryHandle);
+      if (!matchesCurrentDocument) {
+        clearDirectoryContext();
+        setStatus(t("statusFolderMismatch"));
+        return;
+      }
+
+      if (directoryHandle && directoryHandle.kind !== "virtual-directory") {
+        setCurrentDirectoryHandle(directoryHandle);
+      }
       hideFolderSuggestion();
       if (markdownInput.value) {
         await syncFromMarkdown();
@@ -5685,6 +5755,7 @@
       currentDocumentName = "documento.md";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
+      currentDocumentNeedsProjectFolder = false;
       hasPersistedDocumentVersion = false;
       markdownInput.value = shouldRestoreBlankDraft ? "" : getInitialMarkdown();
       resetHistory(markdownInput.value);
@@ -5709,6 +5780,7 @@
       currentDocumentName = "documento.md";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
+      currentDocumentNeedsProjectFolder = false;
       hasPersistedDocumentVersion = false;
       const defaultLanguage = detectPreferredLanguage();
       currentLanguage = defaultLanguage;
@@ -6857,7 +6929,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.3", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.5", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

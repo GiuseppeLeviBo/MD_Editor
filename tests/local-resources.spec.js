@@ -52,7 +52,15 @@ test.beforeEach(async ({ page }) => {
       "diagram.svg": { kind: "file", handle: linkedImage }
     });
 
-    window.showDirectoryPicker = async () => rootDirectory;
+    const wrongDirectory = createDirectoryHandle({
+      "other.svg": {
+        kind: "file",
+        handle: createFileHandle("other.svg", "<svg></svg>", "image/svg+xml")
+      }
+    });
+
+    window.__pickedDirectory = "root";
+    window.showDirectoryPicker = async () => window.__pickedDirectory === "wrong" ? wrongDirectory : rootDirectory;
   });
 });
 
@@ -79,6 +87,21 @@ test.describe("local resources", () => {
     await expect(page.locator("#visualEditor img")).toHaveCount(1);
     await expect(page.locator("#visualEditor img")).toHaveAttribute("data-md-src", "diagram.svg");
     await expect(page.locator("#visualEditor figure figcaption")).toHaveText("Diagram");
+  });
+
+  test("rejects linking a folder that does not contain the current markdown document", async ({ page }) => {
+    await page.goto("/");
+
+    await page.evaluate(async () => {
+      await window.openMarkdownFile(new File(["![Diagram](diagram.svg)"], "DSL_REFERENCE.md", { type: "text/markdown" }));
+    });
+    await page.evaluate(() => {
+      window.__pickedDirectory = "wrong";
+    });
+    await page.locator("#linkFolderButton").click();
+
+    await expect(page.locator("#syncStatus")).toContainText(/contains this markdown document|contiene davvero questo documento markdown/i);
+    await expect(page.locator("#preview img")).toHaveCount(0);
   });
 
   test("opens a linked local markdown file from preview", async ({ page }) => {
