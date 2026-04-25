@@ -686,6 +686,86 @@
       margin-bottom: 16px;
     }
 
+    .dialog-form-grid {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .dialog-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .dialog-label {
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .dialog-input,
+    .dialog-checkbox-label {
+      font: inherit;
+    }
+
+    .dialog-input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    body[data-theme="dark"] .dialog-input {
+      background: rgba(22, 17, 13, 0.95);
+      color: #f7efe5;
+    }
+
+    .dialog-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .dialog-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .dialog-summary {
+      min-height: 1.4em;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    #findReplaceDialog {
+      background: transparent;
+      pointer-events: none;
+    }
+
+    .find-replace-dialog {
+      position: fixed;
+      left: auto;
+      right: 24px;
+      top: 96px;
+      transform: translate(0, 0);
+      width: min(560px, calc(100vw - 24px));
+      max-height: min(80vh, calc(100vh - 24px));
+      pointer-events: auto;
+    }
+
+    .find-replace-dialog-header {
+      cursor: move;
+      user-select: none;
+    }
+
+    .find-replace-dialog-header button {
+      cursor: pointer;
+    }
+
     .symbol-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
@@ -891,6 +971,7 @@
         <button type="button" class="tool-button" id="linkButton" data-i18n-title="link"><span class="tool-icon">🔗</span><span data-i18n="link">Link</span></button>
         <button type="button" class="tool-button" id="imageButton" data-i18n-title="image"><span class="tool-icon">🖼</span><span data-i18n="image">Immagine</span></button>
         <button type="button" class="tool-button" id="symbolButton" data-i18n-title="symbols"><span class="tool-icon">☺</span><span data-i18n="symbols">Simboli</span></button>
+        <button type="button" class="tool-button" id="findReplaceButton" data-i18n-title="findReplace"><span class="tool-icon">⌕</span><span data-i18n="findReplace">Trova/Sostituisci</span></button>
       </div>
 
       <div class="tool-group file-actions">
@@ -1004,6 +1085,35 @@
     </div>
   </div>
 
+  <div class="dialog-backdrop" id="findReplaceDialog" aria-hidden="true">
+    <div class="dialog find-replace-dialog" id="findReplaceDialogPanel" role="dialog" aria-modal="true" aria-labelledby="findReplaceDialogTitle">
+      <div class="dialog-header find-replace-dialog-header" id="findReplaceDialogHeader">
+        <h3 class="dialog-title" id="findReplaceDialogTitle" data-i18n="findReplaceDialogTitle">Trova e sostituisci</h3>
+        <button type="button" id="closeFindReplaceDialogButton" data-i18n="close">Chiudi</button>
+      </div>
+      <div class="dialog-form-grid">
+        <label class="dialog-field" for="findReplaceSearchInput">
+          <span class="dialog-label" data-i18n="findLabel">Trova</span>
+          <input type="search" class="dialog-input" id="findReplaceSearchInput" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="dialog-field" for="findReplaceReplaceInput">
+          <span class="dialog-label" data-i18n="replaceLabel">Sostituisci con</span>
+          <input type="text" class="dialog-input" id="findReplaceReplaceInput" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="dialog-checkbox-label" for="findReplaceMatchCase">
+          <input type="checkbox" id="findReplaceMatchCase">
+          <span data-i18n="matchCase">Maiuscole/minuscole</span>
+        </label>
+      </div>
+      <p class="dialog-summary" id="findReplaceSummary" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" id="findNextButton" data-i18n="findNext">Trova successivo</button>
+        <button type="button" id="replaceOneButton" data-i18n="replaceOne">Sostituisci</button>
+        <button type="button" id="replaceAllButton" data-i18n="replaceAll">Sostituisci tutto</button>
+      </div>
+    </div>
+  </div>
+
   <!-- === StateAndConstants === -->
 <script id="Script-StateAndConstants">
 
@@ -1017,9 +1127,16 @@
     const shell = document.querySelector(".shell");
     const symbolDialog = document.getElementById("symbolDialog");
     const imageInsertDialog = document.getElementById("imageInsertDialog");
+    const findReplaceDialog = document.getElementById("findReplaceDialog");
     const symbolGrid = document.getElementById("symbolGrid");
     const symbolSearch = document.getElementById("symbolSearch");
     const symbolCategorySelect = document.getElementById("symbolCategorySelect");
+    const findReplaceDialogPanel = document.getElementById("findReplaceDialogPanel");
+    const findReplaceDialogHeader = document.getElementById("findReplaceDialogHeader");
+    const findReplaceSearchInput = document.getElementById("findReplaceSearchInput");
+    const findReplaceReplaceInput = document.getElementById("findReplaceReplaceInput");
+    const findReplaceMatchCase = document.getElementById("findReplaceMatchCase");
+    const findReplaceSummary = document.getElementById("findReplaceSummary");
     const languageSelect = document.getElementById("languageSelect");
     const themeToggleButton = document.getElementById("themeToggleButton");
     const themeToggleIcon = document.getElementById("themeToggleIcon");
@@ -1322,6 +1439,7 @@
       strike: "Ctrl/Cmd + Shift + E",
       bulletList: "Ctrl/Cmd + U",
       numberedList: "Ctrl/Cmd + O",
+      findReplace: "Ctrl/Cmd + H",
       indentList: "Tab",
       outdentList: "Shift + Tab",
       quote: "Ctrl/Cmd + 9",
@@ -1364,6 +1482,7 @@
         link: "Link",
         image: "Immagine",
         symbols: "Simboli",
+        findReplace: "Trova/Sostituisci",
         openMarkdown: "Apri .md",
         reloadDocument: "Ricarica file",
         linkFolder: "Collega cartella",
@@ -1388,6 +1507,17 @@
         previewHint: "HTML renderizzato",
         footerText: "Supporta titoli, grassetto, corsivo, liste, task list, tabelle, citazioni, link, blocchi di codice e regole orizzontali. La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.",
         symbolDialogTitle: "Inserisci simboli speciali",
+        findReplaceDialogTitle: "Trova e sostituisci",
+        findLabel: "Trova",
+        replaceLabel: "Sostituisci con",
+        matchCase: "Maiuscole/minuscole",
+        findNext: "Trova successivo",
+        replaceOne: "Sostituisci",
+        replaceAll: "Sostituisci tutto",
+        findReplaceSummaryEmpty: "Inserisci il testo da cercare.",
+        findReplaceSummaryNoResults: "Nessuna occorrenza trovata.",
+        findReplaceSummarySingle: "1 occorrenza trovata.",
+        findReplaceSummaryMultiple: "{count} occorrenze trovate.",
         symbolSearchPlaceholder: "Cerca per nome o simbolo...",
         symbolCategoryLabel: "Categoria simboli",
         close: "Chiudi",
@@ -1432,6 +1562,8 @@
         statusPrintBlocked: "Il browser ha bloccato la finestra di stampa",
         statusUndo: "Annullata l'ultima modifica",
         statusRedo: "Ripristinata la modifica successiva",
+        statusFindReplaceReplacedOne: "Occorrenza sostituita nel Markdown",
+        statusFindReplaceReplacedAll: "Tutte le occorrenze sono state sostituite nel Markdown",
         statusMixedStructureSelection: "La selezione include strutture diverse. Per evitare risultati confusi, modifica una struttura alla volta.",
         statusTableInvalid: "Tabella Markdown non valida: la mostro come testo normale.",
         statusTableBlocksDisabled: "Dentro una tabella puoi usare gli stili inline, ma non i comandi di blocco.",
@@ -1477,6 +1609,7 @@
         linkTitle: "Inserisci un collegamento",
         imageTitle: "Carica un'immagine",
         symbolsTitle: "Apri il pannello simboli",
+        findReplaceTitle: "Trova e sostituisci nel Markdown",
         openMarkdownTitle: "Apri un file Markdown",
         reloadDocumentTitle: "Ricarica il documento dal file aperto su disco",
         linkFolderTitle: "Collega la cartella delle risorse locali",
@@ -1511,6 +1644,7 @@
         link: "Link",
         image: "Image",
         symbols: "Symbols",
+        findReplace: "Find/Replace",
         openMarkdown: "Open .md",
         reloadDocument: "Reload file",
         linkFolder: "Link folder",
@@ -1535,6 +1669,17 @@
         previewHint: "Rendered HTML",
         footerText: "Supports headings, bold, italic, lists, task lists, tables, blockquotes, links, code blocks, and horizontal rules. The HTML/Markdown conversion is intentionally lightweight to keep the file simple and portable.",
         symbolDialogTitle: "Insert special symbols",
+        findReplaceDialogTitle: "Find and replace",
+        findLabel: "Find",
+        replaceLabel: "Replace with",
+        matchCase: "Match case",
+        findNext: "Find next",
+        replaceOne: "Replace",
+        replaceAll: "Replace all",
+        findReplaceSummaryEmpty: "Enter text to search for.",
+        findReplaceSummaryNoResults: "No matches found.",
+        findReplaceSummarySingle: "1 match found.",
+        findReplaceSummaryMultiple: "{count} matches found.",
         symbolSearchPlaceholder: "Search by name or symbol...",
         symbolCategoryLabel: "Symbol category",
         close: "Close",
@@ -1579,6 +1724,8 @@
         statusPrintBlocked: "The browser blocked the print window",
         statusUndo: "Undid the latest change",
         statusRedo: "Restored the next change",
+        statusFindReplaceReplacedOne: "Match replaced in Markdown",
+        statusFindReplaceReplacedAll: "All matches replaced in Markdown",
         statusMixedStructureSelection: "This selection includes different structures. To avoid confusing results, edit one structure at a time.",
         statusTableInvalid: "Invalid Markdown table: showing it as plain text.",
         statusTableBlocksDisabled: "Inside a table you can use inline styles, but not block commands.",
@@ -1624,6 +1771,7 @@
         linkTitle: "Insert a link",
         imageTitle: "Upload an image",
         symbolsTitle: "Open the symbols panel",
+        findReplaceTitle: "Find and replace in Markdown",
         openMarkdownTitle: "Open a Markdown file",
         reloadDocumentTitle: "Reload the document from the currently linked disk file",
         linkFolderTitle: "Link the local resources folder",
@@ -1735,6 +1883,7 @@
         "| Titolo 2 | Ctrl/Cmd + 2 |",
         "| Titolo 3 | Ctrl/Cmd + 3 |",
         "| Citazione | Ctrl/Cmd + 9 |",
+        "| Trova/Sostituisci | Ctrl/Cmd + H |",
         "| Ricarica file | Ctrl/Cmd + Shift + R |",
         "| Salva come | Ctrl/Cmd + S |",
         "| Anteprima di stampa | Ctrl/Cmd + P |"
@@ -1795,6 +1944,7 @@
         "| Heading 2 | Ctrl/Cmd + 2 |",
         "| Heading 3 | Ctrl/Cmd + 3 |",
         "| Quote | Ctrl/Cmd + 9 |",
+        "| Find/Replace | Ctrl/Cmd + H |",
         "| Reload file | Ctrl/Cmd + Shift + R |",
         "| Save as | Ctrl/Cmd + S |",
         "| Print preview | Ctrl/Cmd + P |"
@@ -3399,6 +3549,9 @@
         syncStatus.textContent = t("statusSynced");
       }
       renderSymbolCategoryOptions();
+      if (findReplaceDialog.classList.contains("is-open")) {
+        findReplaceController.updateSummary();
+      }
 
       if (isInitialDocumentState()) {
         markdownInput.value = getInitialMarkdown();
@@ -3779,6 +3932,412 @@
 
     async function syncFromVisual(normalizeVisualEditor = false) {
       await documentSyncController.fromVisual(normalizeVisualEditor);
+    }
+
+    class FindReplaceController {
+      constructor(options) {
+        this.dialog = options.dialog;
+        this.panel = options.panel;
+        this.dragHandle = options.dragHandle;
+        this.searchInput = options.searchInput;
+        this.replaceInput = options.replaceInput;
+        this.matchCaseInput = options.matchCaseInput;
+        this.summary = options.summary;
+        this.markdownInput = options.markdownInput;
+        this.syncFromMarkdown = options.syncFromMarkdown;
+        this.setStatusKey = options.setStatusKey;
+        this.flushPendingHistorySnapshot = options.flushPendingHistorySnapshot;
+        this.findNextButton = options.findNextButton;
+        this.replaceOneButton = options.replaceOneButton;
+        this.replaceAllButton = options.replaceAllButton;
+        this.matches = [];
+        this.activeMatchIndex = -1;
+        this.isDragging = false;
+        this.dragOffsetX = 0;
+        this.dragOffsetY = 0;
+        this.handlePointerMove = event => this.onPointerMove(event);
+        this.handlePointerUp = () => this.stopDragging();
+        this.handleResize = () => this.keepPanelInViewport();
+        this.initializeDragging();
+      }
+
+      getSearchTerm() {
+        return this.searchInput.value || "";
+      }
+
+      getReplacementText() {
+        return this.replaceInput.value || "";
+      }
+
+      getSelectableSearchText() {
+        if (document.activeElement === this.markdownInput) {
+          const start = this.markdownInput.selectionStart || 0;
+          const end = this.markdownInput.selectionEnd || 0;
+          if (end > start) {
+            return this.markdownInput.value.slice(start, end);
+          }
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          return "";
+        }
+        const selectedText = String(selection.toString() || "").trim();
+        return selectedText.includes("\n") ? "" : selectedText;
+      }
+
+      open() {
+        const suggestedText = this.getSelectableSearchText();
+        if (!this.getSearchTerm() && suggestedText) {
+          this.searchInput.value = suggestedText;
+        }
+        this.resetPosition();
+        this.dialog.classList.add("is-open");
+        this.dialog.setAttribute("aria-hidden", "false");
+        this.previewMatches();
+        this.searchInput.focus();
+        this.searchInput.select();
+      }
+
+      close() {
+        this.stopDragging();
+        this.dialog.classList.remove("is-open");
+        this.dialog.setAttribute("aria-hidden", "true");
+      }
+
+      initializeDragging() {
+        if (!this.dragHandle) {
+          return;
+        }
+        this.dragHandle.addEventListener("pointerdown", event => {
+          this.startDragging(event);
+        });
+        window.addEventListener("resize", this.handleResize);
+      }
+
+      resetPosition() {
+        if (!this.panel) {
+          return;
+        }
+        this.panel.style.left = "auto";
+        this.panel.style.right = "24px";
+        this.panel.style.top = "96px";
+        this.panel.style.transform = "translate(0, 0)";
+      }
+
+      startDragging(event) {
+        if (!this.panel || event.button !== 0) {
+          return;
+        }
+        if (event.target.closest("button")) {
+          return;
+        }
+
+        const rect = this.panel.getBoundingClientRect();
+        this.panel.style.left = rect.left + "px";
+        this.panel.style.right = "auto";
+        this.panel.style.top = rect.top + "px";
+        this.panel.style.transform = "translate(0, 0)";
+        this.dragOffsetX = event.clientX - rect.left;
+        this.dragOffsetY = event.clientY - rect.top;
+        this.isDragging = true;
+        window.addEventListener("pointermove", this.handlePointerMove);
+        window.addEventListener("pointerup", this.handlePointerUp);
+        event.preventDefault();
+      }
+
+      onPointerMove(event) {
+        if (!this.isDragging || !this.panel) {
+          return;
+        }
+        const maxLeft = Math.max(12, window.innerWidth - this.panel.offsetWidth - 12);
+        const maxTop = Math.max(12, window.innerHeight - this.panel.offsetHeight - 12);
+        const left = Math.min(Math.max(12, event.clientX - this.dragOffsetX), maxLeft);
+        const top = Math.min(Math.max(12, event.clientY - this.dragOffsetY), maxTop);
+        this.panel.style.left = left + "px";
+        this.panel.style.top = top + "px";
+      }
+
+      stopDragging() {
+        this.isDragging = false;
+        window.removeEventListener("pointermove", this.handlePointerMove);
+        window.removeEventListener("pointerup", this.handlePointerUp);
+      }
+
+      keepPanelInViewport() {
+        if (!this.panel || !this.dialog.classList.contains("is-open")) {
+          return;
+        }
+        const rect = this.panel.getBoundingClientRect();
+        if (this.panel.style.transform === "translate(-50%, -50%)") {
+          return;
+        }
+        const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+        const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+        const left = Math.min(Math.max(12, rect.left), maxLeft);
+        const top = Math.min(Math.max(12, rect.top), maxTop);
+        this.panel.style.left = left + "px";
+        this.panel.style.top = top + "px";
+      }
+
+      getMatches() {
+        const searchTerm = this.getSearchTerm();
+        if (!searchTerm) {
+          return [];
+        }
+
+        const source = this.markdownInput.value || "";
+        const haystack = this.matchCaseInput.checked ? source : source.toLocaleLowerCase();
+        const needle = this.matchCaseInput.checked ? searchTerm : searchTerm.toLocaleLowerCase();
+        const matches = [];
+        let offset = 0;
+
+        while (offset <= haystack.length - needle.length) {
+          const index = haystack.indexOf(needle, offset);
+          if (index === -1) {
+            break;
+          }
+          matches.push({ start: index, end: index + needle.length });
+          offset = index + Math.max(needle.length, 1);
+        }
+
+        return matches;
+      }
+
+      updateSummary() {
+        const count = this.matches.length;
+        if (!this.getSearchTerm()) {
+          this.summary.textContent = t("findReplaceSummaryEmpty");
+        } else if (!count) {
+          this.summary.textContent = t("findReplaceSummaryNoResults");
+        } else if (count === 1) {
+          this.summary.textContent = t("findReplaceSummarySingle");
+        } else {
+          this.summary.textContent = t("findReplaceSummaryMultiple").replace("{count}", String(count));
+        }
+
+        const hasMatches = count > 0;
+        this.findNextButton.disabled = !hasMatches;
+        this.replaceOneButton.disabled = !hasMatches;
+        this.replaceAllButton.disabled = !hasMatches;
+      }
+
+      getMatchLineIndex(match) {
+        return ((this.markdownInput.value || "").slice(0, match.start).match(/\n/g) || []).length;
+      }
+
+      getMatchTop(match) {
+        if (!match) {
+          return 0;
+        }
+
+        const textarea = this.markdownInput;
+        const computedStyle = window.getComputedStyle(textarea);
+        const mirror = document.createElement("div");
+        const marker = document.createElement("span");
+        const beforeText = (textarea.value || "").slice(0, match.start);
+        const markerText = (textarea.value || "").slice(match.start, Math.max(match.end, match.start + 1)) || " ";
+
+        mirror.setAttribute("aria-hidden", "true");
+        mirror.style.position = "absolute";
+        mirror.style.visibility = "hidden";
+        mirror.style.pointerEvents = "none";
+        mirror.style.left = "-99999px";
+        mirror.style.top = "0";
+        mirror.style.whiteSpace = "pre-wrap";
+        mirror.style.overflowWrap = "break-word";
+        mirror.style.wordBreak = "break-word";
+        mirror.style.boxSizing = computedStyle.boxSizing;
+        mirror.style.width = textarea.getBoundingClientRect().width + "px";
+        mirror.style.font = computedStyle.font;
+        mirror.style.lineHeight = computedStyle.lineHeight;
+        mirror.style.letterSpacing = computedStyle.letterSpacing;
+        mirror.style.paddingTop = computedStyle.paddingTop;
+        mirror.style.paddingRight = computedStyle.paddingRight;
+        mirror.style.paddingBottom = computedStyle.paddingBottom;
+        mirror.style.paddingLeft = computedStyle.paddingLeft;
+        mirror.style.borderTopWidth = computedStyle.borderTopWidth;
+        mirror.style.borderRightWidth = computedStyle.borderRightWidth;
+        mirror.style.borderBottomWidth = computedStyle.borderBottomWidth;
+        mirror.style.borderLeftWidth = computedStyle.borderLeftWidth;
+        mirror.style.tabSize = computedStyle.tabSize;
+
+        mirror.textContent = beforeText;
+        marker.textContent = markerText;
+        mirror.appendChild(marker);
+        document.body.appendChild(mirror);
+
+        const markerTop = marker.offsetTop;
+        document.body.removeChild(mirror);
+        return markerTop;
+      }
+
+      ensureMatchVisible(match) {
+        if (!match) {
+          return;
+        }
+
+        const textarea = this.markdownInput;
+        const matchTop = this.getMatchTop(match);
+        const maxScrollTop = Math.max(0, textarea.scrollHeight - textarea.clientHeight);
+        const centeredTop = matchTop - (textarea.clientHeight * 0.42);
+        textarea.scrollTop = Math.min(Math.max(0, centeredTop), maxScrollTop);
+      }
+
+      getSelectedMatchIndex() {
+        const start = this.markdownInput.selectionStart || 0;
+        const end = this.markdownInput.selectionEnd || start;
+        return this.matches.findIndex(match => match.start === start && match.end === end);
+      }
+
+      selectMatch(index, options = {}) {
+        if (!this.matches.length) {
+          this.activeMatchIndex = -1;
+          return false;
+        }
+
+        const normalizedIndex = ((index % this.matches.length) + this.matches.length) % this.matches.length;
+        const match = this.matches[normalizedIndex];
+        const activeElement = document.activeElement;
+        const restoreFocus = Boolean(options.preserveFocus && activeElement && activeElement !== this.markdownInput);
+        const activeSelectionStart = restoreFocus && typeof activeElement.selectionStart === "number" ? activeElement.selectionStart : null;
+        const activeSelectionEnd = restoreFocus && typeof activeElement.selectionEnd === "number" ? activeElement.selectionEnd : null;
+        this.activeMatchIndex = normalizedIndex;
+        this.markdownInput.focus();
+        this.markdownInput.setSelectionRange(match.start, match.end);
+        this.ensureMatchVisible(match);
+        if (restoreFocus && typeof activeElement.focus === "function") {
+          activeElement.focus();
+          if (activeSelectionStart !== null && typeof activeElement.setSelectionRange === "function") {
+            activeElement.setSelectionRange(activeSelectionStart, activeSelectionEnd);
+          }
+        }
+        window.requestAnimationFrame(() => {
+          if (this.activeMatchIndex === normalizedIndex) {
+            this.ensureMatchVisible(match);
+            if (restoreFocus && typeof activeElement.focus === "function") {
+              activeElement.focus();
+            }
+          }
+        });
+        window.setTimeout(() => {
+          if (this.activeMatchIndex === normalizedIndex) {
+            this.ensureMatchVisible(match);
+            if (restoreFocus && typeof activeElement.focus === "function") {
+              activeElement.focus();
+            }
+          }
+        }, 40);
+        return true;
+      }
+
+      previewMatches(options = {}) {
+        this.matches = this.getMatches();
+        if (!this.matches.length) {
+          this.activeMatchIndex = -1;
+          this.updateSummary();
+          return false;
+        }
+        this.activeMatchIndex = -1;
+        this.updateSummary();
+        if (options.selectFirst) {
+          return this.selectMatch(0, { preserveFocus: options.preserveFocus });
+        }
+        return true;
+      }
+
+      findNext() {
+        const previousMatch = this.matches[this.activeMatchIndex] || null;
+        this.matches = this.getMatches();
+        if (!this.matches.length) {
+          this.activeMatchIndex = -1;
+          this.updateSummary();
+          return false;
+        }
+        this.updateSummary();
+
+        if (previousMatch) {
+          const previousIndex = this.matches.findIndex(match => match.start === previousMatch.start && match.end === previousMatch.end);
+          this.activeMatchIndex = previousIndex;
+        }
+
+        const nextIndex = this.activeMatchIndex >= 0 ? this.activeMatchIndex + 1 : 0;
+        return this.selectMatch(nextIndex);
+      }
+
+      async replaceCurrent() {
+        this.matches = this.getMatches();
+        if (!this.matches.length) {
+          this.activeMatchIndex = -1;
+          this.updateSummary();
+          return false;
+        }
+        this.updateSummary();
+
+        const selectedMatchIndex = this.getSelectedMatchIndex();
+        if (selectedMatchIndex >= 0) {
+          this.activeMatchIndex = selectedMatchIndex;
+        } else if (this.activeMatchIndex < 0 || !this.matches[this.activeMatchIndex]) {
+          this.activeMatchIndex = 0;
+        }
+
+        const activeMatch = this.matches[this.activeMatchIndex];
+        if (!activeMatch) {
+          return false;
+        }
+
+        const currentValue = this.markdownInput.value || "";
+        const replacement = this.getReplacementText();
+        this.flushPendingHistorySnapshot();
+        this.markdownInput.value = currentValue.slice(0, activeMatch.start) + replacement + currentValue.slice(activeMatch.end);
+        this.matches = this.getMatches();
+        this.updateSummary();
+        if (!this.matches.length) {
+          this.activeMatchIndex = -1;
+          await this.syncFromMarkdown();
+          this.setStatusKey("statusFindReplaceReplacedOne");
+          return true;
+        }
+        const nextIndex = this.matches.findIndex(match => match.start >= activeMatch.start + replacement.length);
+        this.selectMatch(nextIndex === -1 ? 0 : nextIndex);
+        await this.syncFromMarkdown();
+        this.setStatusKey("statusFindReplaceReplacedOne");
+        return true;
+      }
+
+      async replaceAll() {
+        const matches = this.getMatches();
+        if (!matches.length) {
+          this.matches = [];
+          this.activeMatchIndex = -1;
+          this.updateSummary();
+          return 0;
+        }
+
+        const searchTerm = this.getSearchTerm();
+        const replacement = this.getReplacementText();
+        const source = this.markdownInput.value || "";
+        const rebuilt = [];
+        let lastIndex = 0;
+
+        matches.forEach(match => {
+          rebuilt.push(source.slice(lastIndex, match.start), replacement);
+          lastIndex = match.end;
+        });
+        rebuilt.push(source.slice(lastIndex));
+
+        this.flushPendingHistorySnapshot();
+        this.markdownInput.value = rebuilt.join("");
+        await this.syncFromMarkdown();
+        this.setStatusKey("statusFindReplaceReplacedAll");
+        this.matches = this.getMatches();
+        this.activeMatchIndex = -1;
+        this.updateSummary();
+        if (searchTerm === replacement) {
+          this.selectMatch(0);
+        }
+        return matches.length;
+      }
     }
 
     function getSelectionAnchorElement() {
@@ -6447,6 +7006,23 @@
       }
     }
 
+    const findReplaceController = new FindReplaceController({
+      dialog: findReplaceDialog,
+      panel: findReplaceDialogPanel,
+      dragHandle: findReplaceDialogHeader,
+      searchInput: findReplaceSearchInput,
+      replaceInput: findReplaceReplaceInput,
+      matchCaseInput: findReplaceMatchCase,
+      summary: findReplaceSummary,
+      markdownInput,
+      syncFromMarkdown,
+      setStatusKey: key => setStatus(t(key)),
+      flushPendingHistorySnapshot,
+      findNextButton: document.getElementById("findNextButton"),
+      replaceOneButton: document.getElementById("replaceOneButton"),
+      replaceAllButton: document.getElementById("replaceAllButton")
+    });
+
     function updateViewMode(mode) {
       const workspace = document.querySelector(".workspace");
 
@@ -6540,11 +7116,20 @@
     document.getElementById("linkButton").addEventListener("click", insertLink);
     document.getElementById("imageButton").addEventListener("click", () => imageInput.click());
     document.getElementById("symbolButton").addEventListener("click", openSymbolDialog);
+    document.getElementById("findReplaceButton").addEventListener("click", () => findReplaceController.open());
     document.getElementById("closeSymbolDialogButton").addEventListener("click", closeSymbolDialog);
+    document.getElementById("closeFindReplaceDialogButton").addEventListener("click", () => findReplaceController.close());
     document.getElementById("imageInsertEmbedButton").addEventListener("click", () => closeImageInsertDialog("embed"));
     document.getElementById("imageInsertLinkButton").addEventListener("click", () => closeImageInsertDialog("link"));
     document.getElementById("imageInsertCancelButton").addEventListener("click", () => closeImageInsertDialog(null));
     document.getElementById("cancelImageInsertDialogButton").addEventListener("click", () => closeImageInsertDialog(null));
+    document.getElementById("findNextButton").addEventListener("click", () => findReplaceController.findNext());
+    document.getElementById("replaceOneButton").addEventListener("click", () => {
+      void findReplaceController.replaceCurrent();
+    });
+    document.getElementById("replaceAllButton").addEventListener("click", () => {
+      void findReplaceController.replaceAll();
+    });
     document.getElementById("openMarkdownButton").addEventListener("click", () => {
       void openMarkdownWithPicker();
     });
@@ -6739,9 +7324,33 @@
       setLanguage(event.target.value);
     });
 
+    findReplaceSearchInput.addEventListener("input", () => {
+      findReplaceController.previewMatches({ selectFirst: true, preserveFocus: true });
+    });
+    findReplaceReplaceInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void findReplaceController.replaceCurrent();
+      }
+    });
+    findReplaceSearchInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        findReplaceController.findNext();
+      }
+    });
+    findReplaceMatchCase.addEventListener("change", () => {
+      findReplaceController.previewMatches({ selectFirst: true, preserveFocus: true });
+    });
+
     symbolDialog.addEventListener("click", event => {
       if (event.target === symbolDialog) {
         closeSymbolDialog();
+      }
+    });
+    findReplaceDialog.addEventListener("click", event => {
+      if (event.target === findReplaceDialog) {
+        findReplaceController.close();
       }
     });
     imageInsertDialog.addEventListener("click", event => {
@@ -6776,6 +7385,11 @@
           void saveMarkdownAs();
           return;
         }
+        if (key === "h" || key === "f") {
+          event.preventDefault();
+          findReplaceController.open();
+          return;
+        }
         if (key === "r" && event.shiftKey) {
           event.preventDefault();
           void reloadCurrentDocumentFromDisk();
@@ -6789,6 +7403,10 @@
       }
       if (event.key === "Escape" && symbolDialog.classList.contains("is-open")) {
         closeSymbolDialog();
+        return;
+      }
+      if (event.key === "Escape" && findReplaceDialog.classList.contains("is-open")) {
+        findReplaceController.close();
         return;
       }
       if (event.key === "Escape" && imageInsertDialog.classList.contains("is-open")) {
