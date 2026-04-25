@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.5">
+  <link rel="manifest" href="./manifest.json?v=0.59.6">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -972,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.5</div>
+      <div class="build-badge" id="buildBadge">v0.59.6</div>
     </footer>
   </main>
 
@@ -1031,7 +1031,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.5";
+    const APP_VERSION = "v0.59.6";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1182,6 +1182,7 @@
     let lastKnownFileSignature = "";
     let lastPromptedExternalSignature = "";
     let fileChangeCheckInFlight = false;
+    let fileSaveInFlight = false;
     let hasPersistedDocumentVersion = false;
     let imageInsertDialogResolver = null;
     let currentLanguage = "it";
@@ -2698,7 +2699,7 @@
         return false;
       }
 
-      const opened = await openMarkdownFile(entry.file, null);
+      const opened = await openMarkdownFile(entry.file, null, null, { preserveDirectoryContext: true });
       currentFileHandle = opened ? (entry.handle || null) : null;
       updateReloadButtonState();
       if (!opened) {
@@ -5615,7 +5616,8 @@
       }
     }
 
-    async function openMarkdownFile(file, directoryHandle = null, fileHandle = null) {
+    async function openMarkdownFile(file, directoryHandle = null, fileHandle = null, options = {}) {
+      const { preserveDirectoryContext = false } = options;
       const validationResult = await readValidatedDocumentFile(file);
       if (!validationResult.ok) {
         setStatus(t(validationResult.reason === "binary" ? "statusBinaryFileBlocked" : "statusUnsupportedDocumentFile"));
@@ -5630,6 +5632,8 @@
       updateReloadButtonState();
       if (directoryHandle !== null) {
         setCurrentDirectoryHandle(directoryHandle);
+      } else if (!preserveDirectoryContext) {
+        clearDirectoryContext();
       } else {
         clearResolvedResources();
       }
@@ -5670,7 +5674,7 @@
 
       try {
         const file = preloadedFile || await currentFileHandle.getFile();
-        const reloaded = await openMarkdownFile(file, null, currentFileHandle);
+        const reloaded = await openMarkdownFile(file, null, currentFileHandle, { preserveDirectoryContext: true });
         if (reloaded) {
           setStatus(t("statusReloaded"));
           return true;
@@ -5683,7 +5687,7 @@
     }
 
     async function checkExternalFileChanges() {
-      if (!currentFileHandle || document.hidden || fileChangeCheckInFlight) {
+      if (!currentFileHandle || document.hidden || fileChangeCheckInFlight || fileSaveInFlight) {
         return;
       }
 
@@ -5692,6 +5696,13 @@
         const diskFile = await currentFileHandle.getFile();
         const diskSignature = buildFileSignature(diskFile);
         if (!diskSignature || !lastKnownFileSignature || diskSignature === lastKnownFileSignature || diskSignature === lastPromptedExternalSignature) {
+          return;
+        }
+
+        const diskText = await diskFile.text();
+        if (diskText === lastDownloadedMarkdown) {
+          lastKnownFileSignature = diskSignature;
+          lastPromptedExternalSignature = "";
           return;
         }
 
@@ -6315,6 +6326,7 @@
     async function downloadMarkdown() {
       if (currentFileHandle) {
         try {
+          fileSaveInFlight = true;
           const writable = await currentFileHandle.createWritable();
           await writable.write(markdownInput.value);
           await writable.close();
@@ -6325,11 +6337,14 @@
           return;
         } catch {
           // Fallback al download standard se la scrittura fallisce
+        } finally {
+          fileSaveInFlight = false;
         }
       }
 
       if (getCurrentDirectoryHandle() && window.showSaveFilePicker) {
         try {
+          fileSaveInFlight = true;
           const fileHandle = await window.showSaveFilePicker({
             suggestedName: currentDocumentName,
             startIn: getCurrentDirectoryHandle(),
@@ -6353,6 +6368,8 @@
           return;
         } catch {
           // Fallback al download standard se l'utente annulla
+        } finally {
+          fileSaveInFlight = false;
         }
       }
 
@@ -6366,6 +6383,7 @@
     async function saveMarkdownAs() {
       if (window.showSaveFilePicker) {
         try {
+          fileSaveInFlight = true;
           const startIn = getCurrentDirectoryHandle() || "documents";
           const fileHandle = await window.showSaveFilePicker({
             suggestedName: currentDocumentName,
@@ -6390,6 +6408,8 @@
           return;
         } catch {
           return;
+        } finally {
+          fileSaveInFlight = false;
         }
       }
 
@@ -6929,7 +6949,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.5", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.6", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
@@ -6948,9 +6968,7 @@
           }
           const [fileHandle] = fileHandles;
           const file = await fileHandle.getFile();
-          const opened = await openMarkdownFile(file, null);
-          currentFileHandle = opened ? fileHandle : null;
-          updateReloadButtonState();
+          await openMarkdownFile(file, null, fileHandle);
         } catch {
           setStatus(t("statusOpenCancelled"));
         }

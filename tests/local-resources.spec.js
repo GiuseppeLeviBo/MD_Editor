@@ -89,6 +89,22 @@ test.describe("local resources", () => {
     await expect(page.locator("#visualEditor figure figcaption")).toHaveText("Diagram");
   });
 
+  test("opening a separate document clears the previous linked folder context", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("![Diagram](diagram.svg)");
+    await page.locator("#linkFolderButton").click();
+    await expect(page.locator("#preview img")).toHaveCount(1);
+
+    await page.evaluate(async () => {
+      await window.openMarkdownFile(new File(["![Diagram](diagram.svg)"], "separate.md", { type: "text/markdown" }));
+    });
+
+    await expect(page.locator("#preview img")).toHaveCount(0);
+    await expect(page.locator("#preview")).toContainText("![Diagram](diagram.svg)");
+    await expect(page.locator("#folderSuggestion")).toHaveClass(/is-visible/);
+  });
+
   test("rejects linking a folder that does not contain the current markdown document", async ({ page }) => {
     await page.goto("/");
 

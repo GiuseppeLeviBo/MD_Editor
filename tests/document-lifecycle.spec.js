@@ -7,6 +7,7 @@ test.describe("document lifecycle", () => {
       window.__writeCalls = 0;
       window.__mockMarkdownContent = "# Opened file\n\nLoaded from the file picker.";
       window.__mockMarkdownLastModified = 1700000000000;
+      window.__checkExternalDuringClose = false;
       window.showDirectoryPicker = async () => ({ kind: "directory" });
       window.showOpenFilePicker = async () => {
         window.__openPickerCalls += 1;
@@ -31,6 +32,9 @@ test.describe("document lifecycle", () => {
               async close() {
                 window.__mockMarkdownContent = nextContent;
                 window.__mockMarkdownLastModified += 1000;
+                if (window.__checkExternalDuringClose && typeof window.checkExternalFileChanges === "function") {
+                  await window.checkExternalFileChanges();
+                }
                 window.__writeCalls += 1;
               }
             };
@@ -145,5 +149,95 @@ test.describe("document lifecycle", () => {
 
     expect(dialogs).toHaveLength(0);
     await expect(page.locator("#markdownInput")).toHaveValue("# Opened file\n\nSaved version.\n\nUnsaved follow-up.");
+  });
+
+  test("ignores the automatic external-change check while its own save is still closing", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("#openMarkdownButton").click();
+    await expect(page.locator("#markdownInput")).toHaveValue(/Loaded from the file picker/);
+
+    await page.evaluate(() => {
+      window.__checkExternalDuringClose = true;
+    });
+
+    const dialogs = [];
+    page.on("dialog", async dialog => {
+      dialogs.push(dialog.message());
+      await dialog.dismiss();
+    });
+
+    await page.locator("#markdownInput").fill("# Opened file\n\nSaved during close.");
+    await page.locator("#downloadButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__writeCalls)).toBe(1);
+    expect(dialogs).toHaveLength(0);
+    await expect(page.locator("#markdownInput")).toHaveValue("# Opened file\n\nSaved during close.");
+  });
+
+  test("opens a launched markdown file with its handle so saving does not prompt for reload", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__launchConsumer = null;
+      Object.defineProperty(window, "launchQueue", {
+        configurable: true,
+        value: {
+          setConsumer(consumer) {
+            window.__launchConsumer = consumer;
+          }
+        }
+      });
+    });
+
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const launchedHandle = {
+        name: "launched.md",
+        async getFile() {
+          return new File(
+            [window.__mockMarkdownContent],
+            "launched.md",
+            {
+              type: "text/markdown",
+              lastModified: window.__mockMarkdownLastModified
+            }
+          );
+        },
+        async createWritable() {
+          let nextContent = "";
+          return {
+            async write(chunk) {
+              nextContent += typeof chunk === "string" ? chunk : String(chunk || "");
+            },
+            async close() {
+              window.__mockMarkdownContent = nextContent;
+              window.__mockMarkdownLastModified += 1000;
+              if (window.__checkExternalDuringClose && typeof window.checkExternalFileChanges === "function") {
+                await window.checkExternalFileChanges();
+              }
+              window.__writeCalls += 1;
+            }
+          };
+        }
+      };
+
+      await window.__launchConsumer({ files: [launchedHandle] });
+    });
+
+    await expect(page.locator("#markdownInput")).toHaveValue(/Loaded from the file picker/);
+    await page.evaluate(() => {
+      window.__checkExternalDuringClose = true;
+    });
+
+    const dialogs = [];
+    page.on("dialog", async dialog => {
+      dialogs.push(dialog.message());
+      await dialog.dismiss();
+    });
+
+    await page.locator("#markdownInput").fill("# Launched file\n\nSaved from file handler.");
+    await page.locator("#downloadButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__writeCalls)).toBe(1);
+    expect(dialogs).toHaveLength(0);
+    await expect(page.locator("#markdownInput")).toHaveValue("# Launched file\n\nSaved from file handler.");
   });
 });
