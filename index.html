@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.6">
+  <link rel="manifest" href="./manifest.json?v=0.59.7">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -972,7 +972,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.6</div>
+      <div class="build-badge" id="buildBadge">v0.59.7</div>
     </footer>
   </main>
 
@@ -1004,7 +1004,9 @@
     </div>
   </div>
 
-  <script>
+  <!-- === StateAndConstants === -->
+<script id="Script-StateAndConstants">
+
     const visualEditor = document.getElementById("visualEditor");
     const markdownInput = document.getElementById("markdownInput");
     const preview = document.getElementById("preview");
@@ -1031,7 +1033,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.6";
+    const APP_VERSION = "v0.59.7";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1195,6 +1197,10 @@
     // ResourceResolver is the single owner of the linked-folder state. Keeping
     // object URL caching and path normalization here avoids scattering file-system
     // access details across rendering, preview links, and image handling.
+</script>
+
+<!-- === ResourceResolver === -->
+<script id="Script-ResourceResolver">
     class ResourceResolver {
       constructor() {
         this.directoryHandle = null;
@@ -1795,6 +1801,165 @@
       ].join("\n")
     };
 
+    function isProbablyExternalUrl(path) {
+      return /^(https?:|data:|blob:|mailto:|tel:|#)/i.test(path);
+    }
+
+    function isRelativeDocumentResourcePath(path) {
+      const normalizedPath = normalizeLinkHref(path);
+      if (!normalizedPath) {
+        return false;
+      }
+      if (isProbablyExternalUrl(normalizedPath)) {
+        return false;
+      }
+      if (/^[\\/]/.test(normalizedPath)) {
+        return false;
+      }
+      if (/^[a-z]:/i.test(normalizedPath)) {
+        return false;
+      }
+      return true;
+    }
+
+    function documentNeedsProjectFolder(markdown) {
+      const source = String(markdown || "");
+      const inlineTargets = [
+        ...source.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g),
+        ...source.matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g),
+        ...source.matchAll(/^\s*\[[^\]]+\]:\s*(\S+)/gm)
+      ];
+
+      return inlineTargets.some(match => isRelativeDocumentResourcePath(match[1]));
+    }
+
+    function splitResourcePath(path) {
+      return path
+        .split(/[\\/]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeResourcePath(path) {
+      const parts = splitResourcePath(path);
+      const normalized = [];
+
+      for (const part of parts) {
+        if (!part || part === ".") {
+          continue;
+        }
+        if (part === "..") {
+          if (!normalized.length) {
+            return null;
+          }
+          normalized.pop();
+          continue;
+        }
+        normalized.push(part);
+      }
+
+      return normalized.join("/");
+    }
+
+    function getMarkdownImageSource(node) {
+      if (!node || typeof node.getAttribute !== "function") {
+        return "";
+      }
+
+      return node.getAttribute("data-md-src") || node.getAttribute("src") || "";
+    }
+
+    function getMarkdownLinkSource(node) {
+      if (!node || typeof node.getAttribute !== "function") {
+        return "";
+      }
+
+      return node.getAttribute("data-md-href") || node.getAttribute("href") || "";
+    }
+
+    function stripHashAndQuery(path) {
+      return String(path || "").split("#")[0].split("?")[0];
+    }
+
+    function isMarkdownPath(path) {
+      return /\.(md|markdown)$/i.test(stripHashAndQuery(path));
+    }
+
+    async function getLinkedFileEntry(path) {
+      return resourceResolver.getLinkedFileEntry(path);
+    }
+
+    async function openLinkedMarkdown(path) {
+      if (!hasLinkedDirectoryContext()) {
+        setStatus(t("statusLinkFolderRequired"));
+        return false;
+      }
+
+      if (!confirmDiscardCurrentDocument()) {
+        return false;
+      }
+
+      const entry = await getLinkedFileEntry(path);
+      if (!entry || !entry.file) {
+        setStatus(t("statusLinkedFileMissing"));
+        return false;
+      }
+
+      const opened = await openMarkdownFile(entry.file, null, null, { preserveDirectoryContext: true });
+      currentFileHandle = opened ? (entry.handle || null) : null;
+      updateReloadButtonState();
+      if (!opened) {
+        return false;
+      }
+      setStatus(t("statusLinkedFileOpened"));
+      return true;
+    }
+
+    async function handleRenderedLinkClick(event) {
+      const link = event.target.closest("a");
+      if (!link) {
+        return;
+      }
+
+      const href = getMarkdownLinkSource(link);
+      if (!href) {
+        return;
+      }
+
+      if (!isSafeMarkdownHref(href)) {
+        event.preventDefault();
+        setStatus(t("statusUnsafeLinkBlocked"));
+        return;
+      }
+
+      if (isProbablyExternalUrl(href)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (isMarkdownPath(href)) {
+        await openLinkedMarkdown(href);
+        return;
+      }
+
+      const resolvedPath = await resolveResourcePath(href);
+      if (resolvedPath && resolvedPath !== href) {
+        window.open(resolvedPath, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      setStatus(t("statusLinkedFileMissing"));
+    }
+
+    async function resolveResourcePath(path) {
+      return resourceResolver.resolve(path);
+    }
+
+</script>
+
+<!-- === CoreUtils === -->
+<script id="Script-CoreUtils">
     function escapeHtml(value) {
       return value
         .replace(/&/g, "&amp;")
@@ -1886,6 +2051,10 @@
       return { ok: true, text: decoder.decode(bytes) };
     }
 
+</script>
+
+<!-- === MarkdownEngine === -->
+<script id="Script-MarkdownEngine">
     function normalizeLinkHref(href) {
       return String(href || "").trim();
     }
@@ -2201,553 +2370,6 @@
       } catch {
         return "light";
       }
-    }
-
-    function getStorageKey(key) {
-      return "wysiwyg_markdown_editor_" + key;
-    }
-
-    function getSessionKey(key) {
-      return "wysiwyg_markdown_editor_session_" + key;
-    }
-
-    function savePreference(key, value) {
-      try {
-        localStorage.setItem(getStorageKey(key), value);
-      } catch {}
-    }
-
-    function loadPreference(key, fallback = "") {
-      try {
-        return localStorage.getItem(getStorageKey(key)) || fallback;
-      } catch {
-        return fallback;
-      }
-    }
-
-    function saveSessionValue(key, value) {
-      try {
-        sessionStorage.setItem(getSessionKey(key), value);
-      } catch {}
-    }
-
-    function loadSessionValue(key, fallback = "") {
-      try {
-        return sessionStorage.getItem(getSessionKey(key)) || fallback;
-      } catch {
-        return fallback;
-      }
-    }
-
-    let currentTheme = "light";
-
-    function updateThemeToggleUi() {
-      const nextTheme = currentTheme === "dark" ? "light" : "dark";
-      const label = t(nextTheme === "dark" ? "themeDarkMode" : "themeLightMode");
-      themeToggleButton.setAttribute("aria-pressed", String(currentTheme === "dark"));
-      themeToggleButton.dataset.themeTarget = nextTheme;
-      themeToggleButton.title = label;
-      themeToggleButton.setAttribute("aria-label", label);
-      themeToggleIcon.textContent = nextTheme === "dark" ? "☾" : "☀";
-      themeToggleLabel.textContent = label;
-      if (themeColorMeta) {
-        themeColorMeta.setAttribute("content", THEME_COLORS[currentTheme] || THEME_COLORS.light);
-      }
-    }
-
-    function applyTheme(theme, options = {}) {
-      const { persist = true } = options;
-      currentTheme = theme === "dark" ? "dark" : "light";
-      document.body.dataset.theme = currentTheme;
-      updateThemeToggleUi();
-      if (persist) {
-        savePreference("theme", currentTheme);
-      }
-    }
-
-    function toggleTheme() {
-      applyTheme(currentTheme === "dark" ? "light" : "dark");
-    }
-
-    function resetHistory(value = markdownInput.value) {
-      if (pendingHistoryTimer) {
-        window.clearTimeout(pendingHistoryTimer);
-        pendingHistoryTimer = null;
-      }
-      pendingHistoryValue = null;
-      historyEntries = [String(value || "")];
-      historyIndex = 0;
-    }
-
-    function commitHistorySnapshot(value = markdownInput.value) {
-      if (isApplyingHistoryState) {
-        return;
-      }
-      const snapshot = String(value || "");
-      if (historyIndex >= 0 && historyEntries[historyIndex] === snapshot) {
-        return;
-      }
-      historyEntries = historyEntries.slice(0, historyIndex + 1);
-      historyEntries.push(snapshot);
-      if (historyEntries.length > HISTORY_LIMIT) {
-        historyEntries.shift();
-      }
-      historyIndex = historyEntries.length - 1;
-    }
-
-    function queueHistorySnapshot(value = markdownInput.value) {
-      if (isApplyingHistoryState) {
-        return;
-      }
-      pendingHistoryValue = String(value || "");
-      if (pendingHistoryTimer) {
-        window.clearTimeout(pendingHistoryTimer);
-      }
-      pendingHistoryTimer = window.setTimeout(() => {
-        commitHistorySnapshot(pendingHistoryValue);
-        pendingHistoryTimer = null;
-        pendingHistoryValue = null;
-      }, 300);
-    }
-
-    function flushPendingHistorySnapshot() {
-      if (!pendingHistoryTimer) {
-        return;
-      }
-      window.clearTimeout(pendingHistoryTimer);
-      pendingHistoryTimer = null;
-      commitHistorySnapshot(pendingHistoryValue);
-      pendingHistoryValue = null;
-    }
-
-    async function restoreHistorySnapshot(nextIndex, statusKey) {
-      if (nextIndex < 0 || nextIndex >= historyEntries.length) {
-        return false;
-      }
-      historyIndex = nextIndex;
-      isApplyingHistoryState = true;
-      try {
-        markdownInput.value = historyEntries[historyIndex];
-        await syncFromMarkdown();
-        setStatus(t(statusKey));
-        updateToolbarState();
-        return true;
-      } finally {
-        isApplyingHistoryState = false;
-      }
-    }
-
-    async function undoHistory() {
-      flushPendingHistorySnapshot();
-      if (historyIndex <= 0) {
-        return false;
-      }
-      return restoreHistorySnapshot(historyIndex - 1, "statusUndo");
-    }
-
-    async function redoHistory() {
-      flushPendingHistorySnapshot();
-      if (historyIndex >= historyEntries.length - 1) {
-        return false;
-      }
-      return restoreHistorySnapshot(historyIndex + 1, "statusRedo");
-    }
-
-    function isEditingSurfaceActive() {
-      const activeElement = document.activeElement;
-      const selection = window.getSelection();
-      const anchorNode = selection ? selection.anchorNode : null;
-      return activeElement === markdownInput
-        || activeElement === visualEditor
-        || visualEditor.contains(activeElement)
-        || (anchorNode && visualEditor.contains(anchorNode));
-    }
-
-    function clearSessionValue(key) {
-      try {
-        sessionStorage.removeItem(getSessionKey(key));
-      } catch {}
-    }
-
-    function clearAllPreferences() {
-      try {
-        Object.keys(localStorage)
-          .filter(key => key.startsWith("wysiwyg_markdown_editor_"))
-          .forEach(key => localStorage.removeItem(key));
-      } catch {}
-
-      try {
-        Object.keys(sessionStorage)
-          .filter(key => key.startsWith("wysiwyg_markdown_editor_session_"))
-          .forEach(key => sessionStorage.removeItem(key));
-      } catch {}
-    }
-
-    function setLanguage(language) {
-      currentLanguage = translations[language] ? language : "it";
-      document.documentElement.lang = currentLanguage;
-      languageSelect.value = currentLanguage;
-      savePreference("language", currentLanguage);
-      buildBadge.textContent = APP_VERSION;
-      updateThemeToggleUi();
-      folderSuggestionText.textContent = t("promptAutoLinkFolder");
-      folderSuggestionAction.textContent = t("actionLinkFolderNow");
-      mobilePanelSwitch.querySelector('[data-mobile-panel="visual"]').textContent = t("mobileVisual");
-      mobilePanelSwitch.querySelector('[data-mobile-panel="markdown"]').textContent = t("mobileMarkdown");
-      mobilePanelSwitch.querySelector('[data-mobile-panel="preview"]').textContent = t("mobilePreview");
-
-      document.querySelectorAll("[data-i18n]").forEach(node => {
-        node.textContent = t(node.dataset.i18n);
-      });
-
-        document.querySelectorAll("[data-i18n-title]").forEach(node => {
-          const shortcutHint = shortcutHints[node.dataset.i18nTitle];
-          const baseTitle = t(node.dataset.i18nTitle + "Title");
-          node.title = shortcutHint ? baseTitle + " (" + shortcutHint + ")" : baseTitle;
-          node.setAttribute("aria-label", t(node.dataset.i18nTitle));
-        });
-
-      symbolSearch.placeholder = t("symbolSearchPlaceholder");
-      symbolCategorySelect.setAttribute("aria-label", t("symbolCategoryLabel"));
-      visualEditor.dataset.placeholder = t("editorPlaceholder");
-      if (!syncStatus.textContent || syncStatus.textContent === translations.it.statusSynced || syncStatus.textContent === translations.en.statusSynced) {
-        syncStatus.textContent = t("statusSynced");
-      }
-      renderSymbolCategoryOptions();
-
-      if (isInitialDocumentState()) {
-        markdownInput.value = getInitialMarkdown();
-        void syncFromMarkdown();
-      }
-    }
-
-    function isMobileLayout() {
-      return window.matchMedia("(max-width: 720px)").matches;
-    }
-
-    function updateMobilePanelButtons() {
-      mobilePanelSwitch.querySelectorAll("[data-mobile-panel]").forEach(button => {
-        button.classList.toggle("is-active", button.dataset.mobilePanel === currentMobilePanel);
-      });
-    }
-
-    function updateResponsiveLayout() {
-      const workspace = document.querySelector(".workspace");
-      const isMobile = isMobileLayout();
-      const savedViewMode = loadPreference("view_mode", "all");
-
-      visualPanel.classList.remove("panel-hidden");
-      markdownPanel.classList.remove("panel-hidden");
-      previewPanel.classList.remove("panel-hidden");
-      workspace.classList.remove("mode-write", "mode-preview");
-
-      if (!isMobile) {
-        mobilePanelSwitch.style.display = "";
-        if (savedViewMode === "write") {
-          previewPanel.classList.add("panel-hidden");
-          workspace.classList.add("mode-write");
-        }
-        if (savedViewMode === "preview") {
-          visualPanel.classList.add("panel-hidden");
-          markdownPanel.classList.add("panel-hidden");
-          workspace.classList.add("mode-preview");
-        }
-        return;
-      }
-
-      mobilePanelSwitch.style.display = "flex";
-
-      if (currentMobilePanel !== "visual") {
-        visualPanel.classList.add("panel-hidden");
-      }
-      if (currentMobilePanel !== "markdown") {
-        markdownPanel.classList.add("panel-hidden");
-      }
-      if (currentMobilePanel !== "preview") {
-        previewPanel.classList.add("panel-hidden");
-      }
-
-      updateMobilePanelButtons();
-    }
-
-    function detectPreferredLanguage() {
-      const browserLanguages = Array.isArray(navigator.languages) && navigator.languages.length
-        ? navigator.languages
-        : [navigator.language || navigator.userLanguage || "en"];
-
-      const normalized = browserLanguages
-        .filter(Boolean)
-        .map(language => String(language).toLowerCase());
-
-      if (normalized.some(language => language.startsWith("it"))) {
-        return "it";
-      }
-
-      if (normalized.some(language => language.startsWith("en"))) {
-        return "en";
-      }
-
-      return "en";
-    }
-
-    function getInitialMarkdown() {
-      return initialMarkdownByLanguage[currentLanguage] || initialMarkdownByLanguage.it;
-    }
-
-    function isInitialDocumentState() {
-      const currentValue = markdownInput.value || "";
-      return !lastLoadedMarkdown
-        && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
-    }
-
-    function hasUndownloadedChanges() {
-      const currentValue = markdownInput.value || "";
-      if (!currentValue.trim()) {
-        return false;
-      }
-      if (hasPersistedDocumentVersion) {
-        return currentValue !== lastDownloadedMarkdown;
-      }
-      return currentValue !== getInitialMarkdown();
-    }
-
-    function confirmDiscardCurrentDocument() {
-      if (!hasUndownloadedChanges()) {
-        return true;
-      }
-      return window.confirm(t("promptUnsavedClose"));
-    }
-
-    function clearResolvedResources() {
-      resourceResolver.clearResolvedResources();
-    }
-
-    function clearDirectoryContext() {
-      resourceResolver.clearDirectoryContext();
-    }
-
-    function getCurrentDirectoryHandle() {
-      return resourceResolver.directoryHandle;
-    }
-
-    function setCurrentDirectoryHandle(directoryHandle) {
-      resourceResolver.setDirectoryHandle(directoryHandle);
-    }
-
-    function setCurrentDirectoryFiles(directoryFiles) {
-      resourceResolver.setDirectoryFiles(directoryFiles);
-    }
-
-    async function doesDirectoryMatchCurrentDocument(directoryHandle) {
-      if (!hasPersistedDocumentVersion || !currentDocumentName) {
-        return true;
-      }
-
-      if (directoryHandle && directoryHandle.kind === "virtual-directory") {
-        return resourceResolver.directoryFiles.has(currentDocumentName);
-      }
-
-      if (directoryHandle && currentFileHandle && typeof directoryHandle.resolve === "function") {
-        try {
-          const relativeParts = await directoryHandle.resolve(currentFileHandle);
-          return Array.isArray(relativeParts) && relativeParts.length === 1 && relativeParts[0] === currentDocumentName;
-        } catch {}
-      }
-
-      try {
-        const handle = await directoryHandle.getFileHandle(currentDocumentName);
-        const file = await handle.getFile();
-        return (file.name || "") === currentDocumentName;
-      } catch {
-        return false;
-      }
-    }
-
-    function buildFileSignature(file) {
-      if (!file) {
-        return "";
-      }
-      return [file.name || "", Number(file.lastModified) || 0, Number(file.size) || 0].join(":");
-    }
-
-    async function refreshLinkedDocumentState(fileHandle) {
-      if (!fileHandle) {
-        return;
-      }
-
-      const file = await fileHandle.getFile();
-      currentFileHandle = fileHandle;
-      currentDocumentName = fileHandle.name || file.name || currentDocumentName;
-      lastKnownFileSignature = buildFileSignature(file);
-      lastPromptedExternalSignature = "";
-      updateReloadButtonState();
-    }
-
-    function updateReloadButtonState() {
-      const reloadButton = document.getElementById("reloadDocumentButton");
-      if (!reloadButton) {
-        return;
-      }
-      reloadButton.disabled = !currentFileHandle;
-    }
-
-    function hasLinkedDirectoryContext() {
-      return resourceResolver.hasLinkedDirectoryContext();
-    }
-
-    function isProbablyExternalUrl(path) {
-      return /^(https?:|data:|blob:|mailto:|tel:|#)/i.test(path);
-    }
-
-    function isRelativeDocumentResourcePath(path) {
-      const normalizedPath = normalizeLinkHref(path);
-      if (!normalizedPath) {
-        return false;
-      }
-      if (isProbablyExternalUrl(normalizedPath)) {
-        return false;
-      }
-      if (/^[\\/]/.test(normalizedPath)) {
-        return false;
-      }
-      if (/^[a-z]:/i.test(normalizedPath)) {
-        return false;
-      }
-      return true;
-    }
-
-    function documentNeedsProjectFolder(markdown) {
-      const source = String(markdown || "");
-      const inlineTargets = [
-        ...source.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g),
-        ...source.matchAll(/\[[^\]]+\]\(([^)\s]+)\)/g),
-        ...source.matchAll(/^\s*\[[^\]]+\]:\s*(\S+)/gm)
-      ];
-
-      return inlineTargets.some(match => isRelativeDocumentResourcePath(match[1]));
-    }
-
-    function splitResourcePath(path) {
-      return path
-        .split(/[\\/]/)
-        .map(part => part.trim())
-        .filter(Boolean);
-    }
-
-    function normalizeResourcePath(path) {
-      const parts = splitResourcePath(path);
-      const normalized = [];
-
-      for (const part of parts) {
-        if (!part || part === ".") {
-          continue;
-        }
-        if (part === "..") {
-          if (!normalized.length) {
-            return null;
-          }
-          normalized.pop();
-          continue;
-        }
-        normalized.push(part);
-      }
-
-      return normalized.join("/");
-    }
-
-    function getMarkdownImageSource(node) {
-      if (!node || typeof node.getAttribute !== "function") {
-        return "";
-      }
-
-      return node.getAttribute("data-md-src") || node.getAttribute("src") || "";
-    }
-
-    function getMarkdownLinkSource(node) {
-      if (!node || typeof node.getAttribute !== "function") {
-        return "";
-      }
-
-      return node.getAttribute("data-md-href") || node.getAttribute("href") || "";
-    }
-
-    function stripHashAndQuery(path) {
-      return String(path || "").split("#")[0].split("?")[0];
-    }
-
-    function isMarkdownPath(path) {
-      return /\.(md|markdown)$/i.test(stripHashAndQuery(path));
-    }
-
-    async function getLinkedFileEntry(path) {
-      return resourceResolver.getLinkedFileEntry(path);
-    }
-
-    async function openLinkedMarkdown(path) {
-      if (!hasLinkedDirectoryContext()) {
-        setStatus(t("statusLinkFolderRequired"));
-        return false;
-      }
-
-      if (!confirmDiscardCurrentDocument()) {
-        return false;
-      }
-
-      const entry = await getLinkedFileEntry(path);
-      if (!entry || !entry.file) {
-        setStatus(t("statusLinkedFileMissing"));
-        return false;
-      }
-
-      const opened = await openMarkdownFile(entry.file, null, null, { preserveDirectoryContext: true });
-      currentFileHandle = opened ? (entry.handle || null) : null;
-      updateReloadButtonState();
-      if (!opened) {
-        return false;
-      }
-      setStatus(t("statusLinkedFileOpened"));
-      return true;
-    }
-
-    async function handleRenderedLinkClick(event) {
-      const link = event.target.closest("a");
-      if (!link) {
-        return;
-      }
-
-      const href = getMarkdownLinkSource(link);
-      if (!href) {
-        return;
-      }
-
-      if (!isSafeMarkdownHref(href)) {
-        event.preventDefault();
-        setStatus(t("statusUnsafeLinkBlocked"));
-        return;
-      }
-
-      if (isProbablyExternalUrl(href)) {
-        return;
-      }
-
-      event.preventDefault();
-
-      if (isMarkdownPath(href)) {
-        await openLinkedMarkdown(href);
-        return;
-      }
-
-      const resolvedPath = await resolveResourcePath(href);
-      if (resolvedPath && resolvedPath !== href) {
-        window.open(resolvedPath, "_blank", "noopener,noreferrer");
-        return;
-      }
-
-      setStatus(t("statusLinkedFileMissing"));
-    }
-
-    async function resolveResourcePath(path) {
-      return resourceResolver.resolve(path);
     }
 
     function parseMarkdownTableRow(line) {
@@ -3458,6 +3080,508 @@
       return (bodyMarkdown + (referenceLines.length ? "\n\n" + referenceLines.join("\n") : ""))
         .replace(/\n{3,}/g, "\n\n")
         .trim();
+    }
+
+</script>
+
+<!-- === FileManager === -->
+<script id="Script-FileManager">
+    async function downloadMarkdown() {
+      if (currentFileHandle) {
+        try {
+          fileSaveInFlight = true;
+          const writable = await currentFileHandle.createWritable();
+          await writable.write(markdownInput.value);
+          await writable.close();
+          hasPersistedDocumentVersion = true;
+          lastDownloadedMarkdown = markdownInput.value;
+          await refreshLinkedDocumentState(currentFileHandle);
+          setStatus(t("statusDownloaded"));
+          return;
+        } catch {
+          // Fallback al download standard se la scrittura fallisce
+        } finally {
+          fileSaveInFlight = false;
+        }
+      }
+
+      if (getCurrentDirectoryHandle() && window.showSaveFilePicker) {
+        try {
+          fileSaveInFlight = true;
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: currentDocumentName,
+            startIn: getCurrentDirectoryHandle(),
+            types: [
+              {
+                description: "Markdown",
+                accept: {
+                  "text/markdown": [".md", ".markdown"],
+                  "text/plain": [".md", ".markdown"]
+                }
+              }
+            ]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(markdownInput.value);
+          await writable.close();
+          hasPersistedDocumentVersion = true;
+          lastDownloadedMarkdown = markdownInput.value;
+          await refreshLinkedDocumentState(fileHandle);
+          setStatus(t("statusDownloaded"));
+          return;
+        } catch {
+          // Fallback al download standard se l'utente annulla
+        } finally {
+          fileSaveInFlight = false;
+        }
+      }
+
+      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
+      downloadBlobFile(blob, currentDocumentName);
+      hasPersistedDocumentVersion = true;
+      lastDownloadedMarkdown = markdownInput.value;
+      setStatus(t("statusDownloaded"));
+    }
+
+    async function saveMarkdownAs() {
+      if (window.showSaveFilePicker) {
+        try {
+          fileSaveInFlight = true;
+          const startIn = getCurrentDirectoryHandle() || "documents";
+          const fileHandle = await window.showSaveFilePicker({
+            suggestedName: currentDocumentName,
+            startIn: startIn,
+            types: [
+              {
+                description: "Markdown",
+                accept: {
+                  "text/markdown": [".md", ".markdown"],
+                  "text/plain": [".md", ".markdown"]
+                }
+              }
+            ]
+          });
+          const writable = await fileHandle.createWritable();
+          await writable.write(markdownInput.value);
+          await writable.close();
+          hasPersistedDocumentVersion = true;
+          lastDownloadedMarkdown = markdownInput.value;
+          await refreshLinkedDocumentState(fileHandle);
+          setStatus(t("statusDownloaded"));
+          return;
+        } catch {
+          return;
+        } finally {
+          fileSaveInFlight = false;
+        }
+      }
+
+      // Fallback al download standard
+      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
+      downloadBlobFile(blob, currentDocumentName);
+      hasPersistedDocumentVersion = true;
+      lastDownloadedMarkdown = markdownInput.value;
+      setStatus(t("statusDownloaded"));
+    }
+
+</script>
+
+<!-- === HistoryManager === -->
+<script id="Script-HistoryManager">
+    function getStorageKey(key) {
+      return "wysiwyg_markdown_editor_" + key;
+    }
+
+    function getSessionKey(key) {
+      return "wysiwyg_markdown_editor_session_" + key;
+    }
+
+    function savePreference(key, value) {
+      try {
+        localStorage.setItem(getStorageKey(key), value);
+      } catch {}
+    }
+
+    function loadPreference(key, fallback = "") {
+      try {
+        return localStorage.getItem(getStorageKey(key)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveSessionValue(key, value) {
+      try {
+        sessionStorage.setItem(getSessionKey(key), value);
+      } catch {}
+    }
+
+    function loadSessionValue(key, fallback = "") {
+      try {
+        return sessionStorage.getItem(getSessionKey(key)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    let currentTheme = "light";
+
+    function updateThemeToggleUi() {
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+      const label = t(nextTheme === "dark" ? "themeDarkMode" : "themeLightMode");
+      themeToggleButton.setAttribute("aria-pressed", String(currentTheme === "dark"));
+      themeToggleButton.dataset.themeTarget = nextTheme;
+      themeToggleButton.title = label;
+      themeToggleButton.setAttribute("aria-label", label);
+      themeToggleIcon.textContent = nextTheme === "dark" ? "☾" : "☀";
+      themeToggleLabel.textContent = label;
+      if (themeColorMeta) {
+        themeColorMeta.setAttribute("content", THEME_COLORS[currentTheme] || THEME_COLORS.light);
+      }
+    }
+
+    function applyTheme(theme, options = {}) {
+      const { persist = true } = options;
+      currentTheme = theme === "dark" ? "dark" : "light";
+      document.body.dataset.theme = currentTheme;
+      updateThemeToggleUi();
+      if (persist) {
+        savePreference("theme", currentTheme);
+      }
+    }
+
+    function toggleTheme() {
+      applyTheme(currentTheme === "dark" ? "light" : "dark");
+    }
+
+    function resetHistory(value = markdownInput.value) {
+      if (pendingHistoryTimer) {
+        window.clearTimeout(pendingHistoryTimer);
+        pendingHistoryTimer = null;
+      }
+      pendingHistoryValue = null;
+      historyEntries = [String(value || "")];
+      historyIndex = 0;
+    }
+
+    function commitHistorySnapshot(value = markdownInput.value) {
+      if (isApplyingHistoryState) {
+        return;
+      }
+      const snapshot = String(value || "");
+      if (historyIndex >= 0 && historyEntries[historyIndex] === snapshot) {
+        return;
+      }
+      historyEntries = historyEntries.slice(0, historyIndex + 1);
+      historyEntries.push(snapshot);
+      if (historyEntries.length > HISTORY_LIMIT) {
+        historyEntries.shift();
+      }
+      historyIndex = historyEntries.length - 1;
+    }
+
+    function queueHistorySnapshot(value = markdownInput.value) {
+      if (isApplyingHistoryState) {
+        return;
+      }
+      pendingHistoryValue = String(value || "");
+      if (pendingHistoryTimer) {
+        window.clearTimeout(pendingHistoryTimer);
+      }
+      pendingHistoryTimer = window.setTimeout(() => {
+        commitHistorySnapshot(pendingHistoryValue);
+        pendingHistoryTimer = null;
+        pendingHistoryValue = null;
+      }, 300);
+    }
+
+    function flushPendingHistorySnapshot() {
+      if (!pendingHistoryTimer) {
+        return;
+      }
+      window.clearTimeout(pendingHistoryTimer);
+      pendingHistoryTimer = null;
+      commitHistorySnapshot(pendingHistoryValue);
+      pendingHistoryValue = null;
+    }
+
+    async function restoreHistorySnapshot(nextIndex, statusKey) {
+      if (nextIndex < 0 || nextIndex >= historyEntries.length) {
+        return false;
+      }
+      historyIndex = nextIndex;
+      isApplyingHistoryState = true;
+      try {
+        markdownInput.value = historyEntries[historyIndex];
+        await syncFromMarkdown();
+        setStatus(t(statusKey));
+        updateToolbarState();
+        return true;
+      } finally {
+        isApplyingHistoryState = false;
+      }
+    }
+
+    async function undoHistory() {
+      flushPendingHistorySnapshot();
+      if (historyIndex <= 0) {
+        return false;
+      }
+      return restoreHistorySnapshot(historyIndex - 1, "statusUndo");
+    }
+
+    async function redoHistory() {
+      flushPendingHistorySnapshot();
+      if (historyIndex >= historyEntries.length - 1) {
+        return false;
+      }
+      return restoreHistorySnapshot(historyIndex + 1, "statusRedo");
+    }
+
+    function isEditingSurfaceActive() {
+      const activeElement = document.activeElement;
+      const selection = window.getSelection();
+      const anchorNode = selection ? selection.anchorNode : null;
+      return activeElement === markdownInput
+        || activeElement === visualEditor
+        || visualEditor.contains(activeElement)
+        || (anchorNode && visualEditor.contains(anchorNode));
+    }
+
+    function clearSessionValue(key) {
+      try {
+        sessionStorage.removeItem(getSessionKey(key));
+      } catch {}
+    }
+
+    function clearAllPreferences() {
+      try {
+        Object.keys(localStorage)
+          .filter(key => key.startsWith("wysiwyg_markdown_editor_"))
+          .forEach(key => localStorage.removeItem(key));
+      } catch {}
+
+      try {
+        Object.keys(sessionStorage)
+          .filter(key => key.startsWith("wysiwyg_markdown_editor_session_"))
+          .forEach(key => sessionStorage.removeItem(key));
+      } catch {}
+    }
+
+    function setLanguage(language) {
+      currentLanguage = translations[language] ? language : "it";
+      document.documentElement.lang = currentLanguage;
+      languageSelect.value = currentLanguage;
+      savePreference("language", currentLanguage);
+      buildBadge.textContent = APP_VERSION;
+      updateThemeToggleUi();
+      folderSuggestionText.textContent = t("promptAutoLinkFolder");
+      folderSuggestionAction.textContent = t("actionLinkFolderNow");
+      mobilePanelSwitch.querySelector('[data-mobile-panel="visual"]').textContent = t("mobileVisual");
+      mobilePanelSwitch.querySelector('[data-mobile-panel="markdown"]').textContent = t("mobileMarkdown");
+      mobilePanelSwitch.querySelector('[data-mobile-panel="preview"]').textContent = t("mobilePreview");
+
+      document.querySelectorAll("[data-i18n]").forEach(node => {
+        node.textContent = t(node.dataset.i18n);
+      });
+
+        document.querySelectorAll("[data-i18n-title]").forEach(node => {
+          const shortcutHint = shortcutHints[node.dataset.i18nTitle];
+          const baseTitle = t(node.dataset.i18nTitle + "Title");
+          node.title = shortcutHint ? baseTitle + " (" + shortcutHint + ")" : baseTitle;
+          node.setAttribute("aria-label", t(node.dataset.i18nTitle));
+        });
+
+      symbolSearch.placeholder = t("symbolSearchPlaceholder");
+      symbolCategorySelect.setAttribute("aria-label", t("symbolCategoryLabel"));
+      visualEditor.dataset.placeholder = t("editorPlaceholder");
+      if (!syncStatus.textContent || syncStatus.textContent === translations.it.statusSynced || syncStatus.textContent === translations.en.statusSynced) {
+        syncStatus.textContent = t("statusSynced");
+      }
+      renderSymbolCategoryOptions();
+
+      if (isInitialDocumentState()) {
+        markdownInput.value = getInitialMarkdown();
+        void syncFromMarkdown();
+      }
+    }
+
+    function isMobileLayout() {
+      return window.matchMedia("(max-width: 720px)").matches;
+    }
+
+    function updateMobilePanelButtons() {
+      mobilePanelSwitch.querySelectorAll("[data-mobile-panel]").forEach(button => {
+        button.classList.toggle("is-active", button.dataset.mobilePanel === currentMobilePanel);
+      });
+    }
+
+    function updateResponsiveLayout() {
+      const workspace = document.querySelector(".workspace");
+      const isMobile = isMobileLayout();
+      const savedViewMode = loadPreference("view_mode", "all");
+
+      visualPanel.classList.remove("panel-hidden");
+      markdownPanel.classList.remove("panel-hidden");
+      previewPanel.classList.remove("panel-hidden");
+      workspace.classList.remove("mode-write", "mode-preview");
+
+      if (!isMobile) {
+        mobilePanelSwitch.style.display = "";
+        if (savedViewMode === "write") {
+          previewPanel.classList.add("panel-hidden");
+          workspace.classList.add("mode-write");
+        }
+        if (savedViewMode === "preview") {
+          visualPanel.classList.add("panel-hidden");
+          markdownPanel.classList.add("panel-hidden");
+          workspace.classList.add("mode-preview");
+        }
+        return;
+      }
+
+      mobilePanelSwitch.style.display = "flex";
+
+      if (currentMobilePanel !== "visual") {
+        visualPanel.classList.add("panel-hidden");
+      }
+      if (currentMobilePanel !== "markdown") {
+        markdownPanel.classList.add("panel-hidden");
+      }
+      if (currentMobilePanel !== "preview") {
+        previewPanel.classList.add("panel-hidden");
+      }
+
+      updateMobilePanelButtons();
+    }
+
+</script>
+
+<!-- === UIAndEditor === -->
+<script id="Script-UIAndEditor">
+    function detectPreferredLanguage() {
+      const browserLanguages = Array.isArray(navigator.languages) && navigator.languages.length
+        ? navigator.languages
+        : [navigator.language || navigator.userLanguage || "en"];
+
+      const normalized = browserLanguages
+        .filter(Boolean)
+        .map(language => String(language).toLowerCase());
+
+      if (normalized.some(language => language.startsWith("it"))) {
+        return "it";
+      }
+
+      if (normalized.some(language => language.startsWith("en"))) {
+        return "en";
+      }
+
+      return "en";
+    }
+
+    function getInitialMarkdown() {
+      return initialMarkdownByLanguage[currentLanguage] || initialMarkdownByLanguage.it;
+    }
+
+    function isInitialDocumentState() {
+      const currentValue = markdownInput.value || "";
+      return !lastLoadedMarkdown
+        && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
+    }
+
+    function hasUndownloadedChanges() {
+      const currentValue = markdownInput.value || "";
+      if (!currentValue.trim()) {
+        return false;
+      }
+      if (hasPersistedDocumentVersion) {
+        return currentValue !== lastDownloadedMarkdown;
+      }
+      return currentValue !== getInitialMarkdown();
+    }
+
+    function confirmDiscardCurrentDocument() {
+      if (!hasUndownloadedChanges()) {
+        return true;
+      }
+      return window.confirm(t("promptUnsavedClose"));
+    }
+
+    function clearResolvedResources() {
+      resourceResolver.clearResolvedResources();
+    }
+
+    function clearDirectoryContext() {
+      resourceResolver.clearDirectoryContext();
+    }
+
+    function getCurrentDirectoryHandle() {
+      return resourceResolver.directoryHandle;
+    }
+
+    function setCurrentDirectoryHandle(directoryHandle) {
+      resourceResolver.setDirectoryHandle(directoryHandle);
+    }
+
+    function setCurrentDirectoryFiles(directoryFiles) {
+      resourceResolver.setDirectoryFiles(directoryFiles);
+    }
+
+    async function doesDirectoryMatchCurrentDocument(directoryHandle) {
+      if (!hasPersistedDocumentVersion || !currentDocumentName) {
+        return true;
+      }
+
+      if (directoryHandle && directoryHandle.kind === "virtual-directory") {
+        return resourceResolver.directoryFiles.has(currentDocumentName);
+      }
+
+      if (directoryHandle && currentFileHandle && typeof directoryHandle.resolve === "function") {
+        try {
+          const relativeParts = await directoryHandle.resolve(currentFileHandle);
+          return Array.isArray(relativeParts) && relativeParts.length === 1 && relativeParts[0] === currentDocumentName;
+        } catch {}
+      }
+
+      try {
+        const handle = await directoryHandle.getFileHandle(currentDocumentName);
+        const file = await handle.getFile();
+        return (file.name || "") === currentDocumentName;
+      } catch {
+        return false;
+      }
+    }
+
+    function buildFileSignature(file) {
+      if (!file) {
+        return "";
+      }
+      return [file.name || "", Number(file.lastModified) || 0, Number(file.size) || 0].join(":");
+    }
+
+    async function refreshLinkedDocumentState(fileHandle) {
+      if (!fileHandle) {
+        return;
+      }
+
+      const file = await fileHandle.getFile();
+      currentFileHandle = fileHandle;
+      currentDocumentName = fileHandle.name || file.name || currentDocumentName;
+      lastKnownFileSignature = buildFileSignature(file);
+      lastPromptedExternalSignature = "";
+      updateReloadButtonState();
+    }
+
+    function updateReloadButtonState() {
+      const reloadButton = document.getElementById("reloadDocumentButton");
+      if (!reloadButton) {
+        return;
+      }
+      reloadButton.disabled = !currentFileHandle;
+    }
+
+    function hasLinkedDirectoryContext() {
+      return resourceResolver.hasLinkedDirectoryContext();
     }
 
     function setStatus(text) {
@@ -6323,217 +6447,6 @@
       }
     }
 
-    async function downloadMarkdown() {
-      if (currentFileHandle) {
-        try {
-          fileSaveInFlight = true;
-          const writable = await currentFileHandle.createWritable();
-          await writable.write(markdownInput.value);
-          await writable.close();
-          hasPersistedDocumentVersion = true;
-          lastDownloadedMarkdown = markdownInput.value;
-          await refreshLinkedDocumentState(currentFileHandle);
-          setStatus(t("statusDownloaded"));
-          return;
-        } catch {
-          // Fallback al download standard se la scrittura fallisce
-        } finally {
-          fileSaveInFlight = false;
-        }
-      }
-
-      if (getCurrentDirectoryHandle() && window.showSaveFilePicker) {
-        try {
-          fileSaveInFlight = true;
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: currentDocumentName,
-            startIn: getCurrentDirectoryHandle(),
-            types: [
-              {
-                description: "Markdown",
-                accept: {
-                  "text/markdown": [".md", ".markdown"],
-                  "text/plain": [".md", ".markdown"]
-                }
-              }
-            ]
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(markdownInput.value);
-          await writable.close();
-          hasPersistedDocumentVersion = true;
-          lastDownloadedMarkdown = markdownInput.value;
-          await refreshLinkedDocumentState(fileHandle);
-          setStatus(t("statusDownloaded"));
-          return;
-        } catch {
-          // Fallback al download standard se l'utente annulla
-        } finally {
-          fileSaveInFlight = false;
-        }
-      }
-
-      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
-      downloadBlobFile(blob, currentDocumentName);
-      hasPersistedDocumentVersion = true;
-      lastDownloadedMarkdown = markdownInput.value;
-      setStatus(t("statusDownloaded"));
-    }
-
-    async function saveMarkdownAs() {
-      if (window.showSaveFilePicker) {
-        try {
-          fileSaveInFlight = true;
-          const startIn = getCurrentDirectoryHandle() || "documents";
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: currentDocumentName,
-            startIn: startIn,
-            types: [
-              {
-                description: "Markdown",
-                accept: {
-                  "text/markdown": [".md", ".markdown"],
-                  "text/plain": [".md", ".markdown"]
-                }
-              }
-            ]
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(markdownInput.value);
-          await writable.close();
-          hasPersistedDocumentVersion = true;
-          lastDownloadedMarkdown = markdownInput.value;
-          await refreshLinkedDocumentState(fileHandle);
-          setStatus(t("statusDownloaded"));
-          return;
-        } catch {
-          return;
-        } finally {
-          fileSaveInFlight = false;
-        }
-      }
-
-      // Fallback al download standard
-      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
-      downloadBlobFile(blob, currentDocumentName);
-      hasPersistedDocumentVersion = true;
-      lastDownloadedMarkdown = markdownInput.value;
-      setStatus(t("statusDownloaded"));
-    }
-
-    function printRenderedDocument() {
-      const printWindow = window.open("", "_blank");
-      if (!printWindow) {
-        setStatus(t("statusPrintBlocked"));
-        return;
-      }
-
-      const title = escapeHtml((currentDocumentName || "Markdown document").replace(/\.md$/i, ""));
-      const renderedHtml = preview.innerHTML || "<p></p>";
-      const printHtml = `<!DOCTYPE html>
-<html lang="${currentLanguage}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${title}</title>
-  <style>
-    :root { color-scheme: light; }
-    body {
-      margin: 0;
-      padding: 32px;
-      font-family: Georgia, "Times New Roman", serif;
-      color: #2f241d;
-      background: #fffdf9;
-      line-height: 1.6;
-    }
-    main {
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    img {
-      max-width: 100%;
-      height: auto;
-    }
-    pre, code {
-      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-    }
-    pre {
-      background: #f4efe7;
-      padding: 16px;
-      overflow: auto;
-      border-radius: 12px;
-    }
-    blockquote {
-      margin: 1.2em 0;
-      padding-left: 1em;
-      border-left: 4px solid #b6572c;
-      color: #5f4b3f;
-    }
-    h1, h2, h3, h4, h5, h6 {
-      break-after: avoid-page;
-      page-break-after: avoid;
-      break-inside: avoid-page;
-      page-break-inside: avoid;
-      margin-bottom: 0.35em;
-    }
-    h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
-    h1 + ul, h2 + ul, h3 + ul, h4 + ul, h5 + ul, h6 + ul,
-    h1 + ol, h2 + ol, h3 + ol, h4 + ol, h5 + ol, h6 + ol,
-    h1 + blockquote, h2 + blockquote, h3 + blockquote, h4 + blockquote, h5 + blockquote, h6 + blockquote,
-    h1 + pre, h2 + pre, h3 + pre, h4 + pre, h5 + pre, h6 + pre,
-    h1 + table, h2 + table, h3 + table, h4 + table, h5 + table, h6 + table,
-    h1 + figure, h2 + figure, h3 + figure, h4 + figure, h5 + figure, h6 + figure {
-      break-before: avoid-page;
-      page-break-before: avoid;
-    }
-    p, li, blockquote {
-      orphans: 3;
-      widows: 3;
-    }
-    ul, ol, blockquote, pre, table, figure {
-      break-inside: avoid-page;
-      page-break-inside: avoid;
-    }
-    thead {
-      display: table-header-group;
-    }
-    tr, img {
-      break-inside: avoid-page;
-      page-break-inside: avoid;
-    }
-    @media print {
-      @page {
-        margin: 16mm 14mm 18mm;
-      }
-      body {
-        padding: 0;
-        background: #fff;
-      }
-      main {
-        max-width: none;
-      }
-      a {
-        color: inherit;
-        text-decoration-thickness: 1px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <main>${renderedHtml}</main>
-</body>
-</html>`;
-
-      printWindow.onload = () => {
-        printWindow.focus();
-        printWindow.print();
-      };
-      printWindow.document.open();
-      printWindow.document.write(printHtml);
-      printWindow.document.close();
-      setStatus(t("statusPrintOpened"));
-    }
-
     function updateViewMode(mode) {
       const workspace = document.querySelector(".workspace");
 
@@ -6949,7 +6862,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.6", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.7", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
@@ -6979,6 +6892,124 @@
     window.setInterval(() => {
       void checkExternalFileChanges();
     }, 7000);
-  </script>
+
+</script>
+
+<!-- === ExportAndPrint === -->
+<script id="Script-ExportAndPrint">
+    function printRenderedDocument() {
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        setStatus(t("statusPrintBlocked"));
+        return;
+      }
+
+      const title = escapeHtml((currentDocumentName || "Markdown document").replace(/\.md$/i, ""));
+      const renderedHtml = preview.innerHTML || "<p></p>";
+      const printHtml = `<!DOCTYPE html>
+<html lang="${currentLanguage}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      padding: 32px;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #2f241d;
+      background: #fffdf9;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+    pre, code {
+      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    }
+    pre {
+      background: #f4efe7;
+      padding: 16px;
+      overflow: auto;
+      border-radius: 12px;
+    }
+    blockquote {
+      margin: 1.2em 0;
+      padding-left: 1em;
+      border-left: 4px solid #b6572c;
+      color: #5f4b3f;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      break-after: avoid-page;
+      page-break-after: avoid;
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+      margin-bottom: 0.35em;
+    }
+    h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+    h1 + ul, h2 + ul, h3 + ul, h4 + ul, h5 + ul, h6 + ul,
+    h1 + ol, h2 + ol, h3 + ol, h4 + ol, h5 + ol, h6 + ol,
+    h1 + blockquote, h2 + blockquote, h3 + blockquote, h4 + blockquote, h5 + blockquote, h6 + blockquote,
+    h1 + pre, h2 + pre, h3 + pre, h4 + pre, h5 + pre, h6 + pre,
+    h1 + table, h2 + table, h3 + table, h4 + table, h5 + table, h6 + table,
+    h1 + figure, h2 + figure, h3 + figure, h4 + figure, h5 + figure, h6 + figure {
+      break-before: avoid-page;
+      page-break-before: avoid;
+    }
+    p, li, blockquote {
+      orphans: 3;
+      widows: 3;
+    }
+    ul, ol, blockquote, pre, table, figure {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tr, img {
+      break-inside: avoid-page;
+      page-break-inside: avoid;
+    }
+    @media print {
+      @page {
+        margin: 16mm 14mm 18mm;
+      }
+      body {
+        padding: 0;
+        background: #fff;
+      }
+      main {
+        max-width: none;
+      }
+      a {
+        color: inherit;
+        text-decoration-thickness: 1px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>${renderedHtml}</main>
+</body>
+</html>`;
+
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
+      printWindow.document.open();
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      setStatus(t("statusPrintOpened"));
+    }
+
+</script>
 </body>
 </html>

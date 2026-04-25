@@ -10,6 +10,7 @@ It is meant to support:
 - future feature planning
 
 The goal is not to prove the absence of bugs.
+
 The goal is to protect the most important promises of the product.
 
 ## Critical
