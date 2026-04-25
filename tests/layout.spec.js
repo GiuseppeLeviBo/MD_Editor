@@ -1,5 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
+// Layout tests guard the shell ergonomics: sticky toolbar behavior and compact
+// file actions must stay usable even when labels collapse to icon-only controls.
 test.describe("layout behavior", () => {
   test("keeps the desktop toolbar visible while scrolling", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });

@@ -1,5 +1,8 @@
 const { test, expect } = require("@playwright/test");
 
+// Local resource tests document the ResourceResolver contract: relative assets
+// stay inert until a folder is linked, then images and Markdown links resolve
+// through the linked project directory without changing the Markdown source.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     function createFileHandle(name, content, type = "text/plain") {

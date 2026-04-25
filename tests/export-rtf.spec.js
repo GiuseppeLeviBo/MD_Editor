@@ -1,5 +1,8 @@
 const { test, expect } = require("@playwright/test");
 
+// RTF export is the first registered exporter behind ExportManager. These tests
+// document its user-visible contract: file picker metadata, editable RTF output,
+// rich Markdown structures, image embedding, and final status feedback.
 test.describe("RTF export", () => {
   test("exports the rendered document as editable RTF in the linked folder context", async ({ page }) => {
     await page.addInitScript(() => {
@@ -125,6 +128,8 @@ test.describe("RTF export", () => {
   });
 
   test("scales wide embedded images to stay within the RTF page width", async ({ page }) => {
+    // This protects the RTF image serializer from producing page-breaking image
+    // dimensions when a document contains a very wide embedded bitmap.
     await page.addInitScript(() => {
       function createDirectoryHandle(tree, name = "linked-project") {
         return {
