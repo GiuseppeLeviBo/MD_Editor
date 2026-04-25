@@ -1,5 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
+// These tests exercise the visual-to-Markdown synchronization path: toolbar
+// commands must update the source Markdown and the rendered preview together.
 async function selectWordInVisualEditor(page, word) {
   await page.evaluate(targetWord => {
     const editor = document.getElementById("visualEditor");

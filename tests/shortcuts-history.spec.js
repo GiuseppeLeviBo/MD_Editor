@@ -1,5 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
+// Shortcut tests keep the default help document and toolbar hints in sync with
+// the keyboard handlers wired in index.html.
 async function placeCaretAtVisualEditorEnd(page) {
   await page.evaluate(() => {
     const editor = document.getElementById("visualEditor");
@@ -24,7 +26,7 @@ test.describe("shortcuts and history", () => {
     await expect(markdown).toHaveValue(/\| Save as \| Ctrl\/Cmd \+ S \|/);
 
     await expect(page.locator('[data-command="bold"]')).toHaveAttribute("title", /Ctrl\/Cmd \+ B/);
-    await expect(page.locator("#reloadDocumentButton")).not.toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
+    await expect(page.locator("#reloadDocumentButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
     await expect(page.locator("#saveAsButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ S/);
   });
 

@@ -1,5 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
+// Markdown extension tests cover renderer/serializer behavior beyond CommonMark:
+// extra heading levels, nested structures, references, and loose ordered lists.
 async function selectVisualTextRange(page, startText, endText) {
   await page.evaluate(({ startTextValue, endTextValue }) => {
     const editor = document.getElementById("visualEditor");
