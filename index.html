@@ -3967,8 +3967,9 @@
       mirror.style.whiteSpace = "pre-wrap";
       mirror.style.overflowWrap = "break-word";
       mirror.style.wordBreak = "break-word";
-      mirror.style.boxSizing = computedStyle.boxSizing;
-      mirror.style.width = textarea.getBoundingClientRect().width + "px";
+      mirror.style.boxSizing = "border-box";
+      mirror.style.width = textarea.clientWidth + "px";
+      mirror.style.border = "none";
       mirror.style.font = computedStyle.font;
       mirror.style.lineHeight = computedStyle.lineHeight;
       mirror.style.letterSpacing = computedStyle.letterSpacing;
@@ -3976,10 +3977,6 @@
       mirror.style.paddingRight = computedStyle.paddingRight;
       mirror.style.paddingBottom = computedStyle.paddingBottom;
       mirror.style.paddingLeft = computedStyle.paddingLeft;
-      mirror.style.borderTopWidth = computedStyle.borderTopWidth;
-      mirror.style.borderRightWidth = computedStyle.borderRightWidth;
-      mirror.style.borderBottomWidth = computedStyle.borderBottomWidth;
-      mirror.style.borderLeftWidth = computedStyle.borderLeftWidth;
       mirror.style.tabSize = computedStyle.tabSize;
       mirror.textContent = source.slice(0, safeOffset);
       marker.textContent = " ";
@@ -4228,7 +4225,21 @@
         if (!match) {
           return;
         }
-        this.gotoLine(this.getMatchLineIndex(match));
+        const matchTop = getTextareaOffsetTop(this.markdownInput, match.start);
+        
+        const maxScrollTop = Math.max(0, this.markdownInput.scrollHeight - this.markdownInput.clientHeight);
+        const targetTextareaTop = matchTop - (this.markdownInput.clientHeight * 0.5);
+        const actualScrollTop = Math.min(Math.max(0, targetTextareaTop), maxScrollTop);
+        this.markdownInput.scrollTop = actualScrollTop;
+
+        const rect = this.markdownInput.getBoundingClientRect();
+        const absoluteMatchTop = rect.top + window.scrollY + (matchTop - actualScrollTop);
+        const targetWindowTop = absoluteMatchTop - (window.innerHeight * 0.5);
+        
+        window.scrollTo({
+          top: Math.max(0, targetWindowTop),
+          behavior: "smooth"
+        });
       }
 
       getSelectedMatchIndex() {
