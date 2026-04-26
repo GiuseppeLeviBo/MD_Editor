@@ -48,6 +48,7 @@ async function getMarkdownSelectionVisibility(page) {
       selectedText: textarea.value.slice(start, end),
       visibleTop,
       visibleBottom,
+      clientHeight: textarea.clientHeight,
       top,
       bottom
     };
@@ -101,6 +102,33 @@ test.describe("find and replace", () => {
     await expect(searchInput).toHaveValue("alp");
   });
 
+  test("does not scroll or select a match while typing the search term", async ({ page }) => {
+    await page.goto("/");
+
+    const longDocument = Array.from({ length: 120 }, (_, index) => `line ${index + 1}`);
+    longDocument[90] = "## hidden heading";
+    const markdown = page.locator("#markdownInput");
+    await markdown.fill(longDocument.join("\n"));
+    await markdown.evaluate(element => {
+      element.style.flex = "none";
+      element.style.height = "120px";
+      element.scrollTop = 0;
+      element.setSelectionRange(0, 0);
+    });
+
+    await page.locator("#findReplaceButton").click();
+    await page.locator("#findReplaceSearchInput").fill("##");
+
+    const state = await markdown.evaluate(element => ({
+      scrollTop: element.scrollTop,
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0)
+    }));
+
+    await expect(page.locator("#findReplaceSearchInput")).toBeFocused();
+    expect(state.scrollTop).toBe(0);
+    expect(state.selectedText).toBe("");
+  });
+
   test("starts from the first match after Ctrl+F on a freshly opened document", async ({ page }) => {
     await page.goto("/");
 
@@ -108,13 +136,13 @@ test.describe("find and replace", () => {
 
     await page.keyboard.press("Control+F");
     await page.keyboard.type("##");
+    await page.locator("#findNextButton").click();
 
     const state = await page.locator("#markdownInput").evaluate(element => ({
       selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
       selectionStart: element.selectionStart || 0
     }));
 
-    await expect(page.locator("#findReplaceSearchInput")).toBeFocused();
     expect(state.selectedText).toBe("##");
     expect(state.selectionStart).toBe(firstMatch);
   });
@@ -127,15 +155,61 @@ test.describe("find and replace", () => {
 
     await page.keyboard.press("Control+F");
     await page.keyboard.type("##");
+    await page.locator("#findNextButton").click();
 
     const state = await page.locator("#markdownInput").evaluate(element => ({
       selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
       selectionStart: element.selectionStart || 0
     }));
 
-    await expect(page.locator("#findReplaceSearchInput")).toBeFocused();
     expect(state.selectedText).toBe("##");
     expect(state.selectionStart).toBe(firstMatch);
+  });
+
+  test("starts from the user's Markdown cursor when the cursor was explicitly placed", async ({ page }) => {
+    await page.goto("/");
+
+    const markdown = page.locator("#markdownInput");
+    await markdown.fill("## first\n\nplain text\n\n## second");
+    const secondMatch = await markdown.evaluate(element => element.value.lastIndexOf("##"));
+    await page.keyboard.press("Home");
+
+    await page.keyboard.press("Control+F");
+    await page.keyboard.type("##");
+    await page.locator("#findNextButton").click();
+
+    const state = await markdown.evaluate(element => ({
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
+      selectionStart: element.selectionStart || 0
+    }));
+
+    expect(state.selectedText).toBe("##");
+    expect(state.selectionStart).toBe(secondMatch);
+  });
+
+  test("restarts from the user's cursor when it moves while the search dialog is open", async ({ page }) => {
+    await page.goto("/");
+
+    const markdown = page.locator("#markdownInput");
+    await markdown.fill("## first\n\nplain text\n\n## second\n\n## third");
+    const secondMatch = await markdown.evaluate(element => element.value.indexOf("## second"));
+
+    await page.locator("#findReplaceButton").click();
+    await page.locator("#findReplaceSearchInput").fill("##");
+    await markdown.evaluate((element, offset) => {
+      element.focus();
+      element.setSelectionRange(offset, offset);
+      element.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "ArrowRight" }));
+    }, secondMatch);
+    await page.locator("#findNextButton").click();
+
+    const state = await markdown.evaluate(element => ({
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
+      selectionStart: element.selectionStart || 0
+    }));
+
+    expect(state.selectedText).toBe("##");
+    expect(state.selectionStart).toBe(secondMatch);
   });
 
   test("can be dragged so it does not cover the document", async ({ page }) => {
@@ -200,6 +274,34 @@ test.describe("find and replace", () => {
       const visibility = await getMarkdownSelectionVisibility(page);
       expect(visibility.selectedText).toBe("##");
       expect(visibility.isVisible).toBeTruthy();
+    }
+  });
+
+  test("moves every found line into the upper or central visible area", async ({ page }) => {
+    await page.goto("/");
+
+    const headingLines = [5, 45, 85, 125, 165];
+    const longDocument = Array.from({ length: 240 }, (_, index) => {
+      return headingLines.includes(index) ? `## heading ${index}` : `line ${index}`;
+    });
+    await page.locator("#markdownInput").evaluate((element, value) => {
+      element.style.flex = "none";
+      element.style.height = "140px";
+      element.value = value;
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+    }, longDocument.join("\n"));
+
+    await page.locator("#findReplaceButton").click();
+    await page.locator("#findReplaceSearchInput").fill("##");
+
+    for (let index = 0; index < headingLines.length; index += 1) {
+      await page.locator("#findNextButton").click();
+      const visibility = await getMarkdownSelectionVisibility(page);
+      const offsetInsideViewport = visibility.top - visibility.visibleTop;
+      expect(visibility.selectedText).toBe("##");
+      expect(visibility.isVisible).toBeTruthy();
+      expect(offsetInsideViewport).toBeGreaterThanOrEqual(0);
+      expect(offsetInsideViewport).toBeLessThanOrEqual(visibility.clientHeight * 0.65);
     }
   });
 

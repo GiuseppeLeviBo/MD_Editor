@@ -3934,6 +3934,73 @@
       await documentSyncController.fromVisual(normalizeVisualEditor);
     }
 
+    function getTextareaLineStartOffset(textarea, lineIndex) {
+      const source = textarea.value || "";
+      let offset = 0;
+      for (let line = 0; line < lineIndex; line += 1) {
+        const nextBreak = source.indexOf("\n", offset);
+        if (nextBreak === -1) {
+          return source.length;
+        }
+        offset = nextBreak + 1;
+      }
+      return offset;
+    }
+
+    function getTextareaOffsetTop(textarea, offset) {
+      if (offset <= 0) {
+        return 0;
+      }
+
+      const computedStyle = window.getComputedStyle(textarea);
+      const mirror = document.createElement("div");
+      const marker = document.createElement("span");
+      const source = textarea.value || "";
+      const safeOffset = Math.min(Math.max(0, offset), source.length);
+
+      mirror.setAttribute("aria-hidden", "true");
+      mirror.style.position = "absolute";
+      mirror.style.visibility = "hidden";
+      mirror.style.pointerEvents = "none";
+      mirror.style.left = "-99999px";
+      mirror.style.top = "0";
+      mirror.style.whiteSpace = "pre-wrap";
+      mirror.style.overflowWrap = "break-word";
+      mirror.style.wordBreak = "break-word";
+      mirror.style.boxSizing = computedStyle.boxSizing;
+      mirror.style.width = textarea.getBoundingClientRect().width + "px";
+      mirror.style.font = computedStyle.font;
+      mirror.style.lineHeight = computedStyle.lineHeight;
+      mirror.style.letterSpacing = computedStyle.letterSpacing;
+      mirror.style.paddingTop = computedStyle.paddingTop;
+      mirror.style.paddingRight = computedStyle.paddingRight;
+      mirror.style.paddingBottom = computedStyle.paddingBottom;
+      mirror.style.paddingLeft = computedStyle.paddingLeft;
+      mirror.style.borderTopWidth = computedStyle.borderTopWidth;
+      mirror.style.borderRightWidth = computedStyle.borderRightWidth;
+      mirror.style.borderBottomWidth = computedStyle.borderBottomWidth;
+      mirror.style.borderLeftWidth = computedStyle.borderLeftWidth;
+      mirror.style.tabSize = computedStyle.tabSize;
+      mirror.textContent = source.slice(0, safeOffset);
+      marker.textContent = " ";
+      mirror.appendChild(marker);
+      document.body.appendChild(mirror);
+
+      const offsetTop = marker.offsetTop;
+      document.body.removeChild(mirror);
+      return offsetTop;
+    }
+
+    function gotoTextareaLine(textarea, lineIndex, options = {}) {
+      const normalizedLineIndex = Math.max(0, lineIndex);
+      const lineStartOffset = getTextareaLineStartOffset(textarea, normalizedLineIndex);
+      const lineTop = getTextareaOffsetTop(textarea, lineStartOffset);
+      const maxScrollTop = Math.max(0, textarea.scrollHeight - textarea.clientHeight);
+      const alignRatio = typeof options.alignRatio === "number" ? options.alignRatio : 0.42;
+      const targetTop = normalizedLineIndex < 3 ? 0 : lineTop - (textarea.clientHeight * alignRatio);
+      textarea.scrollTop = Math.min(Math.max(0, targetTop), maxScrollTop);
+    }
+
     class FindReplaceController {
       constructor(options) {
         this.dialog = options.dialog;
@@ -3952,6 +4019,9 @@
         this.replaceAllButton = options.replaceAllButton;
         this.matches = [];
         this.activeMatchIndex = -1;
+        this.searchAnchor = 0;
+        this.userSearchAnchor = 0;
+        this.hasUserSearchAnchor = false;
         this.isDragging = false;
         this.dragOffsetX = 0;
         this.dragOffsetY = 0;
@@ -3959,6 +4029,7 @@
         this.handlePointerUp = () => this.stopDragging();
         this.handleResize = () => this.keepPanelInViewport();
         this.initializeDragging();
+        this.initializeCursorTracking();
       }
 
       getSearchTerm() {
@@ -3988,6 +4059,7 @@
 
       open() {
         const suggestedText = this.getSelectableSearchText();
+        this.searchAnchor = this.getInitialSearchAnchor();
         if (!this.getSearchTerm() && suggestedText) {
           this.searchInput.value = suggestedText;
         }
@@ -3997,6 +4069,10 @@
         this.previewMatches();
         this.searchInput.focus();
         this.searchInput.select();
+      }
+
+      getInitialSearchAnchor() {
+        return this.hasUserSearchAnchor ? this.userSearchAnchor : 0;
       }
 
       close() {
@@ -4013,6 +4089,24 @@
           this.startDragging(event);
         });
         window.addEventListener("resize", this.handleResize);
+      }
+
+      initializeCursorTracking() {
+        const captureUserCursor = () => this.updateUserSearchAnchorFromCursor();
+        this.markdownInput.addEventListener("pointerup", captureUserCursor);
+        this.markdownInput.addEventListener("keyup", captureUserCursor);
+      }
+
+      updateUserSearchAnchorFromCursor() {
+        if (document.activeElement !== this.markdownInput) {
+          return;
+        }
+        this.userSearchAnchor = this.markdownInput.selectionEnd || this.markdownInput.selectionStart || 0;
+        this.hasUserSearchAnchor = true;
+        if (this.dialog.classList.contains("is-open")) {
+          this.searchAnchor = this.userSearchAnchor;
+          this.activeMatchIndex = -1;
+        }
       }
 
       resetPosition() {
@@ -4126,62 +4220,15 @@
         return ((this.markdownInput.value || "").slice(0, match.start).match(/\n/g) || []).length;
       }
 
-      getMatchTop(match) {
-        if (!match) {
-          return 0;
-        }
-
-        const textarea = this.markdownInput;
-        const computedStyle = window.getComputedStyle(textarea);
-        const mirror = document.createElement("div");
-        const marker = document.createElement("span");
-        const beforeText = (textarea.value || "").slice(0, match.start);
-        const markerText = (textarea.value || "").slice(match.start, Math.max(match.end, match.start + 1)) || " ";
-
-        mirror.setAttribute("aria-hidden", "true");
-        mirror.style.position = "absolute";
-        mirror.style.visibility = "hidden";
-        mirror.style.pointerEvents = "none";
-        mirror.style.left = "-99999px";
-        mirror.style.top = "0";
-        mirror.style.whiteSpace = "pre-wrap";
-        mirror.style.overflowWrap = "break-word";
-        mirror.style.wordBreak = "break-word";
-        mirror.style.boxSizing = computedStyle.boxSizing;
-        mirror.style.width = textarea.getBoundingClientRect().width + "px";
-        mirror.style.font = computedStyle.font;
-        mirror.style.lineHeight = computedStyle.lineHeight;
-        mirror.style.letterSpacing = computedStyle.letterSpacing;
-        mirror.style.paddingTop = computedStyle.paddingTop;
-        mirror.style.paddingRight = computedStyle.paddingRight;
-        mirror.style.paddingBottom = computedStyle.paddingBottom;
-        mirror.style.paddingLeft = computedStyle.paddingLeft;
-        mirror.style.borderTopWidth = computedStyle.borderTopWidth;
-        mirror.style.borderRightWidth = computedStyle.borderRightWidth;
-        mirror.style.borderBottomWidth = computedStyle.borderBottomWidth;
-        mirror.style.borderLeftWidth = computedStyle.borderLeftWidth;
-        mirror.style.tabSize = computedStyle.tabSize;
-
-        mirror.textContent = beforeText;
-        marker.textContent = markerText;
-        mirror.appendChild(marker);
-        document.body.appendChild(mirror);
-
-        const markerTop = marker.offsetTop;
-        document.body.removeChild(mirror);
-        return markerTop;
+      gotoLine(lineIndex) {
+        gotoTextareaLine(this.markdownInput, lineIndex);
       }
 
       ensureMatchVisible(match) {
         if (!match) {
           return;
         }
-
-        const textarea = this.markdownInput;
-        const matchTop = this.getMatchTop(match);
-        const maxScrollTop = Math.max(0, textarea.scrollHeight - textarea.clientHeight);
-        const centeredTop = matchTop - (textarea.clientHeight * 0.42);
-        textarea.scrollTop = Math.min(Math.max(0, centeredTop), maxScrollTop);
+        this.gotoLine(this.getMatchLineIndex(match));
       }
 
       getSelectedMatchIndex() {
@@ -4190,7 +4237,7 @@
         return this.matches.findIndex(match => match.start === start && match.end === end);
       }
 
-      selectMatch(index, options = {}) {
+      selectMatch(index) {
         if (!this.matches.length) {
           this.activeMatchIndex = -1;
           return false;
@@ -4198,40 +4245,15 @@
 
         const normalizedIndex = ((index % this.matches.length) + this.matches.length) % this.matches.length;
         const match = this.matches[normalizedIndex];
-        const activeElement = document.activeElement;
-        const restoreFocus = Boolean(options.preserveFocus && activeElement && activeElement !== this.markdownInput);
-        const activeSelectionStart = restoreFocus && typeof activeElement.selectionStart === "number" ? activeElement.selectionStart : null;
-        const activeSelectionEnd = restoreFocus && typeof activeElement.selectionEnd === "number" ? activeElement.selectionEnd : null;
         this.activeMatchIndex = normalizedIndex;
-        this.markdownInput.focus();
+        this.markdownInput.focus({ preventScroll: true });
         this.markdownInput.setSelectionRange(match.start, match.end);
+        this.searchAnchor = match.end;
         this.ensureMatchVisible(match);
-        if (restoreFocus && typeof activeElement.focus === "function") {
-          activeElement.focus();
-          if (activeSelectionStart !== null && typeof activeElement.setSelectionRange === "function") {
-            activeElement.setSelectionRange(activeSelectionStart, activeSelectionEnd);
-          }
-        }
-        window.requestAnimationFrame(() => {
-          if (this.activeMatchIndex === normalizedIndex) {
-            this.ensureMatchVisible(match);
-            if (restoreFocus && typeof activeElement.focus === "function") {
-              activeElement.focus();
-            }
-          }
-        });
-        window.setTimeout(() => {
-          if (this.activeMatchIndex === normalizedIndex) {
-            this.ensureMatchVisible(match);
-            if (restoreFocus && typeof activeElement.focus === "function") {
-              activeElement.focus();
-            }
-          }
-        }, 40);
         return true;
       }
 
-      previewMatches(options = {}) {
+      previewMatches() {
         this.matches = this.getMatches();
         if (!this.matches.length) {
           this.activeMatchIndex = -1;
@@ -4240,14 +4262,15 @@
         }
         this.activeMatchIndex = -1;
         this.updateSummary();
-        if (options.selectFirst) {
-          return this.selectMatch(0, { preserveFocus: options.preserveFocus });
-        }
         return true;
       }
 
+      getNextMatchIndexFromAnchor(anchor) {
+        const nextIndex = this.matches.findIndex(match => match.start >= anchor);
+        return nextIndex === -1 ? 0 : nextIndex;
+      }
+
       findNext() {
-        const previousMatch = this.matches[this.activeMatchIndex] || null;
         this.matches = this.getMatches();
         if (!this.matches.length) {
           this.activeMatchIndex = -1;
@@ -4256,12 +4279,7 @@
         }
         this.updateSummary();
 
-        if (previousMatch) {
-          const previousIndex = this.matches.findIndex(match => match.start === previousMatch.start && match.end === previousMatch.end);
-          this.activeMatchIndex = previousIndex;
-        }
-
-        const nextIndex = this.activeMatchIndex >= 0 ? this.activeMatchIndex + 1 : 0;
+        const nextIndex = this.activeMatchIndex >= 0 ? this.activeMatchIndex + 1 : this.getNextMatchIndexFromAnchor(this.searchAnchor);
         return this.selectMatch(nextIndex);
       }
 
@@ -4288,8 +4306,10 @@
 
         const currentValue = this.markdownInput.value || "";
         const replacement = this.getReplacementText();
+        const nextSearchAnchor = activeMatch.start + replacement.length;
         this.flushPendingHistorySnapshot();
         this.markdownInput.value = currentValue.slice(0, activeMatch.start) + replacement + currentValue.slice(activeMatch.end);
+        this.searchAnchor = nextSearchAnchor;
         this.matches = this.getMatches();
         this.updateSummary();
         if (!this.matches.length) {
@@ -4298,8 +4318,8 @@
           this.setStatusKey("statusFindReplaceReplacedOne");
           return true;
         }
-        const nextIndex = this.matches.findIndex(match => match.start >= activeMatch.start + replacement.length);
-        this.selectMatch(nextIndex === -1 ? 0 : nextIndex);
+        this.activeMatchIndex = -1;
+        this.selectMatch(this.getNextMatchIndexFromAnchor(this.searchAnchor));
         await this.syncFromMarkdown();
         this.setStatusKey("statusFindReplaceReplacedOne");
         return true;
@@ -7325,7 +7345,7 @@
     });
 
     findReplaceSearchInput.addEventListener("input", () => {
-      findReplaceController.previewMatches({ selectFirst: true, preserveFocus: true });
+      findReplaceController.previewMatches();
     });
     findReplaceReplaceInput.addEventListener("keydown", event => {
       if (event.key === "Enter") {
@@ -7340,7 +7360,7 @@
       }
     });
     findReplaceMatchCase.addEventListener("change", () => {
-      findReplaceController.previewMatches({ selectFirst: true, preserveFocus: true });
+      findReplaceController.previewMatches();
     });
 
     symbolDialog.addEventListener("click", event => {
