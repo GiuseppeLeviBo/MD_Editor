@@ -15,4 +15,24 @@ test.describe("unsaved changes protection", () => {
     expect(dialog.type()).toBe("beforeunload");
     await dialog.dismiss();
   });
+
+  test("warns before closing after extension-style visual DOM insertion without input event", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#closeDocumentButton").click();
+    await expect(page.locator("#markdownInput")).toHaveValue("");
+
+    await page.locator("#visualEditor").evaluate(element => {
+      element.innerHTML = "<p>Frase dettata dal plug-in Chrome.</p>";
+    });
+
+    await expect(page.locator("#markdownInput")).toHaveValue("Frase dettata dal plug-in Chrome.");
+
+    const dialogPromise = page.waitForEvent("dialog");
+    await page.close({ runBeforeUnload: true });
+    const dialog = await dialogPromise;
+
+    expect(dialog.type()).toBe("beforeunload");
+    await dialog.dismiss();
+  });
 });

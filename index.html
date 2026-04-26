@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.7">
+  <link rel="manifest" href="./manifest.json?v=0.59.8">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <title>Markdown WYSIWYG Editor</title>
   <style>
@@ -1053,7 +1053,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.7</div>
+      <div class="build-badge" id="buildBadge">v0.59.8</div>
     </footer>
   </main>
 
@@ -1150,7 +1150,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.7";
+    const APP_VERSION = "v0.59.8";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1309,6 +1309,8 @@
       let lastKnownBlockTag = "p";
       const CODE_CARET_MARKER = "\u200B";
       const HISTORY_LIMIT = 500;
+    let visualEditorMutationBaseline = "";
+    let visualDomSyncTimer = null;
     let currentReferenceDefinitions = new Map();
     let currentReferenceOrder = [];
     // ResourceResolver is the single owner of the linked-folder state. Keeping
@@ -3642,7 +3644,30 @@
         && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
     }
 
+    function markVisualEditorMutationBaseline() {
+      visualEditorMutationBaseline = visualEditor.innerHTML;
+    }
+
+    function captureUnsyncedVisualDomChange() {
+      if (visualEditor.innerHTML === visualEditorMutationBaseline) {
+        return false;
+      }
+
+      const markdown = htmlToMarkdown(visualEditor.innerHTML);
+      visualEditorMutationBaseline = visualEditor.innerHTML;
+      if (markdown === markdownInput.value) {
+        return false;
+      }
+
+      markdownInput.value = markdown;
+      saveSessionValue("draft_markdown", markdown);
+      queueHistorySnapshot(markdown);
+      currentDocumentNeedsProjectFolder = documentNeedsProjectFolder(markdown);
+      return true;
+    }
+
     function hasUndownloadedChanges() {
+      captureUnsyncedVisualDomChange();
       const currentValue = markdownInput.value || "";
       if (!currentValue.trim()) {
         return false;
@@ -3887,6 +3912,7 @@
           return;
         }
         this.visualEditor.innerHTML = renderResult.html;
+        markVisualEditorMutationBaseline();
         this.preview.innerHTML = renderResult.html;
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
@@ -3905,6 +3931,9 @@
         }
         if (normalizeVisualEditor) {
           this.visualEditor.innerHTML = renderResult.html;
+          markVisualEditorMutationBaseline();
+        } else {
+          markVisualEditorMutationBaseline();
         }
         this.preview.innerHTML = renderResult.html;
         this.saveDraft(markdown);
@@ -7208,6 +7237,32 @@
       event.target.value = "";
     });
 
+    function scheduleVisualDomMutationSync() {
+      if (visualEditor.innerHTML === visualEditorMutationBaseline) {
+        return;
+      }
+      if (visualDomSyncTimer) {
+        window.clearTimeout(visualDomSyncTimer);
+      }
+      visualDomSyncTimer = window.setTimeout(() => {
+        visualDomSyncTimer = null;
+        if (!captureUnsyncedVisualDomChange()) {
+          return;
+        }
+        void syncFromMarkdown();
+        updateToolbarState();
+      }, 50);
+    }
+
+    const visualDomObserver = new MutationObserver(() => {
+      scheduleVisualDomMutationSync();
+    });
+    visualDomObserver.observe(visualEditor, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+
     visualEditor.addEventListener("input", () => {
       void syncFromVisual();
       updateToolbarState();
@@ -7511,7 +7566,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.7", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.59.8", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
