@@ -154,6 +154,25 @@ test.describe("markdown extensions", () => {
     await expect(page.locator("#preview ol > li").nth(1)).toContainText("Fourth item");
   });
 
+  test("renders asterisk bullets with nested ordered lists", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("* **Key steps**\n  1. **Read CLI options** (`readOption`, `hasArg`).\n  2. Compute host/port.");
+
+    await expect(page.locator("#preview ul > li > ol > li")).toHaveCount(2);
+    await expect(page.locator("#preview ul > li > ol > li").first()).toContainText("Read CLI options");
+    await expect(page.locator("#visualEditor ul > li > ol > li").nth(1)).toContainText("Compute host/port");
+  });
+
+  test("does not hang on an indented ordered list without a parent item", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("  1. Orphan ordered item");
+
+    await expect(page.locator("#preview ol > li")).toContainText("Orphan ordered item");
+    await expect(page.locator("#visualEditor ol > li")).toContainText("Orphan ordered item");
+  });
+
   test("preserves blank lines in a loose ordered list after a visual edit", async ({ page }) => {
     await page.goto("/");
 
