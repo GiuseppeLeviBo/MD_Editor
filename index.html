@@ -1309,6 +1309,8 @@
       let lastKnownBlockTag = "p";
       const CODE_CARET_MARKER = "\u200B";
       const HISTORY_LIMIT = 500;
+    let visualEditorMutationBaseline = "";
+    let visualDomSyncTimer = null;
     let currentReferenceDefinitions = new Map();
     let currentReferenceOrder = [];
     // ResourceResolver is the single owner of the linked-folder state. Keeping
@@ -3649,7 +3651,30 @@
         && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
     }
 
+    function markVisualEditorMutationBaseline() {
+      visualEditorMutationBaseline = visualEditor.innerHTML;
+    }
+
+    function captureUnsyncedVisualDomChange() {
+      if (visualEditor.innerHTML === visualEditorMutationBaseline) {
+        return false;
+      }
+
+      const markdown = htmlToMarkdown(visualEditor.innerHTML);
+      visualEditorMutationBaseline = visualEditor.innerHTML;
+      if (markdown === markdownInput.value) {
+        return false;
+      }
+
+      markdownInput.value = markdown;
+      saveSessionValue("draft_markdown", markdown);
+      queueHistorySnapshot(markdown);
+      currentDocumentNeedsProjectFolder = documentNeedsProjectFolder(markdown);
+      return true;
+    }
+
     function hasUndownloadedChanges() {
+      captureUnsyncedVisualDomChange();
       const currentValue = markdownInput.value || "";
       if (!currentValue.trim()) {
         return false;
@@ -3894,6 +3919,7 @@
           return;
         }
         this.visualEditor.innerHTML = renderResult.html;
+        markVisualEditorMutationBaseline();
         this.preview.innerHTML = renderResult.html;
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
@@ -3912,6 +3938,9 @@
         }
         if (normalizeVisualEditor) {
           this.visualEditor.innerHTML = renderResult.html;
+          markVisualEditorMutationBaseline();
+        } else {
+          markVisualEditorMutationBaseline();
         }
         this.preview.innerHTML = renderResult.html;
         this.saveDraft(markdown);
@@ -7213,6 +7242,32 @@
         void openMarkdownFile(file);
       }
       event.target.value = "";
+    });
+
+    function scheduleVisualDomMutationSync() {
+      if (visualEditor.innerHTML === visualEditorMutationBaseline) {
+        return;
+      }
+      if (visualDomSyncTimer) {
+        window.clearTimeout(visualDomSyncTimer);
+      }
+      visualDomSyncTimer = window.setTimeout(() => {
+        visualDomSyncTimer = null;
+        if (!captureUnsyncedVisualDomChange()) {
+          return;
+        }
+        void syncFromMarkdown();
+        updateToolbarState();
+      }, 50);
+    }
+
+    const visualDomObserver = new MutationObserver(() => {
+      scheduleVisualDomMutationSync();
+    });
+    visualDomObserver.observe(visualEditor, {
+      childList: true,
+      characterData: true,
+      subtree: true
     });
 
     visualEditor.addEventListener("input", () => {
