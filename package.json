@@ -1,6 +1,6 @@
 {
   "name": "new-project",
-  "version": "0.59.9",
+  "version": "0.60.0",
   "description": "A lightweight, free Markdown/WYSIWYG editor that started as a single self-contained HTML file and later gained optional PWA support for installation, offline shell caching, and file handling where supported.",
   "main": "sw.js",
   "scripts": {
@@ -24,5 +24,8 @@
   "homepage": "https://github.com/GiuseppeLeviBo/MD_Editor#readme",
   "devDependencies": {
     "@playwright/test": "^1.59.1"
+  },
+  "dependencies": {
+    "katex": "^0.16.47"
   }
 }

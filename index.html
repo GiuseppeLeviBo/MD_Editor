@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.59.9">
+  <link rel="manifest" href="./manifest.json?v=0.60.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./vendor/katex/katex.min.css">
+  <script src="./vendor/katex/katex.min.js"></script>
   <title>Markdown WYSIWYG Editor</title>
   <style>
     :root {
@@ -352,6 +354,37 @@
     .preview th {
       background: rgba(244, 216, 203, 0.28);
       font-weight: 700;
+    }
+
+    .math-inline,
+    .math-block {
+      color: inherit;
+    }
+
+    .math-inline {
+      display: inline-block;
+      max-width: 100%;
+      vertical-align: -0.12em;
+    }
+
+    .math-block {
+      display: block;
+      max-width: 100%;
+      margin: 1rem 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      text-align: center;
+    }
+
+    .math-error {
+      color: #9a3412;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.94em;
+      white-space: pre-wrap;
+    }
+
+    body[data-theme="dark"] .math-error {
+      color: #f0a178;
     }
 
     .editor td:focus,
@@ -1053,7 +1086,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.59.9</div>
+      <div class="build-badge" id="buildBadge">v0.60.0</div>
     </footer>
   </main>
 
@@ -1150,7 +1183,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.59.9";
+    const APP_VERSION = "v0.60.0";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2317,6 +2350,97 @@
       return '<a href="' + escapeHtml(normalizedHref) + '" data-md-href="' + escapeHtml(normalizedHref) + '"' + referenceAttr + titleAttr + ' target="_blank" rel="noreferrer">' + label + "</a>";
     }
 
+    function renderLatexToHtml(latex, displayMode = false) {
+      const source = String(latex || "");
+      if (!source.trim()) {
+        return "";
+      }
+
+      try {
+        if (window.katex && typeof window.katex.renderToString === "function") {
+          return window.katex.renderToString(source, {
+            displayMode,
+            throwOnError: false,
+            strict: "ignore",
+            output: "html"
+          });
+        }
+      } catch {}
+
+      return '<code class="math-error">' + escapeHtml(source) + "</code>";
+    }
+
+    function createMathHtml(latex, displayMode = false) {
+      const source = String(latex || "").trim();
+      const tag = displayMode ? "div" : "span";
+      const className = displayMode ? "math-block" : "math-inline";
+      const rendered = renderLatexToHtml(source, displayMode);
+      return '<' + tag + ' class="' + className + '" data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '" contenteditable="false">' + rendered + "</" + tag + ">";
+    }
+
+    function protectInlineMath(text) {
+      const mathFragments = [];
+      const protectedText = String(text || "").replace(/\\\(([\s\S]+?)\\\)/g, (match, latex) => {
+        if (!String(latex || "").trim()) {
+          return match;
+        }
+        const token = "__MD_INLINE_MATH_" + mathFragments.length + "__";
+        mathFragments.push({
+          token,
+          html: createMathHtml(latex, false)
+        });
+        return token;
+      });
+
+      return { protectedText, mathFragments };
+    }
+
+    function restoreInlineMath(html, mathFragments) {
+      let result = html;
+      mathFragments.forEach(fragment => {
+        result = result.replace(fragment.token, fragment.html);
+      });
+      return result;
+    }
+
+    function tryParseMarkdownMathBlock(lines, startIndex) {
+      const line = lines[startIndex] || "";
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("\\[")) {
+        return null;
+      }
+
+      if (trimmed !== "\\[" && trimmed.endsWith("\\]")) {
+        const inlineBlock = trimmed.slice(2, -2).trim();
+        if (!inlineBlock) {
+          return null;
+        }
+        return {
+          html: createMathHtml(inlineBlock, true),
+          consumed: 1
+        };
+      }
+
+      if (trimmed !== "\\[") {
+        return null;
+      }
+
+      const mathLines = [];
+      let index = startIndex + 1;
+      while (index < lines.length) {
+        if ((lines[index] || "").trim() === "\\]") {
+          return {
+            html: createMathHtml(mathLines.join("\n"), true),
+            consumed: index - startIndex + 1
+          };
+        }
+        mathLines.push(lines[index]);
+        index += 1;
+      }
+
+      return null;
+    }
+
     function getMarkdownListLineInfo(line) {
       if (typeof line !== "string") {
         return null;
@@ -2733,7 +2857,8 @@
 
     async function applyInlineMarkdown(text, options = {}) {
       const { allowImages = true, referenceDefinitions = currentReferenceDefinitions } = options;
-      const escaped = escapeHtml(text);
+      const { protectedText, mathFragments } = protectInlineMath(text);
+      const escaped = escapeHtml(protectedText);
       const fragments = [];
       const blockedImageLiterals = [];
       let lastIndex = 0;
@@ -2779,7 +2904,7 @@
         result = result.replace("__MD_BLOCKED_IMAGE_" + index + "__", preserveEscapedMarkdownLiteral(literal));
       });
 
-      return result;
+      return restoreInlineMath(result, mathFragments);
     }
 
       async function markdownToHtml(markdown) {
@@ -2834,6 +2959,15 @@
           closeLists();
           closeQuote();
           html += "<hr>";
+          continue;
+        }
+
+        const mathBlock = tryParseMarkdownMathBlock(lines, index);
+        if (mathBlock) {
+          closeLists();
+          closeQuote();
+          html += mathBlock.html;
+          index += mathBlock.consumed - 1;
           continue;
         }
 
@@ -2954,7 +3088,15 @@
     }
 
     function inlineHtmlToMarkdown(html) {
-      return html
+      const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+      doc.querySelectorAll("[data-md-math]").forEach(node => {
+        const source = node.getAttribute("data-md-math") || "";
+        const isDisplay = node.getAttribute("data-md-display") === "true";
+        const markdown = isDisplay ? "\\[\n" + source + "\n\\]" : "\\(" + source + "\\)";
+        node.replaceWith(doc.createTextNode(markdown));
+      });
+
+      return doc.body.innerHTML
         .replace(/<\/?span[^>]*>/gi, "")
         .replace(/<a [^>]*data-md-ref="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2][$1]")
         .replace(/<a [^>]*data-md-href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
@@ -3158,6 +3300,13 @@
         const tag = node.tagName.toLowerCase();
         const content = Array.from(node.childNodes).map(child => nodeToMarkdown(child)).join("");
         const clean = content.replace(/\n{3,}/g, "\n\n");
+
+        if (node.hasAttribute("data-md-math")) {
+          const source = node.getAttribute("data-md-math") || "";
+          return node.getAttribute("data-md-display") === "true"
+            ? "\\[\n" + source + "\n\\]\n\n"
+            : "\\(" + source + "\\)";
+        }
 
         switch (tag) {
           case "h1":
@@ -7573,7 +7722,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.59.9", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.60.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

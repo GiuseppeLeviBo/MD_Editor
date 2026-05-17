@@ -53,6 +53,9 @@ The goal is to protect the most important promises of the product.
 - Code blocks can be created with an optional fence language
 - Pressing `Enter` inside a code block keeps visual editor, Markdown, and preview aligned
 - Double `Enter` at the end of a code block exits to a normal paragraph
+- Inline LaTeX math written as `\( ... \)` renders in visual editor and preview while preserving Markdown source
+- Display LaTeX math written as `\[ ... \]` renders in visual editor and preview while preserving Markdown source
+- LaTeX delimiters inside fenced code blocks remain inert text
 - `H4-H6` render and round-trip correctly
 - Nested lists stay aligned between visual editor, Markdown, and preview
 - Nested list indent/outdent works from the visual editor with buttons and Tab/Shift+Tab
@@ -79,6 +82,7 @@ The goal is to protect the most important promises of the product.
 - `Write`, `Preview`, and `All` use the expected layout width
 - Build badge is visible and changes with releases
 - PWA shell loads correctly and updates through the service worker
+- PWA shell caches vendored KaTeX CSS, JS, and fonts for offline math rendering
 - App start works both on GitHub Pages and on a local static server
 - README screenshot and repository links stay valid
 - Save-as suggested location behaves coherently with linked-folder state
@@ -122,6 +126,7 @@ The goal is to protect the most important promises of the product.
 - Nested-list delete/backspace behavior still needs a small family of regressions around `DEL` and `Backspace`
 - Visual/Markdown/preview alignment after rich-text paste should be hardened with explicit regression tests
 - Security-oriented regressions for unsafe HTML and dangerous link schemes should be added explicitly
+- Additional LaTeX delimiter edge cases should be explored, especially escaped delimiters and mixed inline math with links/emphasis
 
 ## Tables v1
 
