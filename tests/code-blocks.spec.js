@@ -119,24 +119,36 @@ test.describe("code blocks", () => {
     await expect(page.locator("#preview > p").last()).toContainText("Outside code");
   });
 
-  test("ignores stray strikethrough markup inside visual code blocks", async ({ page }) => {
+  test("ignores stray inline formatting markup inside visual code blocks", async ({ page }) => {
     await page.goto("/");
 
-    await page.locator("#markdownInput").fill("```text\nEsempio\n\ndi testo\n```\n\nChe puo essere anche ~~cancellato~~.");
+    await page.locator("#markdownInput").fill("```text\nGrassetto\nCorsivo\nBarrato\n```\n\nFuori **grassetto**, *corsivo* e ~~barrato~~ restano formattati.");
 
     await page.evaluate(() => {
       const code = document.querySelector("#visualEditor pre code");
-      code.innerHTML = "<s>Esempio</s>\n\ndi testo";
+      code.innerHTML = "<strong>Grassetto</strong>\n<em>Corsivo</em>\n<s>Barrato</s>";
       document.getElementById("visualEditor").dispatchEvent(new InputEvent("input", {
         bubbles: true,
-        inputType: "formatStrikeThrough"
+        inputType: "formatBold"
       }));
     });
 
-    await expect.poll(async () => page.locator("#markdownInput").inputValue()).not.toContain("~~Esempio~~");
-    await expect(page.locator("#preview pre code")).toContainText("Esempio");
+    await expect.poll(async () => page.locator("#markdownInput").inputValue()).not.toContain("**Grassetto**");
+    await expect(page.locator("#markdownInput")).not.toHaveValue(/\*Corsivo\*/);
+    await expect(page.locator("#markdownInput")).not.toHaveValue(/~~Barrato~~[\s\S]*```/);
+    await expect(page.locator("#preview pre code")).toContainText("Grassetto");
+    await expect(page.locator("#preview pre code")).toContainText("Corsivo");
+    await expect(page.locator("#preview pre code")).toContainText("Barrato");
 
+    const strongWeight = await page.locator("#visualEditor pre code strong").evaluate(node => Number.parseInt(getComputedStyle(node).fontWeight, 10));
+    const fontStyle = await page.locator("#visualEditor pre code em").evaluate(node => getComputedStyle(node).fontStyle);
     const decoration = await page.locator("#visualEditor pre code s").evaluate(node => getComputedStyle(node).textDecorationLine);
+    expect(strongWeight).toBeLessThan(600);
+    expect(fontStyle).toBe("normal");
     expect(decoration).toBe("none");
+
+    await expect(page.locator("#preview p strong")).toContainText("grassetto");
+    await expect(page.locator("#preview p em")).toContainText("corsivo");
+    await expect(page.locator("#preview p del")).toContainText("barrato");
   });
 });
