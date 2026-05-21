@@ -118,4 +118,25 @@ test.describe("code blocks", () => {
     await expect(page.locator("#visualEditor > p").last()).toContainText("Outside code");
     await expect(page.locator("#preview > p").last()).toContainText("Outside code");
   });
+
+  test("ignores stray strikethrough markup inside visual code blocks", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill("```text\nEsempio\n\ndi testo\n```\n\nChe puo essere anche ~~cancellato~~.");
+
+    await page.evaluate(() => {
+      const code = document.querySelector("#visualEditor pre code");
+      code.innerHTML = "<s>Esempio</s>\n\ndi testo";
+      document.getElementById("visualEditor").dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        inputType: "formatStrikeThrough"
+      }));
+    });
+
+    await expect.poll(async () => page.locator("#markdownInput").inputValue()).not.toContain("~~Esempio~~");
+    await expect(page.locator("#preview pre code")).toContainText("Esempio");
+
+    const decoration = await page.locator("#visualEditor pre code s").evaluate(node => getComputedStyle(node).textDecorationLine);
+    expect(decoration).toBe("none");
+  });
 });
