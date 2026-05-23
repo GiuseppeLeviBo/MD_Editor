@@ -95,6 +95,8 @@ test.describe("RTF export", () => {
       "```"
     ].join("\n"));
 
+    await expect(page.locator("#preview pre[data-language=\"js\"] code.language-javascript .token.keyword")).toContainText("const");
+
     await page.locator("#linkFolderButton").click();
     await expect(page.locator("#syncStatus")).toContainText(/Document folder linked|Cartella documento collegata/i);
 
@@ -120,6 +122,10 @@ test.describe("RTF export", () => {
     expect(result.content).toContain("\\u9744 ");
     expect(result.content).toContain("\\pict\\pngblip");
     expect(result.content).toContain("Serial Monitor screenshot");
+    expect(result.content).toContain("const ready = true;");
+    expect(result.content).not.toContain("token");
+    expect(result.content).not.toContain("language-javascript");
+    expect(result.content).not.toContain("<span");
     expect(result.content).not.toContain("[Serial Monitor screenshot]");
     expect(result.content).not.toContain("\\qc\\b\\fs40 documento");
     expect(result.content).not.toContain("\\fs36");

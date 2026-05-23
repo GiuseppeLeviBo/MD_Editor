@@ -55,14 +55,23 @@ async function placeCursorAtEndOfCodeText(page, text) {
   await page.evaluate(targetText => {
     const codeBlocks = Array.from(document.querySelectorAll("#visualEditor pre code"));
     for (const codeBlock of codeBlocks) {
+      const codeText = codeBlock.textContent || "";
+      const targetIndex = codeText.indexOf(targetText);
+      if (targetIndex < 0) {
+        continue;
+      }
+
+      const targetOffset = targetIndex + targetText.length;
+      let consumed = 0;
       const walker = document.createTreeWalker(codeBlock, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
-        const index = node.textContent.indexOf(targetText);
-        if (index >= 0) {
+        const nextConsumed = consumed + node.textContent.length;
+        if (targetOffset <= nextConsumed) {
           const range = document.createRange();
-          range.setStart(node, index + targetText.length);
-          range.setEnd(node, index + targetText.length);
+          const offset = targetOffset - consumed;
+          range.setStart(node, offset);
+          range.setEnd(node, offset);
           const selection = window.getSelection();
           const editor = document.getElementById("visualEditor");
           editor.focus();
@@ -70,6 +79,7 @@ async function placeCursorAtEndOfCodeText(page, text) {
           selection.addRange(range);
           return;
         }
+        consumed = nextConsumed;
       }
     }
     throw new Error(`Unable to place cursor at end of code text: ${targetText}`);
@@ -89,6 +99,45 @@ test.describe("code blocks", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(/```js\s+const value = 1;\s+```/);
     await expect(page.locator("#visualEditor pre[data-language=\"js\"] code")).toContainText("const value = 1;");
     await expect(page.locator("#preview pre[data-language=\"js\"] code")).toContainText("const value = 1;");
+  });
+
+  test("highlights supported fenced code languages without changing Markdown source", async ({ page }) => {
+    await page.goto("/");
+
+    const source = "```js\nconst ready = true;\nconsole.log(ready);\n```";
+    await page.locator("#markdownInput").fill(source);
+
+    await expect(page.locator("#visualEditor pre[data-language=\"js\"] code.language-javascript .token.keyword")).toContainText("const");
+    await expect(page.locator("#preview pre[data-language=\"js\"] code.language-javascript .token.function")).toContainText("log");
+
+    await page.evaluate(() => {
+      document.getElementById("visualEditor").dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        inputType: "insertText",
+        data: ""
+      }));
+    });
+
+    await expect(page.locator("#markdownInput")).toHaveValue(source);
+  });
+
+  test("highlights Python function declarations and calls", async ({ page }) => {
+    await page.goto("/");
+
+    await page.locator("#markdownInput").fill([
+      "```python",
+      "def write_match(out_dir: Path, source: Path) -> Path:",
+      "    target = unique_output_path(out_dir, source)",
+      "    target.write_bytes(b\"ok\")",
+      "    return target",
+      "```"
+    ].join("\n"));
+
+    await expect(page.locator("#preview pre[data-language=\"python\"] code.language-python .token.function")).toContainText([
+      "write_match",
+      "unique_output_path",
+      "write_bytes"
+    ]);
   });
 
   test("pressing Enter inside a code block keeps markdown and preview aligned", async ({ page }) => {

@@ -53,6 +53,8 @@ The goal is to protect the most important promises of the product.
 - Code blocks can be created with an optional fence language
 - Pressing `Enter` inside a code block keeps visual editor, Markdown, and preview aligned
 - Double `Enter` at the end of a code block exits to a normal paragraph
+- Fenced code blocks with supported languages are syntax-highlighted in visual editor and preview while preserving Markdown source
+- `RTF` export keeps syntax-highlighted code blocks as plain monospace text without Prism token markup
 - Inline LaTeX math written as `\( ... \)` renders in visual editor and preview while preserving Markdown source
 - Display LaTeX math written as `\[ ... \]` renders in visual editor and preview while preserving Markdown source
 - LaTeX delimiters inside fenced code blocks remain inert text
@@ -83,6 +85,7 @@ The goal is to protect the most important promises of the product.
 - Build badge is visible and changes with releases
 - PWA shell loads correctly and updates through the service worker
 - PWA shell caches vendored KaTeX CSS, JS, and fonts for offline math rendering
+- PWA shell caches vendored PrismJS assets for offline syntax highlighting
 - App start works both on GitHub Pages and on a local static server
 - README screenshot and repository links stay valid
 - Save-as suggested location behaves coherently with linked-folder state

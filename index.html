@@ -5,10 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.60.2">
+  <link rel="manifest" href="./manifest.json?v=0.61.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="./vendor/prism/prism.min.css">
   <script src="./vendor/katex/katex.min.js"></script>
+  <script>window.Prism = window.Prism || {}; window.Prism.manual = true;</script>
+  <script src="./vendor/prism/prism.js"></script>
+  <script src="./vendor/prism/components/prism-typescript.min.js"></script>
+  <script src="./vendor/prism/components/prism-python.min.js"></script>
+  <script src="./vendor/prism/components/prism-bash.min.js"></script>
+  <script src="./vendor/prism/components/prism-json.min.js"></script>
+  <script src="./vendor/prism/components/prism-markdown.min.js"></script>
   <title>Markdown WYSIWYG Editor</title>
   <style>
     :root {
@@ -586,15 +594,36 @@
       overflow: auto;
     }
 
+    .editor pre[class*="language-"],
+    .preview pre[class*="language-"],
+    .editor code[class*="language-"],
+    .preview code[class*="language-"] {
+      color: var(--text);
+      text-shadow: none;
+      white-space: pre;
+    }
+
+    .editor pre[class*="language-"],
+    .preview pre[class*="language-"] {
+      background: #f5ede2;
+      margin: 0 0 1em;
+    }
+
     body[data-theme="dark"] .editor pre,
     body[data-theme="dark"] .preview pre {
+      background: #2a2019;
+    }
+
+    body[data-theme="dark"] .editor pre[class*="language-"],
+    body[data-theme="dark"] .preview pre[class*="language-"] {
       background: #2a2019;
     }
 
     .editor pre[data-language]::before,
     .preview pre[data-language]::before {
       content: attr(data-language);
-      display: inline-block;
+      display: block;
+      width: fit-content;
       margin-bottom: 10px;
       padding: 2px 8px;
       border-radius: 999px;
@@ -627,6 +656,180 @@
     .preview pre s,
     .preview pre strike {
       text-decoration: none;
+    }
+
+    .editor .token.comment,
+    .editor .token.prolog,
+    .editor .token.doctype,
+    .editor .token.cdata,
+    .preview .token.comment,
+    .preview .token.prolog,
+    .preview .token.doctype,
+    .preview .token.cdata {
+      color: #7b6a58;
+    }
+
+    .editor .token.punctuation,
+    .preview .token.punctuation {
+      color: #776857;
+    }
+
+    .editor .token.property,
+    .editor .token.tag,
+    .editor .token.boolean,
+    .editor .token.number,
+    .editor .token.constant,
+    .editor .token.symbol,
+    .editor .token.deleted,
+    .preview .token.property,
+    .preview .token.tag,
+    .preview .token.boolean,
+    .preview .token.number,
+    .preview .token.constant,
+    .preview .token.symbol,
+    .preview .token.deleted {
+      color: #9b3f2d;
+    }
+
+    .editor .token.selector,
+    .editor .token.attr-name,
+    .editor .token.string,
+    .editor .token.char,
+    .editor .token.builtin,
+    .editor .token.inserted,
+    .preview .token.selector,
+    .preview .token.attr-name,
+    .preview .token.string,
+    .preview .token.char,
+    .preview .token.builtin,
+    .preview .token.inserted {
+      color: #3f6f43;
+    }
+
+    .editor .token.operator,
+    .editor .token.entity,
+    .editor .token.url,
+    .editor .language-css .token.string,
+    .editor .style .token.string,
+    .preview .token.operator,
+    .preview .token.entity,
+    .preview .token.url,
+    .preview .language-css .token.string,
+    .preview .style .token.string {
+      color: #8a5a1f;
+      background: transparent;
+    }
+
+    .editor .token.atrule,
+    .editor .token.attr-value,
+    .editor .token.keyword,
+    .preview .token.atrule,
+    .preview .token.attr-value,
+    .preview .token.keyword {
+      color: #7a4bb2;
+    }
+
+    .editor .token.function,
+    .editor .token.class-name,
+    .preview .token.function,
+    .preview .token.class-name {
+      color: #1e678f;
+    }
+
+    .editor .token.regex,
+    .editor .token.important,
+    .editor .token.variable,
+    .preview .token.regex,
+    .preview .token.important,
+    .preview .token.variable {
+      color: #a15d1a;
+    }
+
+    body[data-theme="dark"] .editor .token.comment,
+    body[data-theme="dark"] .editor .token.prolog,
+    body[data-theme="dark"] .editor .token.doctype,
+    body[data-theme="dark"] .editor .token.cdata,
+    body[data-theme="dark"] .preview .token.comment,
+    body[data-theme="dark"] .preview .token.prolog,
+    body[data-theme="dark"] .preview .token.doctype,
+    body[data-theme="dark"] .preview .token.cdata {
+      color: #b7a08c;
+    }
+
+    body[data-theme="dark"] .editor .token.punctuation,
+    body[data-theme="dark"] .preview .token.punctuation {
+      color: #cab9a5;
+    }
+
+    body[data-theme="dark"] .editor .token.property,
+    body[data-theme="dark"] .editor .token.tag,
+    body[data-theme="dark"] .editor .token.boolean,
+    body[data-theme="dark"] .editor .token.number,
+    body[data-theme="dark"] .editor .token.constant,
+    body[data-theme="dark"] .editor .token.symbol,
+    body[data-theme="dark"] .editor .token.deleted,
+    body[data-theme="dark"] .preview .token.property,
+    body[data-theme="dark"] .preview .token.tag,
+    body[data-theme="dark"] .preview .token.boolean,
+    body[data-theme="dark"] .preview .token.number,
+    body[data-theme="dark"] .preview .token.constant,
+    body[data-theme="dark"] .preview .token.symbol,
+    body[data-theme="dark"] .preview .token.deleted {
+      color: #ff987d;
+    }
+
+    body[data-theme="dark"] .editor .token.selector,
+    body[data-theme="dark"] .editor .token.attr-name,
+    body[data-theme="dark"] .editor .token.string,
+    body[data-theme="dark"] .editor .token.char,
+    body[data-theme="dark"] .editor .token.builtin,
+    body[data-theme="dark"] .editor .token.inserted,
+    body[data-theme="dark"] .preview .token.selector,
+    body[data-theme="dark"] .preview .token.attr-name,
+    body[data-theme="dark"] .preview .token.string,
+    body[data-theme="dark"] .preview .token.char,
+    body[data-theme="dark"] .preview .token.builtin,
+    body[data-theme="dark"] .preview .token.inserted {
+      color: #9fdc91;
+    }
+
+    body[data-theme="dark"] .editor .token.operator,
+    body[data-theme="dark"] .editor .token.entity,
+    body[data-theme="dark"] .editor .token.url,
+    body[data-theme="dark"] .editor .language-css .token.string,
+    body[data-theme="dark"] .editor .style .token.string,
+    body[data-theme="dark"] .preview .token.operator,
+    body[data-theme="dark"] .preview .token.entity,
+    body[data-theme="dark"] .preview .token.url,
+    body[data-theme="dark"] .preview .language-css .token.string,
+    body[data-theme="dark"] .preview .style .token.string {
+      color: #f3c47c;
+      background: transparent;
+    }
+
+    body[data-theme="dark"] .editor .token.atrule,
+    body[data-theme="dark"] .editor .token.attr-value,
+    body[data-theme="dark"] .editor .token.keyword,
+    body[data-theme="dark"] .preview .token.atrule,
+    body[data-theme="dark"] .preview .token.attr-value,
+    body[data-theme="dark"] .preview .token.keyword {
+      color: #d8b3ff;
+    }
+
+    body[data-theme="dark"] .editor .token.function,
+    body[data-theme="dark"] .editor .token.class-name,
+    body[data-theme="dark"] .preview .token.function,
+    body[data-theme="dark"] .preview .token.class-name {
+      color: #8fd3ff;
+    }
+
+    body[data-theme="dark"] .editor .token.regex,
+    body[data-theme="dark"] .editor .token.important,
+    body[data-theme="dark"] .editor .token.variable,
+    body[data-theme="dark"] .preview .token.regex,
+    body[data-theme="dark"] .preview .token.important,
+    body[data-theme="dark"] .preview .token.variable {
+      color: #ffca87;
     }
 
     .editor img,
@@ -1109,7 +1312,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.60.2</div>
+      <div class="build-badge" id="buildBadge">v0.61.0</div>
     </footer>
   </main>
 
@@ -1206,7 +1409,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.60.2";
+    const APP_VERSION = "v0.61.0";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1880,7 +2083,8 @@
       "![Esempio immagine](https://placehold.co/900x420/e9dac7/5c4630?text=Immagine+Markdown)",
       "",
       "```js",
-      "console.log('Ciao Markdown');",
+      "const messaggio = 'Ciao Markdown';",
+      "console.log(messaggio);",
       "```"
     ].join("\n");
 
@@ -1909,6 +2113,14 @@
         "- immagini nel documento",
         "- simboli speciali",
         "- interfaccia IT/EN",
+        "",
+        "## Esempio di codice",
+        "",
+        "```python",
+        "def saluta(nome):",
+        "    messaggio = f\"Ciao {nome}\"",
+        "    print(messaggio)",
+        "```",
         "",
         "## Privacy e dati locali",
         "",
@@ -1970,6 +2182,14 @@
         "- images inside the document",
         "- special symbols",
         "- IT/EN interface",
+        "",
+        "## Code example",
+        "",
+        "```python",
+        "def greet(name):",
+        "    message = f\"Hello {name}\"",
+        "    print(message)",
+        "```",
         "",
         "## Privacy and local data",
         "",
@@ -2399,6 +2619,72 @@
       const className = displayMode ? "math-block" : "math-inline";
       const rendered = renderLatexToHtml(source, displayMode);
       return '<' + tag + ' class="' + className + '" data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '" contenteditable="false">' + rendered + "</" + tag + ">";
+    }
+
+    const PRISM_LANGUAGE_ALIASES = {
+      htm: "markup",
+      html: "markup",
+      svg: "markup",
+      xml: "markup",
+      js: "javascript",
+      mjs: "javascript",
+      cjs: "javascript",
+      ts: "typescript",
+      py: "python",
+      sh: "bash",
+      shell: "bash",
+      zsh: "bash",
+      md: "markdown"
+    };
+
+    function configurePrismLanguages() {
+      if (!window.Prism || !window.Prism.languages || !window.Prism.languages.python || !window.Prism.languages.insertBefore) {
+        return;
+      }
+
+      if (!window.Prism.languages.python["md-function-call"]) {
+        window.Prism.languages.insertBefore("python", "punctuation", {
+          "md-function-call": {
+            pattern: /\b[a-zA-Z_]\w*(?=\s*\()/,
+            alias: "function"
+          }
+        });
+      }
+    }
+
+    configurePrismLanguages();
+
+    function normalizeCodeLanguage(language) {
+      const token = String(language || "").trim().split(/\s+/)[0].replace(/^language-/i, "").toLowerCase();
+      if (!token) {
+        return "";
+      }
+      return PRISM_LANGUAGE_ALIASES[token] || token;
+    }
+
+    function canHighlightCodeLanguage(language) {
+      const normalized = normalizeCodeLanguage(language);
+      return !!(normalized && window.Prism && window.Prism.languages && window.Prism.languages[normalized]);
+    }
+
+    function highlightCodeToHtml(code, language) {
+      const source = String(code || "");
+      const normalized = normalizeCodeLanguage(language);
+      if (normalized && window.Prism && window.Prism.languages && window.Prism.languages[normalized] && typeof window.Prism.highlight === "function") {
+        try {
+          return window.Prism.highlight(source, window.Prism.languages[normalized], normalized);
+        } catch {}
+      }
+      return escapeHtml(source);
+    }
+
+    function createCodeBlockHtml(language, code) {
+      const displayLanguage = String(language || "").trim();
+      const normalized = normalizeCodeLanguage(displayLanguage);
+      const shouldHighlight = canHighlightCodeLanguage(displayLanguage);
+      const languageAttr = displayLanguage ? ' data-language="' + escapeHtml(displayLanguage) + '"' : "";
+      const classAttr = shouldHighlight ? ' class="language-' + escapeHtml(normalized) + '"' : "";
+      return "<pre" + languageAttr + classAttr + "><code" + classAttr + ">" + highlightCodeToHtml(code, displayLanguage) + "</code></pre>";
     }
 
     function protectInlineMath(text) {
@@ -2955,12 +3241,10 @@
             closeLists();
             closeQuote();
             if (inCode) {
-              html += escapeHtml(codeLines.join("\n")) + "</code></pre>";
+              html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
               codeLines = [];
             } else {
               codeLanguage = line.slice(3).trim();
-              const languageAttr = codeLanguage ? ' data-language="' + escapeHtml(codeLanguage) + '"' : "";
-              html += "<pre" + languageAttr + "><code>";
               codeLines = [];
             }
             inCode = !inCode;
@@ -3101,7 +3385,7 @@
       closeQuote();
 
         if (inCode) {
-          html += escapeHtml(codeLines.join("\n")) + "</code></pre>";
+          html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
         }
 
       return {
@@ -7745,7 +8029,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.60.2", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.61.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

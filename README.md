@@ -6,13 +6,14 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.60.0
+## Release notes - v0.61.0
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
 - Validated drag-and-drop opening with the same safety checks as `Open .md`
 - Project-folder linking for relative images and local Markdown links
 - Inline and display LaTeX math rendering through vendored KaTeX assets
+- Syntax highlighting for fenced code blocks in the visual editor, live preview, and browser print/PDF output
 - Editable `RTF` export for Word/LibreOffice workflows
 - Installable PWA shell with desktop-style usage on supported Chromium browsers
 - Italian/English UI, dark mode, symbol picker, mobile mode, and privacy-oriented local reset
@@ -23,10 +24,11 @@ This is a stabilization beta focused on simplicity, portability, and common Mark
 ## Features
 
 - Visual editor, Markdown source, and live HTML preview
-- Static app with vendored runtime assets for offline math rendering
+- Static app with vendored runtime assets for offline math and syntax highlighting
 - Pure-Markdown-first editing with common standard structures
 - Visual nested-list editing with indent/outdent controls
 - Render LaTeX math written as `\(inline\)` or `\[display\]`
+- Highlight fenced code blocks with explicit languages such as `js`, `ts`, `html`, `css`, `json`, `python`, `bash`, and `markdown`
 - Open and edit `.md` files
 - Link a project folder to resolve relative images and local assets
 - Insert uploaded images directly into Markdown
@@ -48,6 +50,7 @@ If the browser supports it, the file picker will try to reopen from the linked f
 The editor can export the current rendered document as an editable `.rtf` file for Word-compatible word processors.
 
 - Text structure is preserved: headings, paragraphs, lists, tables, links, blockquotes, and code blocks.
+- Syntax highlighting is preserved in the browser-rendered view and therefore in browser print/PDF output. `RTF` export intentionally keeps code blocks as plain monospace text without token colors.
 - Safe bitmap images are embedded when available: `PNG`, `JPEG`, and `GIF`.
 - `SVG` images are currently not embedded in the `RTF` output.
 - This is intentional for now: bitmap embedding is stable, while `SVG` would require an extra rendering/conversion step that goes beyond the current single-file safety model.
@@ -82,6 +85,7 @@ The repository includes:
 - `sw.js`
 - SVG icons for the installed app shell
 - vendored KaTeX CSS, JS, and fonts for offline LaTeX math rendering
+- vendored PrismJS CSS and language components for offline syntax highlighting
 
 File Handling API support depends on the browser and operating system. Chromium-based browsers generally offer the best support, especially after the app is installed.
 
