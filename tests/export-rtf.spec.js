@@ -77,6 +77,12 @@ test.describe("RTF export", () => {
       "",
       "This is a **bold** paragraph with a [link](https://example.com).",
       "",
+      "Inline math \\(E = mc^2\\) and display math:",
+      "",
+      "\\[",
+      "i\\hbar \\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r}, t) = \\hat{H}\\Psi(\\mathbf{r}, t)",
+      "\\]",
+      "",
       "Exported symbols: È già pronto.",
       "",
       "1. First item",
@@ -116,6 +122,8 @@ test.describe("RTF export", () => {
     expect(result.content).toContain("\\trowd");
     expect(result.content).toContain('HYPERLINK "https://example.com"');
     expect(result.content).toContain("\\f1");
+    expect(result.content).toContain("\\\\(E = mc^2\\\\)");
+    expect(result.content).toContain("\\\\[i\\\\hbar \\\\frac\\{\\\\partial\\}\\{\\\\partial t\\}\\\\Psi(\\\\mathbf\\{r\\}, t) = \\\\hat\\{H\\}\\\\Psi(\\\\mathbf\\{r\\}, t)\\\\]");
     expect(result.content).toContain("\\uc0");
     expect(result.content).toContain("\\u200 ");
     expect(result.content).toContain("\\u224 ");

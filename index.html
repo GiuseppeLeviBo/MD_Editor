@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.61.0">
+  <link rel="manifest" href="./manifest.json?v=0.61.1">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1312,7 +1312,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.61.0</div>
+      <div class="build-badge" id="buildBadge">v0.61.1</div>
     </footer>
   </main>
 
@@ -1409,7 +1409,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.61.0";
+    const APP_VERSION = "v0.61.1";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2114,6 +2114,14 @@
         "- simboli speciali",
         "- interfaccia IT/EN",
         "",
+        "## Esempio di formula LaTeX",
+        "",
+        "Le formule LaTeX vanno introdotte direttamente nel Markdown.",
+        "",
+        "\\[",
+        "i\\hbar \\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r}, t) = \\hat{H}\\Psi(\\mathbf{r}, t)",
+        "\\]",
+        "",
         "## Esempio di codice",
         "",
         "```python",
@@ -2182,6 +2190,14 @@
         "- images inside the document",
         "- special symbols",
         "- IT/EN interface",
+        "",
+        "## LaTeX formula example",
+        "",
+        "LaTeX formulas are written directly in the Markdown panel.",
+        "",
+        "\\[",
+        "i\\hbar \\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r}, t) = \\hat{H}\\Psi(\\mathbf{r}, t)",
+        "\\]",
         "",
         "## Code example",
         "",
@@ -7240,6 +7256,11 @@
           return "";
         }
         const tag = node.tagName.toLowerCase();
+        if (node.hasAttribute("data-md-math")) {
+          const source = node.getAttribute("data-md-math") || "";
+          const isDisplay = node.getAttribute("data-md-display") === "true";
+          return escapeRtfText(isDisplay ? "\\[\n" + source + "\n\\]" : "\\(" + source + "\\)");
+        }
         if (tag === "br") {
           return "\\line ";
         }
@@ -7421,6 +7442,16 @@
       }
       if (tag === "p") {
         return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
+      }
+      if (node.hasAttribute("data-md-math")) {
+        const source = node.getAttribute("data-md-math") || "";
+        const isDisplay = node.getAttribute("data-md-display") === "true";
+        const content = isDisplay ? "\\[\n" + source + "\n\\]" : "\\(" + source + "\\)";
+        return makeRtfParagraph(escapeRtfText(content).replace(/\n/g, "\\line "), {
+          leftIndent: indent + (isDisplay ? 360 : 0),
+          spaceAfter: 120,
+          monospace: true
+        });
       }
       if (tag === "ul" || tag === "ol") {
         return serializeListToRtf(node, context.blockquoteDepth);
@@ -8029,7 +8060,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.61.0", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.61.1", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

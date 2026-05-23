@@ -6,7 +6,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.61.0
+## Release notes - v0.61.1
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
@@ -50,6 +50,7 @@ If the browser supports it, the file picker will try to reopen from the linked f
 The editor can export the current rendered document as an editable `.rtf` file for Word-compatible word processors.
 
 - Text structure is preserved: headings, paragraphs, lists, tables, links, blockquotes, and code blocks.
+- LaTeX math is rendered in the browser view and therefore in browser print/PDF output. `RTF` export preserves the original LaTeX source as editable monospace text, not as native Word equations.
 - Syntax highlighting is preserved in the browser-rendered view and therefore in browser print/PDF output. `RTF` export intentionally keeps code blocks as plain monospace text without token colors.
 - Safe bitmap images are embedded when available: `PNG`, `JPEG`, and `GIF`.
 - `SVG` images are currently not embedded in the `RTF` output.

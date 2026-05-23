@@ -58,6 +58,7 @@ The goal is to protect the most important promises of the product.
 - Inline LaTeX math written as `\( ... \)` renders in visual editor and preview while preserving Markdown source
 - Display LaTeX math written as `\[ ... \]` renders in visual editor and preview while preserving Markdown source
 - LaTeX delimiters inside fenced code blocks remain inert text
+- `RTF` export preserves LaTeX formulas as source text instead of native equation objects
 - `H4-H6` render and round-trip correctly
 - Nested lists stay aligned between visual editor, Markdown, and preview
 - Nested list indent/outdent works from the visual editor with buttons and Tab/Shift+Tab
