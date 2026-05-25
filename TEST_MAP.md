@@ -116,7 +116,7 @@ The goal is to protect the most important promises of the product.
 
 ## Product decisions to clarify
 
-- Should `Open .md` and `Save as...` be disabled until a project folder is chosen?
+- Should `Open .md` and `Download .md` be disabled until a project folder is chosen?
 - Is `Documents` an acceptable default save location if it cannot be linked as a project folder?
 - Is the project folder a required part of the workflow or only an optional enhancement?
 - Should printing remain a two-step flow by design?
