@@ -24,10 +24,12 @@ test.describe("shortcuts and history", () => {
     await expect(markdown).toHaveValue(/\| Bold \| Ctrl\/Cmd \+ B \|/);
     await expect(markdown).toHaveValue(/\| Reload file \| Ctrl\/Cmd \+ Shift \+ R \|/);
     await expect(markdown).toHaveValue(/\| Download \.md \| Ctrl\/Cmd \+ S \|/);
+    await expect(markdown).toHaveValue(/\| Save copy \| Ctrl\/Cmd \+ Shift \+ S \|/);
 
     await expect(page.locator('[data-command="bold"]')).toHaveAttribute("title", /Ctrl\/Cmd \+ B/);
     await expect(page.locator("#reloadDocumentButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);
     await expect(page.locator("#downloadButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ S/);
+    await expect(page.locator("#saveCopyAsButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ S/);
   });
 
   test("supports undo and redo across synced visual edits", async ({ page }) => {

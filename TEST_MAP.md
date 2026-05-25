@@ -21,6 +21,7 @@ The goal is to protect the most important promises of the product.
 - Preview renders the same document structure without leaking editor-only wrappers
 - Unsaved changes trigger warning on tab/window close
 - `Ctrl/Cmd + S` opens a single save flow, with no duplicate fallback
+- `Ctrl/Cmd + Shift + S` always opens the save-copy picker when supported
 - `Close document` warns if the latest version is not saved
 - `Clear local data` never deletes original files
 - Open existing `.md` and preserve content correctly

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.61.2">
+  <link rel="manifest" href="./manifest.json?v=0.61.3">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1240,6 +1240,7 @@
         <button type="button" class="tool-button" id="closeDocumentButton" data-i18n-title="closeDocument"><span class="tool-icon">✕</span><span data-i18n="closeDocument">Chiudi documento</span></button>
         <button type="button" class="tool-button" id="resetPrivacyButton" data-i18n-title="resetPrivacy"><span class="tool-icon">🧼</span><span data-i18n="resetPrivacy">Reset privacy</span></button>
         <button type="button" class="tool-button" id="copyMarkdownButton" data-i18n-title="copyMarkdown"><span class="tool-icon">📋</span><span data-i18n="copyMarkdown">Copia Markdown</span></button>
+        <button type="button" class="tool-button" id="saveCopyAsButton" data-i18n-title="saveCopyAs"><span class="tool-icon">📁</span><span data-i18n="saveCopyAs">Salva copia...</span></button>
         <button type="button" class="tool-button" id="exportRtfButton" data-i18n-title="exportRtf"><span class="tool-icon">📝</span><span data-i18n="exportRtf">Esporta .rtf</span></button>
         <button type="button" class="tool-button primary" id="downloadButton" data-i18n-title="downloadMarkdown"><span class="tool-icon">💾</span><span data-i18n="downloadMarkdown">Scarica .md</span></button>
       </div>
@@ -1311,7 +1312,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.61.2</div>
+      <div class="build-badge" id="buildBadge">v0.61.3</div>
     </footer>
   </main>
 
@@ -1408,7 +1409,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.61.2";
+    const APP_VERSION = "v0.61.3";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1708,6 +1709,7 @@
       heading3: "Ctrl/Cmd + 3",
       paragraph: "Ctrl/Cmd + 0",
       reloadDocument: "Ctrl/Cmd + Shift + R",
+      saveCopyAs: "Ctrl/Cmd + Shift + S",
       downloadMarkdown: "Ctrl/Cmd + S",
       printPreview: "Ctrl/Cmd + P"
     };
@@ -1748,6 +1750,7 @@
         closeDocument: "Chiudi documento",
         resetPrivacy: "Pulisci dati locali",
         copyMarkdown: "Copia Markdown",
+        saveCopyAs: "Salva copia...",
         exportRtf: "Esporta .rtf",
         downloadMarkdown: "Scarica .md",
         themeDarkMode: "Tema scuro",
@@ -1874,6 +1877,7 @@
         closeDocumentTitle: "Chiudi il documento corrente e torna alla schermata iniziale",
         resetPrivacyTitle: "Rimuovi bozza, preferenze e dati locali da questo browser. Non cancella i file originali.",
         copyMarkdownTitle: "Copia il Markdown negli appunti",
+        saveCopyAsTitle: "Salva una copia con un nuovo nome o in una nuova posizione",
         exportRtfTitle: "Esporta il documento in formato RTF modificabile",
         downloadMarkdownTitle: "Scarica il file Markdown"
       },
@@ -1908,6 +1912,7 @@
         closeDocument: "Close document",
         resetPrivacy: "Clear local data",
         copyMarkdown: "Copy Markdown",
+        saveCopyAs: "Save copy...",
         exportRtf: "Export .rtf",
         downloadMarkdown: "Download .md",
         themeDarkMode: "Dark mode",
@@ -2034,6 +2039,7 @@
         closeDocumentTitle: "Close the current document and return to the initial screen",
         resetPrivacyTitle: "Remove the draft, preferences, and local browser data. Original files are not deleted.",
         copyMarkdownTitle: "Copy Markdown to clipboard",
+        saveCopyAsTitle: "Save a copy with a new name or to a new location",
         exportRtfTitle: "Export the document as editable RTF",
         downloadMarkdownTitle: "Download the Markdown file"
       }
@@ -2158,6 +2164,7 @@
         "| Trova/Sostituisci | Ctrl/Cmd + H |",
         "| Ricarica file | Ctrl/Cmd + Shift + R |",
         "| Scarica .md | Ctrl/Cmd + S |",
+        "| Salva copia | Ctrl/Cmd + Shift + S |",
         "| Anteprima di stampa | Ctrl/Cmd + P |"
       ].join("\n"),
       en: [
@@ -2235,6 +2242,7 @@
         "| Find/Replace | Ctrl/Cmd + H |",
         "| Reload file | Ctrl/Cmd + Shift + R |",
         "| Download .md | Ctrl/Cmd + S |",
+        "| Save copy | Ctrl/Cmd + Shift + S |",
         "| Print preview | Ctrl/Cmd + P |"
       ].join("\n")
     };
@@ -3711,6 +3719,47 @@
 
 <!-- === FileManager === -->
 <script id="Script-FileManager">
+    async function saveMarkdownWithPicker() {
+      if (!window.showSaveFilePicker) {
+        const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
+        downloadBlobFile(blob, currentDocumentName);
+        hasPersistedDocumentVersion = true;
+        lastDownloadedMarkdown = markdownInput.value;
+        setStatus(t("statusDownloaded"));
+        return true;
+      }
+
+      try {
+        fileSaveInFlight = true;
+        const startIn = getCurrentDirectoryHandle() || "documents";
+        const fileHandle = await window.showSaveFilePicker({
+          suggestedName: currentDocumentName,
+          startIn: startIn,
+          types: [
+            {
+              description: "Markdown",
+              accept: {
+                "text/markdown": [".md", ".markdown"],
+                "text/plain": [".md", ".markdown"]
+              }
+            }
+          ]
+        });
+        const writable = await fileHandle.createWritable();
+        await writable.write(markdownInput.value);
+        await writable.close();
+        hasPersistedDocumentVersion = true;
+        lastDownloadedMarkdown = markdownInput.value;
+        await refreshLinkedDocumentState(fileHandle);
+        setStatus(t("statusDownloaded"));
+        return true;
+      } catch {
+        return false;
+      } finally {
+        fileSaveInFlight = false;
+      }
+    }
+
     async function downloadMarkdown() {
       if (currentFileHandle) {
         try {
@@ -3730,43 +3779,11 @@
         }
       }
 
-      if (window.showSaveFilePicker) {
-        try {
-          fileSaveInFlight = true;
-          const startIn = getCurrentDirectoryHandle() || "documents";
-          const fileHandle = await window.showSaveFilePicker({
-            suggestedName: currentDocumentName,
-            startIn: startIn,
-            types: [
-              {
-                description: "Markdown",
-                accept: {
-                  "text/markdown": [".md", ".markdown"],
-                  "text/plain": [".md", ".markdown"]
-                }
-              }
-            ]
-          });
-          const writable = await fileHandle.createWritable();
-          await writable.write(markdownInput.value);
-          await writable.close();
-          hasPersistedDocumentVersion = true;
-          lastDownloadedMarkdown = markdownInput.value;
-          await refreshLinkedDocumentState(fileHandle);
-          setStatus(t("statusDownloaded"));
-          return;
-        } catch {
-          return;
-        } finally {
-          fileSaveInFlight = false;
-        }
-      }
+      await saveMarkdownWithPicker();
+    }
 
-      const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
-      downloadBlobFile(blob, currentDocumentName);
-      hasPersistedDocumentVersion = true;
-      lastDownloadedMarkdown = markdownInput.value;
-      setStatus(t("statusDownloaded"));
+    async function saveMarkdownCopyAs() {
+      await saveMarkdownWithPicker();
     }
 
 </script>
@@ -7658,6 +7675,9 @@
       void resetPrivacy();
     });
     document.getElementById("copyMarkdownButton").addEventListener("click", copyMarkdown);
+    document.getElementById("saveCopyAsButton").addEventListener("click", () => {
+      void saveMarkdownCopyAs();
+    });
     document.getElementById("exportRtfButton").addEventListener("click", exportRtfDocument);
     document.getElementById("downloadButton").addEventListener("click", downloadMarkdown);
     themeToggleButton.addEventListener("click", toggleTheme);
@@ -7913,7 +7933,11 @@
         }
         if (key === "s") {
           event.preventDefault();
-          void downloadMarkdown();
+          if (event.shiftKey) {
+            void saveMarkdownCopyAs();
+          } else {
+            void downloadMarkdown();
+          }
           return;
         }
         if (key === "h" || key === "f") {
@@ -8011,7 +8035,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.61.2", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.61.3", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

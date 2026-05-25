@@ -6,7 +6,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.61.2
+## Release notes - v0.61.3
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
@@ -111,6 +111,7 @@ These shortcuts apply to the visual editor on desktop systems.
 - `Ctrl/Cmd + 3`: heading 3
 - `Ctrl/Cmd + 9`: blockquote
 - `Ctrl/Cmd + S`: download or save the Markdown document
+- `Ctrl/Cmd + Shift + S`: save a copy with a new name or location
 - `Ctrl/Cmd + P`: open a printable rendered preview in a separate window
 
 ## Development
