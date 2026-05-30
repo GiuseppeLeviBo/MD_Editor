@@ -33,7 +33,61 @@
         ],
         "text/plain": [
           ".md",
-          ".markdown"
+          ".markdown",
+          ".txt",
+          ".html",
+          ".htm",
+          ".js",
+          ".mjs",
+          ".cjs",
+          ".ts",
+          ".tsx",
+          ".jsx",
+          ".css",
+          ".json",
+          ".xml",
+          ".yaml",
+          ".yml",
+          ".toml",
+          ".log",
+          ".csv",
+          ".tsv",
+          ".ini",
+          ".conf",
+          ".cfg",
+          ".tex",
+          ".rtf"
+        ],
+        "text/html": [
+          ".html",
+          ".htm"
+        ],
+        "text/css": [
+          ".css"
+        ],
+        "text/javascript": [
+          ".js",
+          ".mjs",
+          ".cjs"
+        ],
+        "application/json": [
+          ".json"
+        ],
+        "application/xml": [
+          ".xml"
+        ],
+        "application/yaml": [
+          ".yaml",
+          ".yml"
+        ],
+        "application/javascript": [
+          ".js",
+          ".mjs",
+          ".cjs"
+        ],
+        "application/typescript": [
+          ".ts",
+          ".tsx"
         ]
       }
     }

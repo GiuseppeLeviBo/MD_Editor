@@ -34,6 +34,35 @@ test.describe("file input validation", () => {
     await expect(page.locator("#visualEditor")).toContainText("Turn me into Markdown.");
   });
 
+  test("opens a readable file even when the OS provides no useful MIME type", async ({ page }) => {
+    await mockOpenPickerFile(page, {
+      name: "linux-notes.conf",
+      type: "",
+      parts: [{ kind: "text", text: "title=Ubuntu launch\nmode=plain-text" }]
+    });
+
+    await page.goto("/");
+    await page.locator("#openMarkdownButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
+    await expect(page.locator("#markdownInput")).toHaveValue("title=Ubuntu launch\nmode=plain-text");
+    await expect(page.locator("#visualEditor")).toContainText("Ubuntu launch");
+  });
+
+  test("opens a readable unknown extension by sniffing the content", async ({ page }) => {
+    await mockOpenPickerFile(page, {
+      name: "readme.unknown",
+      type: "",
+      parts: [{ kind: "text", text: "Readable content without a registered extension." }]
+    });
+
+    await page.goto("/");
+    await page.locator("#openMarkdownButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__openPickerCalls)).toBe(1);
+    await expect(page.locator("#markdownInput")).toHaveValue("Readable content without a registered extension.");
+  });
+
   test("rejects a PDF before it replaces the current document", async ({ page }) => {
     await mockOpenPickerFile(page, {
       name: "paper.pdf",

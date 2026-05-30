@@ -240,4 +240,51 @@ test.describe("document lifecycle", () => {
     expect(dialogs).toHaveLength(0);
     await expect(page.locator("#markdownInput")).toHaveValue("# Launched file\n\nSaved from file handler.");
   });
+
+  test("opens a launched plain-text file with its handle", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__launchConsumer = null;
+      window.__launchedTextContent = "Plain text launched from Ubuntu.";
+      Object.defineProperty(window, "launchQueue", {
+        configurable: true,
+        value: {
+          setConsumer(consumer) {
+            window.__launchConsumer = consumer;
+          }
+        }
+      });
+    });
+
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const launchedHandle = {
+        name: "notes.txt",
+        async getFile() {
+          return new File([window.__launchedTextContent], "notes.txt", {
+            type: "text/plain",
+            lastModified: Date.now()
+          });
+        },
+        async createWritable() {
+          let nextContent = "";
+          return {
+            async write(chunk) {
+              nextContent += typeof chunk === "string" ? chunk : String(chunk || "");
+            },
+            async close() {
+              window.__launchedTextContent = nextContent;
+            }
+          };
+        }
+      };
+
+      await window.__launchConsumer({ files: [launchedHandle] });
+    });
+
+    await expect(page.locator("#markdownInput")).toHaveValue("Plain text launched from Ubuntu.");
+    await page.locator("#markdownInput").fill("Plain text saved again.");
+    await page.locator("#downloadButton").click();
+
+    await expect.poll(async () => page.evaluate(() => window.__launchedTextContent)).toBe("Plain text saved again.");
+  });
 });

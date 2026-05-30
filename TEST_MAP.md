@@ -25,6 +25,7 @@ The goal is to protect the most important promises of the product.
 - `Close document` warns if the latest version is not saved
 - `Clear local data` never deletes original files
 - Open existing `.md` and preserve content correctly
+- Open readable non-Markdown text files such as `.txt`, `.json`, and `.yaml`
 - Save edited `.md` and reopen with the same content
 - Relative local images render when the project folder is linked
 - Relative local Markdown links open inside the editor

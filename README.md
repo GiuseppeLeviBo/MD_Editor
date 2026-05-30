@@ -6,10 +6,11 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.61.3
+## Release notes - v0.61.4
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
+- Open readable text files such as `.txt`, `.json`, `.yaml`, `.csv`, `.log`, and source files
 - Validated drag-and-drop opening with the same safety checks as `Open .md`
 - Project-folder linking for relative images and local Markdown links
 - Inline and display LaTeX math rendering through vendored KaTeX assets

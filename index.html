@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.61.3">
+  <link rel="manifest" href="./manifest.json?v=0.61.4">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1312,7 +1312,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.61.3</div>
+      <div class="build-badge" id="buildBadge">v0.61.4</div>
     </footer>
   </main>
 
@@ -1409,7 +1409,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.61.3";
+    const APP_VERSION = "v0.61.4";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1420,8 +1420,13 @@
       ".json",
       ".xml",
       ".yaml", ".yml",
-      ".csv"
+      ".toml",
+      ".csv", ".tsv",
+      ".log",
+      ".ini", ".conf", ".cfg",
+      ".tex", ".rtf"
     ]);
+    const ACCEPTED_TEXT_DOCUMENT_EXTENSION_LIST = Array.from(ACCEPTED_TEXT_DOCUMENT_EXTENSIONS);
     const symbolCatalog = [
       { symbol: "📟", category: "tools", names: { it: "terminale", en: "terminal" } },
       { symbol: "🔬", category: "tools", names: { it: "laboratorio", en: "laboratory" } },
@@ -2056,7 +2061,7 @@
     directoryInput.setAttribute("directory", "");
 
     markdownFileInput.type = "file";
-    markdownFileInput.accept = ".md,.markdown,.txt,text/markdown,text/plain";
+    markdownFileInput.accept = ACCEPTED_TEXT_DOCUMENT_EXTENSION_LIST.concat(["text/markdown", "text/plain"]).join(",");
     markdownFileInput.hidden = true;
 
     document.body.append(imageInput, directoryInput, markdownFileInput);
@@ -2483,9 +2488,6 @@
       const extension = getFilenameExtension(file && file.name);
       const allowedByExtension = isAllowedTextDocumentExtension(extension);
       const allowedByType = isLikelyTextDocumentMimeType(file && file.type);
-      if (!allowedByExtension && !allowedByType) {
-        return { ok: false, reason: "unsupported" };
-      }
 
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
@@ -2493,8 +2495,12 @@
         return { ok: false, reason: "binary" };
       }
 
-      const decoder = new TextDecoder("utf-8");
-      return { ok: true, text: decoder.decode(bytes) };
+      try {
+        const decoder = new TextDecoder("utf-8", { fatal: !allowedByExtension && !allowedByType });
+        return { ok: true, text: decoder.decode(bytes) };
+      } catch {
+        return { ok: false, reason: "binary" };
+      }
     }
 
 </script>
@@ -3736,14 +3742,18 @@
           suggestedName: currentDocumentName,
           startIn: startIn,
           types: [
-            {
-              description: "Markdown",
-              accept: {
-                "text/markdown": [".md", ".markdown"],
-                "text/plain": [".md", ".markdown"]
+              {
+                description: "Readable text",
+                accept: {
+                  "text/markdown": [".md", ".markdown"],
+                  "text/plain": ACCEPTED_TEXT_DOCUMENT_EXTENSION_LIST,
+                  "application/json": [".json"],
+                  "application/xml": [".xml"],
+                  "application/yaml": [".yaml", ".yml"],
+                  "application/javascript": [".js", ".mjs", ".cjs"]
+                }
               }
-            }
-          ]
+            ]
         });
         const writable = await fileHandle.createWritable();
         await writable.write(markdownInput.value);
@@ -6791,14 +6801,18 @@
           id: "markdown-editor-open",
           startIn: getCurrentDirectoryHandle() || "documents",
           types: [
-            {
-              description: "Markdown or plain text",
-              accept: {
-                "text/markdown": [".md", ".markdown"],
-                "text/plain": [".md", ".markdown", ".txt"]
+              {
+                description: "Readable text",
+                accept: {
+                  "text/markdown": [".md", ".markdown"],
+                  "text/plain": ACCEPTED_TEXT_DOCUMENT_EXTENSION_LIST,
+                  "application/json": [".json"],
+                  "application/xml": [".xml"],
+                  "application/yaml": [".yaml", ".yml"],
+                  "application/javascript": [".js", ".mjs", ".cjs"]
+                }
               }
-            }
-          ]
+            ]
         });
         const file = await fileHandle.getFile();
         const opened = await openMarkdownFile(file, null, fileHandle);
@@ -8035,7 +8049,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.61.3", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.61.4", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
