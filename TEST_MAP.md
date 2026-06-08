@@ -24,6 +24,7 @@ The goal is to protect the most important promises of the product.
 - `Ctrl/Cmd + Shift + S` always opens the save-copy picker when supported
 - `Close document` warns if the latest version is not saved
 - `Clear local data` never deletes original files
+- PWA window title shows document name, clean/modified state, length, and caret position without modifying document content
 - Open existing `.md` and preserve content correctly
 - Open readable non-Markdown text files such as `.txt`, `.json`, and `.yaml`
 - Save edited `.md` and reopen with the same content

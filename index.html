@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.61.4">
+  <link rel="manifest" href="./manifest.json?v=0.61.5">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -17,7 +17,7 @@
   <script src="./vendor/prism/components/prism-bash.min.js"></script>
   <script src="./vendor/prism/components/prism-json.min.js"></script>
   <script src="./vendor/prism/components/prism-markdown.min.js"></script>
-  <title>Markdown WYSIWYG Editor</title>
+  <title>New File - 0 lines, 0 chars - L1:C1 - MD Editor</title>
   <style>
     :root {
       --bg: #f4f1ea;
@@ -1312,7 +1312,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.61.4</div>
+      <div class="build-badge" id="buildBadge">v0.61.5</div>
     </footer>
   </main>
 
@@ -1409,7 +1409,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.61.4";
+    const APP_VERSION = "v0.61.5";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1575,6 +1575,7 @@
       const HISTORY_LIMIT = 500;
     let visualEditorMutationBaseline = "";
     let visualDomSyncTimer = null;
+    let pendingWindowTitleTimer = null;
     let currentReferenceDefinitions = new Map();
     let currentReferenceOrder = [];
     // ResourceResolver is the single owner of the linked-folder state. Keeping
@@ -4104,6 +4105,91 @@
         && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
     }
 
+    function getDocumentTitleName() {
+      return hasPersistedDocumentVersion && currentDocumentName ? currentDocumentName : "New File";
+    }
+
+    function getDocumentTextStats(markdown) {
+      if (!markdown) {
+        return { lines: 0, chars: 0 };
+      }
+      return {
+        lines: markdown.split("\n").length,
+        chars: Array.from(markdown).length
+      };
+    }
+
+    function getCaretIndexFromVisualSelection() {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount || !visualEditor.contains(selection.anchorNode)) {
+        return null;
+      }
+
+      const range = selection.getRangeAt(0).cloneRange();
+      const prefixRange = document.createRange();
+      prefixRange.selectNodeContents(visualEditor);
+      prefixRange.setEnd(range.startContainer, range.startOffset);
+      return htmlToMarkdown(prefixRange.cloneContents()).length;
+    }
+
+    function getCaretIndexForWindowTitle(markdown) {
+      if (document.activeElement === markdownInput) {
+        return markdownInput.selectionStart || 0;
+      }
+
+      const visualCaretIndex = getCaretIndexFromVisualSelection();
+      if (Number.isFinite(visualCaretIndex)) {
+        return Math.max(0, Math.min(markdown.length, visualCaretIndex));
+      }
+
+      return Math.max(0, Math.min(markdown.length, markdownInput.selectionStart || 0));
+    }
+
+    function getCaretPositionForWindowTitle(markdown) {
+      const caretIndex = getCaretIndexForWindowTitle(markdown);
+      const beforeCaret = markdown.slice(0, caretIndex);
+      const line = beforeCaret ? beforeCaret.split("\n").length : 1;
+      const lastLineBreakIndex = beforeCaret.lastIndexOf("\n");
+      const columnSource = lastLineBreakIndex >= 0 ? beforeCaret.slice(lastLineBreakIndex + 1) : beforeCaret;
+      return {
+        line,
+        column: Array.from(columnSource).length + 1
+      };
+    }
+
+    function isDocumentDirtyForWindowTitle(markdown) {
+      const currentValue = markdown || "";
+      if (!currentValue.trim()) {
+        return false;
+      }
+      if (hasPersistedDocumentVersion) {
+        return currentValue !== lastDownloadedMarkdown;
+      }
+      return currentValue !== getInitialMarkdown();
+    }
+
+    function updateWindowTitle() {
+      pendingWindowTitleTimer = null;
+      const markdown = markdownInput.value || "";
+      const stats = getDocumentTextStats(markdown);
+      const caret = getCaretPositionForWindowTitle(markdown);
+      const isDirty = isDocumentDirtyForWindowTitle(markdown);
+      const dirtyPrefix = isDirty ? "* " : "";
+      document.title = dirtyPrefix
+        + getDocumentTitleName()
+        + " - " + (isDirty ? "modified" : "clean")
+        + " - " + stats.lines + " lines, " + stats.chars + " chars"
+        + " - L" + caret.line + ":C" + caret.column
+        + " - MD Editor";
+    }
+
+    function queueWindowTitleUpdate() {
+      if (pendingWindowTitleTimer !== null) {
+        window.clearTimeout(pendingWindowTitleTimer);
+      }
+      pendingWindowTitleTimer = window.setTimeout(updateWindowTitle, 60);
+    }
+
     function markVisualEditorMutationBaseline() {
       visualEditorMutationBaseline = visualEditor.innerHTML;
     }
@@ -4123,6 +4209,7 @@
       saveSessionValue("draft_markdown", markdown);
       queueHistorySnapshot(markdown);
       currentDocumentNeedsProjectFolder = documentNeedsProjectFolder(markdown);
+      queueWindowTitleUpdate();
       return true;
     }
 
@@ -4224,6 +4311,7 @@
 
     function setStatus(text) {
       syncStatus.textContent = text;
+      queueWindowTitleUpdate();
     }
 
     let activeFileDragDepth = 0;
@@ -4417,10 +4505,12 @@
 
     async function syncFromMarkdown() {
       await documentSyncController.fromMarkdown();
+      queueWindowTitleUpdate();
     }
 
     async function syncFromVisual(normalizeVisualEditor = false) {
       await documentSyncController.fromVisual(normalizeVisualEditor);
+      queueWindowTitleUpdate();
     }
 
     function getTextareaLineStartOffset(textarea, lineIndex) {
@@ -7775,6 +7865,17 @@
     markdownInput.addEventListener("input", () => {
       void syncFromMarkdown();
     });
+    markdownInput.addEventListener("keyup", queueWindowTitleUpdate);
+    markdownInput.addEventListener("click", queueWindowTitleUpdate);
+    markdownInput.addEventListener("select", queueWindowTitleUpdate);
+    visualEditor.addEventListener("keyup", queueWindowTitleUpdate);
+    visualEditor.addEventListener("pointerup", queueWindowTitleUpdate);
+    document.addEventListener("selectionchange", () => {
+      const selection = window.getSelection();
+      if (document.activeElement === markdownInput || (selection && visualEditor.contains(selection.anchorNode))) {
+        queueWindowTitleUpdate();
+      }
+    });
 
     document.addEventListener("dragenter", event => {
       if (!isExternalFileDrag(event)) {
@@ -8049,7 +8150,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.61.4", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.61.5", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
