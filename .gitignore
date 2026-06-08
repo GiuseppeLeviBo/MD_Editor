@@ -5,3 +5,5 @@ test-results/
 Notes/
 security-private/
 tests-private/
+playwright-results*/
+debug.log

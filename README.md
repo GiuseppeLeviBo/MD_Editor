@@ -6,7 +6,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.61.5
+## Release notes - v0.61.6
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Open, edit, save, and download `.md` files
