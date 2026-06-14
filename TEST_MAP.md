@@ -26,7 +26,7 @@ The goal is to protect the most important promises of the product.
 - `Clear local data` never deletes original files
 - PWA window title shows document name, clean/modified state, length, and caret position without modifying document content
 - Desktop view-mode controls show paired, visual-only, Markdown-only, preview-only, and full layouts
-- Caret sync transfers focus between Visual editor and Markdown without changing document content or dirty state
+- Caret sync transfers focus between Visual editor and Markdown in full, paired, and single-pane modes without changing document content or dirty state
 - Open existing `.md` and preserve content correctly
 - Open readable non-Markdown text files such as `.txt`, `.json`, and `.yaml`
 - Save edited `.md` and reopen with the same content

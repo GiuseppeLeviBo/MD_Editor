@@ -145,6 +145,34 @@ test.describe("caret sync", () => {
     await expect(page.locator("#editorSyncGutter")).toBeHidden();
   });
 
+  test("shows both sync buttons in all mode and transfers the caret", async ({ page }) => {
+    const markdown = "Alpha\n\n## Beta\n\nGamma";
+    await page.goto("/");
+    await page.locator('label[for="mode-all"]').click();
+    await page.locator("#markdownInput").fill(markdown);
+
+    await expect(page.locator("#visualPanel")).toBeVisible();
+    await expect(page.locator("#markdownPanel")).toBeVisible();
+    await expect(page.locator("#previewPanel")).toBeVisible();
+    await expect(page.locator("#syncVisualToMarkdownButton")).toBeVisible();
+    await expect(page.locator("#syncMarkdownToVisualButton")).toBeVisible();
+
+    await setVisualCaretInText(page, "#visualEditor", "Beta", 1);
+    await page.locator("#syncVisualToMarkdownButton").click();
+    const markdownSelection = await getMarkdownSelection(page);
+    expect(markdownSelection.activeElementId).toBe("markdownInput");
+    expect(markdownSelection.selectionStart).toBe(markdown.indexOf("Beta") + 1);
+
+    await page.locator("#markdownInput").evaluate((element, offset) => {
+      element.focus();
+      element.setSelectionRange(offset, offset);
+    }, markdown.indexOf("Gamma") + 2);
+    await page.locator("#syncMarkdownToVisualButton").click();
+    const visualSelection = await getVisualSelectionText(page);
+    expect(visualSelection.activeElementId).toBe("visualEditor");
+    expect(visualSelection.anchorText).toContain("Gamma");
+  });
+
   test("maps Markdown caret to the matching visual block in a long document and centers it", async ({ page }) => {
     const paragraphs = Array.from({ length: 70 }, (_, index) => `Paragraph ${index + 1}`);
     paragraphs.splice(45, 0, "## Precise Target", "- Nearby list item", "Final tail");
