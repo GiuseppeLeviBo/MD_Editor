@@ -6,9 +6,11 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.61.6
+## Release notes - v0.62
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
+- Desktop view modes now include paired writing, visual-only, Markdown-only, preview-only, and full workspace layouts
+- Paired and single-pane writing modes can transfer the caret between Visual editor and Markdown at the matching document position
 - Open, edit, save, and download `.md` files
 - Open readable text files such as `.txt`, `.json`, `.yaml`, `.csv`, `.log`, and source files
 - Show document name, clean/modified state, length, and caret position in the PWA window title

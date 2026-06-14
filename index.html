@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.61.6">
+  <link rel="manifest" href="./manifest.json?v=0.62">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -431,6 +431,7 @@
       display: grid;
       grid-template-columns: minmax(300px, 1.3fr) minmax(280px, 1fr) minmax(280px, 1fr);
       min-height: 68vh;
+      position: relative;
     }
 
     body[data-theme="dark"] .workspace,
@@ -440,10 +441,13 @@
       border-color: rgba(122, 97, 78, 0.38);
     }
 
+    .workspace.mode-paired,
     .workspace.mode-write {
       grid-template-columns: minmax(340px, 1.25fr) minmax(340px, 1fr);
     }
 
+    .workspace.mode-visual,
+    .workspace.mode-markdown,
     .workspace.mode-preview {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -885,6 +889,40 @@
       display: none;
     }
 
+    .editor-sync-gutter {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 4px;
+      background: rgba(244, 216, 203, 0.55);
+      border-radius: 999px;
+    }
+
+    body[data-theme="dark"] .editor-sync-gutter {
+      background: rgba(79, 50, 38, 0.6);
+    }
+
+    .editor-sync-gutter.is-visible {
+      display: flex;
+    }
+
+    .sync-gutter-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 999px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .sync-gutter-button.is-hidden {
+      display: none;
+    }
+
     .dialog-backdrop {
       position: fixed;
       inset: 0;
@@ -1257,10 +1295,18 @@
         <div class="mode-switch" aria-label="Modalita vista">
           <input type="radio" name="previewMode" id="mode-all" value="all" checked>
           <label for="mode-all" data-i18n="viewAll">Tutto</label>
-          <input type="radio" name="previewMode" id="mode-write" value="write">
-          <label for="mode-write" data-i18n="viewWrite">Scrittura</label>
+          <input type="radio" name="previewMode" id="mode-paired" value="paired">
+          <label for="mode-paired" data-i18n="viewPaired">Appaiata</label>
+          <input type="radio" name="previewMode" id="mode-visual" value="visual">
+          <label for="mode-visual" data-i18n="viewVisual">Editor</label>
+          <input type="radio" name="previewMode" id="mode-markdown" value="markdown">
+          <label for="mode-markdown" data-i18n="viewMarkdown">Markdown</label>
           <input type="radio" name="previewMode" id="mode-preview" value="preview">
           <label for="mode-preview" data-i18n="viewPreview">Preview</label>
+        </div>
+        <div class="editor-sync-gutter" id="editorSyncGutter" aria-label="Sincronizza cursore">
+          <button type="button" class="tool-button sync-gutter-button" id="syncVisualToMarkdownButton" data-i18n-title="syncVisualToMarkdown" aria-label="Vai al Markdown corrispondente">&gt;</button>
+          <button type="button" class="tool-button sync-gutter-button" id="syncMarkdownToVisualButton" data-i18n-title="syncMarkdownToVisual" aria-label="Vai all'Editor corrispondente">&lt;</button>
         </div>
       </div>
     </section>
@@ -1312,7 +1358,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.61.6</div>
+      <div class="build-badge" id="buildBadge">v0.62</div>
     </footer>
   </main>
 
@@ -1383,6 +1429,9 @@
     const visualPanel = document.getElementById("visualPanel");
     const markdownPanel = document.getElementById("markdownPanel");
     const previewPanel = document.getElementById("previewPanel");
+    const editorSyncGutter = document.getElementById("editorSyncGutter");
+    const syncVisualToMarkdownButton = document.getElementById("syncVisualToMarkdownButton");
+    const syncMarkdownToVisualButton = document.getElementById("syncMarkdownToVisualButton");
     const shell = document.querySelector(".shell");
     const symbolDialog = document.getElementById("symbolDialog");
     const imageInsertDialog = document.getElementById("imageInsertDialog");
@@ -1409,7 +1458,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.61.6";
+    const APP_VERSION = "v0.62";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1759,9 +1808,17 @@
         saveCopyAs: "Salva copia...",
         exportRtf: "Esporta .rtf",
         downloadMarkdown: "Scarica .md",
+        syncVisualToMarkdown: "Vai al Markdown corrispondente",
+        syncVisualToMarkdownTitle: "Vai al Markdown corrispondente",
+        syncMarkdownToVisual: "Vai all'Editor corrispondente",
+        syncMarkdownToVisualTitle: "Vai all'Editor corrispondente",
+        syncCursorGutter: "Sincronizza cursore",
         themeDarkMode: "Tema scuro",
         themeLightMode: "Tema chiaro",
         viewAll: "Tutto",
+        viewPaired: "Appaiata",
+        viewVisual: "Editor",
+        viewMarkdown: "Markdown",
         viewWrite: "Scrittura",
         viewPreview: "Preview",
         mobileVisual: "Visuale",
@@ -1921,9 +1978,17 @@
         saveCopyAs: "Save copy...",
         exportRtf: "Export .rtf",
         downloadMarkdown: "Download .md",
+        syncVisualToMarkdown: "Go to matching Markdown",
+        syncVisualToMarkdownTitle: "Go to matching Markdown",
+        syncMarkdownToVisual: "Go to matching editor position",
+        syncMarkdownToVisualTitle: "Go to matching editor position",
+        syncCursorGutter: "Sync cursor",
         themeDarkMode: "Dark mode",
         themeLightMode: "Light mode",
         viewAll: "All",
+        viewPaired: "Paired",
+        viewVisual: "Editor",
+        viewMarkdown: "Markdown",
         viewWrite: "Write",
         viewPreview: "Preview",
         mobileVisual: "Visual",
@@ -3993,6 +4058,7 @@
       mobilePanelSwitch.querySelector('[data-mobile-panel="visual"]').textContent = t("mobileVisual");
       mobilePanelSwitch.querySelector('[data-mobile-panel="markdown"]').textContent = t("mobileMarkdown");
       mobilePanelSwitch.querySelector('[data-mobile-panel="preview"]').textContent = t("mobilePreview");
+      editorSyncGutter.setAttribute("aria-label", t("syncCursorGutter"));
 
       document.querySelectorAll("[data-i18n]").forEach(node => {
         node.textContent = t(node.dataset.i18n);
@@ -4026,37 +4092,79 @@
       return window.matchMedia("(max-width: 720px)").matches;
     }
 
+    function normalizeViewMode(mode) {
+      const aliases = { write: "paired" };
+      const normalizedMode = aliases[mode] || mode;
+      return ["all", "paired", "visual", "markdown", "preview"].includes(normalizedMode) ? normalizedMode : "all";
+    }
+
     function updateMobilePanelButtons() {
       mobilePanelSwitch.querySelectorAll("[data-mobile-panel]").forEach(button => {
         button.classList.toggle("is-active", button.dataset.mobilePanel === currentMobilePanel);
       });
     }
 
+    function resetWorkspaceViewClasses(workspace) {
+      workspace.classList.remove("mode-paired", "mode-write", "mode-visual", "mode-markdown", "mode-preview");
+    }
+
+    function applyDesktopViewMode(mode, workspace) {
+      const activeMode = normalizeViewMode(mode);
+
+      if (activeMode === "paired") {
+        previewPanel.classList.add("panel-hidden");
+        workspace.classList.add("mode-paired");
+        return;
+      }
+
+      if (activeMode === "visual") {
+        markdownPanel.classList.add("panel-hidden");
+        previewPanel.classList.add("panel-hidden");
+        workspace.classList.add("mode-visual");
+        return;
+      }
+
+      if (activeMode === "markdown") {
+        visualPanel.classList.add("panel-hidden");
+        previewPanel.classList.add("panel-hidden");
+        workspace.classList.add("mode-markdown");
+        return;
+      }
+
+      if (activeMode === "preview") {
+        visualPanel.classList.add("panel-hidden");
+        markdownPanel.classList.add("panel-hidden");
+        workspace.classList.add("mode-preview");
+      }
+    }
+
+    function updateSyncGutterUi(mode) {
+      const activeMode = normalizeViewMode(mode);
+      const isVisibleMode = !isMobileLayout() && ["paired", "visual", "markdown"].includes(activeMode);
+      editorSyncGutter.classList.toggle("is-visible", isVisibleMode);
+      syncVisualToMarkdownButton.classList.toggle("is-hidden", !isVisibleMode || !["paired", "visual"].includes(activeMode));
+      syncMarkdownToVisualButton.classList.toggle("is-hidden", !isVisibleMode || !["paired", "markdown"].includes(activeMode));
+    }
+
     function updateResponsiveLayout() {
       const workspace = document.querySelector(".workspace");
       const isMobile = isMobileLayout();
-      const savedViewMode = loadPreference("view_mode", "all");
+      const savedViewMode = normalizeViewMode(loadPreference("view_mode", "all"));
 
       visualPanel.classList.remove("panel-hidden");
       markdownPanel.classList.remove("panel-hidden");
       previewPanel.classList.remove("panel-hidden");
-      workspace.classList.remove("mode-write", "mode-preview");
+      resetWorkspaceViewClasses(workspace);
 
       if (!isMobile) {
         mobilePanelSwitch.style.display = "";
-        if (savedViewMode === "write") {
-          previewPanel.classList.add("panel-hidden");
-          workspace.classList.add("mode-write");
-        }
-        if (savedViewMode === "preview") {
-          visualPanel.classList.add("panel-hidden");
-          markdownPanel.classList.add("panel-hidden");
-          workspace.classList.add("mode-preview");
-        }
+        applyDesktopViewMode(savedViewMode, workspace);
+        updateSyncGutterUi(savedViewMode);
         return;
       }
 
       mobilePanelSwitch.style.display = "flex";
+      updateSyncGutterUi("all");
 
       if (currentMobilePanel !== "visual") {
         visualPanel.classList.add("panel-hidden");
@@ -4119,7 +4227,7 @@
       };
     }
 
-    function getCaretIndexFromVisualSelection() {
+    function getMarkdownOffsetFromVisualSelection() {
       const selection = window.getSelection();
       if (!selection || !selection.rangeCount || !visualEditor.contains(selection.anchorNode)) {
         return null;
@@ -4133,6 +4241,254 @@
       const container = document.createElement("div");
       container.appendChild(fragment);
       return htmlToMarkdown(container.innerHTML).length;
+    }
+
+    function getCaretIndexFromVisualSelection() {
+      return getMarkdownOffsetFromVisualSelection();
+    }
+
+    function getMarkdownOffsetFromTextarea() {
+      return Math.max(0, Math.min(markdownInput.value.length, markdownInput.selectionStart || 0));
+    }
+
+    function getLineEndOffset(markdown, lineStartOffset) {
+      const nextBreak = markdown.indexOf("\n", lineStartOffset);
+      return nextBreak === -1 ? markdown.length : nextBreak;
+    }
+
+    function markdownFragmentToPlainText(markdown) {
+      return String(markdown || "")
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1")
+        .replace(/^#{1,6}\s+/gm, "")
+        .replace(/^\s*[-*+]\s+\[[ xX]\]\s+/gm, "")
+        .replace(/^\s*[-*+]\s+/gm, "")
+        .replace(/^\s*\d+\.\s+/gm, "")
+        .replace(/^\s*(?:>\s*)+/gm, "")
+        .replace(/^```[^\n]*\n?/gm, "")
+        .replace(/```$/gm, "")
+        .replace(/\\\[\s*|\s*\\\]/g, "")
+        .replace(/\\\(|\\\)/g, "")
+        .replace(/[`*_~|]/g, "")
+        .replace(/\s+/g, " ");
+    }
+
+    function normalizeCaretSearchText(value) {
+      return String(value || "").replace(/\s+/g, " ").trim();
+    }
+
+    function getMarkdownBlockRanges(markdown) {
+      const source = String(markdown || "");
+      const lines = source.split("\n");
+      const ranges = [];
+      let offset = 0;
+      let index = 0;
+
+      function lineStart(lineIndex) {
+        let result = 0;
+        for (let cursor = 0; cursor < lineIndex; cursor += 1) {
+          result += lines[cursor].length + 1;
+        }
+        return result;
+      }
+
+      function pushRange(startLine, endLine, contentStart, contentEnd, type, text) {
+        const start = lineStart(startLine);
+        const endLineStart = lineStart(endLine);
+        const end = Math.min(source.length, endLineStart + lines[endLine].length);
+        const sourceText = String(text == null ? source.slice(contentStart, contentEnd) : text);
+        const normalizedText = normalizeCaretSearchText(markdownFragmentToPlainText(sourceText));
+        ranges.push({
+          start,
+          end,
+          contentStart: Math.max(start, Math.min(contentStart, source.length)),
+          contentEnd: Math.max(start, Math.min(contentEnd, source.length)),
+          type,
+          text: normalizedText,
+          visualIndex: ranges.filter(range => range.text).length
+        });
+      }
+
+      while (index < lines.length) {
+        const line = lines[index];
+        const start = offset;
+        const end = getLineEndOffset(source, start);
+        const trimmed = line.trim();
+
+        if (!trimmed) {
+          offset += line.length + 1;
+          index += 1;
+          continue;
+        }
+
+        if (line.startsWith("```")) {
+          let endLine = index;
+          while (endLine + 1 < lines.length) {
+            endLine += 1;
+            if (lines[endLine].startsWith("```")) {
+              break;
+            }
+          }
+          const contentStart = Math.min(source.length, start + line.length + 1);
+          const contentEnd = lineStart(endLine);
+          pushRange(index, endLine, contentStart, contentEnd, "code", source.slice(contentStart, contentEnd).replace(/\n$/, ""));
+          offset = lineStart(endLine) + lines[endLine].length + 1;
+          index = endLine + 1;
+          continue;
+        }
+
+        const tableCandidate = tryParseMarkdownTable(lines, index);
+        if (tableCandidate && !tableCandidate.invalid) {
+          const endLine = index + tableCandidate.consumed - 1;
+          pushRange(index, endLine, start, lineStart(endLine) + lines[endLine].length, "table");
+          offset = lineStart(endLine) + lines[endLine].length + 1;
+          index = endLine + 1;
+          continue;
+        }
+
+        const listInfo = getMarkdownListLineInfo(line);
+        if (listInfo) {
+          pushRange(index, index, start + line.indexOf(listInfo.content), end, "list", listInfo.content);
+          offset += line.length + 1;
+          index += 1;
+          continue;
+        }
+
+        const quoteInfo = getMarkdownQuoteLineInfo(line);
+        if (quoteInfo) {
+          pushRange(index, index, start + line.indexOf(quoteInfo.content), end, "blockquote", quoteInfo.content);
+          offset += line.length + 1;
+          index += 1;
+          continue;
+        }
+
+        const heading = line.match(/^(#{1,6})\s+(.+)$/);
+        if (heading) {
+          const contentStart = start + heading[1].length + 1;
+          pushRange(index, index, contentStart, end, "heading", heading[2]);
+          offset += line.length + 1;
+          index += 1;
+          continue;
+        }
+
+        const image = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        if (image) {
+          pushRange(index, index, start + 2, start + 2 + image[1].length, "image", image[1]);
+          offset += line.length + 1;
+          index += 1;
+          continue;
+        }
+
+        if (/^---+$/.test(trimmed)) {
+          pushRange(index, index, start, end, "rule", "");
+          offset += line.length + 1;
+          index += 1;
+          continue;
+        }
+
+        let endLine = index;
+        while (endLine + 1 < lines.length && lines[endLine + 1].trim()) {
+          const nextLine = lines[endLine + 1];
+          if (
+            nextLine.startsWith("```")
+            || /^(#{1,6})\s+/.test(nextLine)
+            || getMarkdownListLineInfo(nextLine)
+            || getMarkdownQuoteLineInfo(nextLine)
+            || /^---+$/.test(nextLine.trim())
+          ) {
+            break;
+          }
+          endLine += 1;
+        }
+        pushRange(index, endLine, start, lineStart(endLine) + lines[endLine].length, "paragraph");
+        offset = lineStart(endLine) + lines[endLine].length + 1;
+        index = endLine + 1;
+      }
+
+      return ranges;
+    }
+
+    function getMarkdownBlockForOffset(markdown, offset) {
+      const ranges = getMarkdownBlockRanges(markdown);
+      if (!ranges.length) {
+        return null;
+      }
+      const safeOffset = Math.max(0, Math.min(markdown.length, offset));
+      return ranges.find(range => safeOffset >= range.start && safeOffset <= range.end)
+        || ranges.find(range => safeOffset < range.start)
+        || ranges[ranges.length - 1];
+    }
+
+    function getVisualCaretTargetForMarkdownOffset(offset) {
+      const markdown = markdownInput.value || "";
+      const block = getMarkdownBlockForOffset(markdown, offset);
+      if (!block) {
+        return { element: visualEditor, offset: 0 };
+      }
+
+      const visualBlocks = Array.from(visualEditor.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,th,figcaption,blockquote"))
+        .filter(element => (element.textContent || "").trim());
+      const sourceOffset = Math.max(block.contentStart, Math.min(offset, block.contentEnd));
+      const blockSource = markdown.slice(block.contentStart, block.contentEnd);
+      const plainBlockText = normalizeCaretSearchText(markdownFragmentToPlainText(blockSource)) || block.text;
+      const plainPrefix = normalizeCaretSearchText(markdownFragmentToPlainText(markdown.slice(block.contentStart, sourceOffset)));
+      const localOffset = plainPrefix.length;
+      const caretSnippet = normalizeCaretSearchText(markdownFragmentToPlainText(markdown.slice(
+        Math.max(block.contentStart, sourceOffset - 32),
+        Math.min(block.contentEnd, sourceOffset + 32)
+      )));
+      const searchNeedles = [caretSnippet, plainBlockText, block.text]
+        .filter(Boolean)
+        .sort((a, b) => b.length - a.length);
+
+      let element = null;
+      for (const needle of searchNeedles) {
+        element = visualBlocks.find(candidate => normalizeCaretSearchText(candidate.textContent).includes(needle));
+        if (element) {
+          break;
+        }
+      }
+      if (!element && block.visualIndex >= 0) {
+        element = visualBlocks[block.visualIndex] || null;
+      }
+      if (!element) {
+        element = visualBlocks[visualBlocks.length - 1] || visualEditor;
+      }
+
+      return { element, offset: Math.min(localOffset, (element.textContent || "").length) };
+    }
+
+    function setCaretInsideElementByTextOffset(element, offset) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let remaining = Math.max(0, offset);
+      let lastTextNode = null;
+
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        lastTextNode = node;
+        const length = node.textContent.length;
+        if (remaining <= length) {
+          range.setStart(node, remaining);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return true;
+        }
+        remaining -= length;
+      }
+
+      if (lastTextNode) {
+        range.setStart(lastTextNode, lastTextNode.textContent.length);
+      } else {
+        range.selectNodeContents(element);
+        range.collapse(false);
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return Boolean(lastTextNode);
     }
 
     function getCaretIndexForWindowTitle(markdown) {
@@ -4568,6 +4924,73 @@
       const offsetTop = marker.offsetTop;
       document.body.removeChild(mirror);
       return offsetTop;
+    }
+
+    function scrollTextareaOffsetIntoView(textarea, offset) {
+      const offsetTop = getTextareaOffsetTop(textarea, offset);
+      const maxScrollTop = Math.max(0, textarea.scrollHeight - textarea.clientHeight);
+      const targetTop = offsetTop - (textarea.clientHeight * 0.5);
+      textarea.scrollTop = Math.min(Math.max(0, targetTop), maxScrollTop);
+    }
+
+    function focusWithoutImplicitScroll(element) {
+      try {
+        element.focus({ preventScroll: true });
+      } catch {
+        element.focus();
+      }
+    }
+
+    function scrollElementIntoContainerCenter(container, element) {
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      const relativeTop = elementRect.top - containerRect.top + container.scrollTop;
+      const targetTop = relativeTop - (container.clientHeight / 2) + (Math.min(elementRect.height, container.clientHeight) / 2);
+      container.scrollTop = Math.min(Math.max(0, targetTop), maxScrollTop);
+    }
+
+    function scrollElementIntoViewportCenter(element) {
+      const rect = element.getBoundingClientRect();
+      const absoluteTop = rect.top + window.scrollY;
+      const maxScrollTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const targetTop = absoluteTop - (window.innerHeight / 2) + (Math.min(rect.height, window.innerHeight) / 2);
+      window.scrollTo({ top: Math.min(Math.max(0, targetTop), maxScrollTop), left: window.scrollX });
+    }
+
+    function focusMarkdownAtOffset(offset) {
+      const safeOffset = Math.max(0, Math.min(markdownInput.value.length, offset));
+      focusWithoutImplicitScroll(markdownInput);
+      markdownInput.setSelectionRange(safeOffset, safeOffset);
+      scrollTextareaOffsetIntoView(markdownInput, safeOffset);
+      scrollElementIntoViewportCenter(markdownPanel);
+      queueWindowTitleUpdate();
+    }
+
+    function focusVisualAtMarkdownOffset(offset) {
+      const target = getVisualCaretTargetForMarkdownOffset(offset);
+      focusWithoutImplicitScroll(visualEditor);
+      setCaretInsideElementByTextOffset(target.element, target.offset);
+      scrollElementIntoContainerCenter(visualEditor, target.element);
+      scrollElementIntoViewportCenter(target.element);
+      updateToolbarState();
+      queueWindowTitleUpdate();
+    }
+
+    function setViewModeRadio(mode) {
+      const activeViewInput = document.querySelector('input[name="previewMode"][value="' + normalizeViewMode(mode) + '"]');
+      if (activeViewInput) {
+        activeViewInput.checked = true;
+      }
+    }
+
+    function syncCaretFromVisualToMarkdown() {
+      const offset = getMarkdownOffsetFromVisualSelection();
+      focusMarkdownAtOffset(Number.isFinite(offset) ? offset : getMarkdownOffsetFromTextarea());
+    }
+
+    function syncCaretFromMarkdownToVisual() {
+      focusVisualAtMarkdownOffset(getMarkdownOffsetFromTextarea());
     }
 
     function gotoTextareaLine(textarea, lineIndex, options = {}) {
@@ -7657,30 +8080,24 @@
 
     function updateViewMode(mode) {
       const workspace = document.querySelector(".workspace");
+      const activeMode = normalizeViewMode(mode);
 
       visualPanel.classList.remove("panel-hidden");
       markdownPanel.classList.remove("panel-hidden");
       previewPanel.classList.remove("panel-hidden");
-      workspace.classList.remove("mode-write", "mode-preview");
+      resetWorkspaceViewClasses(workspace);
 
       if (isMobileLayout()) {
-        savePreference("view_mode", mode);
+        savePreference("view_mode", activeMode);
         updateResponsiveLayout();
+        updateSyncGutterUi("all");
         return;
       }
 
-      if (mode === "write") {
-        previewPanel.classList.add("panel-hidden");
-        workspace.classList.add("mode-write");
-      }
+      applyDesktopViewMode(activeMode, workspace);
+      updateSyncGutterUi(activeMode);
 
-      if (mode === "preview") {
-        visualPanel.classList.add("panel-hidden");
-        markdownPanel.classList.add("panel-hidden");
-        workspace.classList.add("mode-preview");
-      }
-
-      savePreference("view_mode", mode);
+      savePreference("view_mode", activeMode);
     }
 
     document.querySelectorAll("[data-command]").forEach(button => {
@@ -7788,6 +8205,24 @@
     document.getElementById("exportRtfButton").addEventListener("click", exportRtfDocument);
     document.getElementById("downloadButton").addEventListener("click", downloadMarkdown);
     themeToggleButton.addEventListener("click", toggleTheme);
+    syncVisualToMarkdownButton.addEventListener("click", () => {
+      const activeMode = normalizeViewMode(loadPreference("view_mode", "all"));
+      const offset = getMarkdownOffsetFromVisualSelection();
+      if (activeMode === "visual") {
+        setViewModeRadio("markdown");
+        updateViewMode("markdown");
+      }
+      focusMarkdownAtOffset(Number.isFinite(offset) ? offset : getMarkdownOffsetFromTextarea());
+    });
+    syncMarkdownToVisualButton.addEventListener("click", () => {
+      const activeMode = normalizeViewMode(loadPreference("view_mode", "all"));
+      const offset = getMarkdownOffsetFromTextarea();
+      if (activeMode === "markdown") {
+        setViewModeRadio("visual");
+        updateViewMode("visual");
+      }
+      focusVisualAtMarkdownOffset(offset);
+    });
 
     imageInput.addEventListener("change", event => {
       const [file] = event.target.files || [];
@@ -8132,7 +8567,7 @@
     const savedLanguage = loadPreference("language", detectPreferredLanguage());
     const savedTheme = loadPreference("theme", "");
     const savedDraft = loadSessionValue("draft_markdown", "");
-    const savedViewMode = loadPreference("view_mode", "all");
+    const savedViewMode = normalizeViewMode(loadPreference("view_mode", "all"));
     const savedMobilePanel = loadPreference("mobile_panel", "visual");
 
     currentMobilePanel = ["visual", "markdown", "preview"].includes(savedMobilePanel) ? savedMobilePanel : "visual";
@@ -8146,14 +8581,20 @@
       activeViewInput.checked = true;
       updateViewMode(savedViewMode);
     }
-    window.addEventListener("resize", updateResponsiveLayout);
+    window.addEventListener("resize", () => {
+      updateResponsiveLayout();
+    });
     updateResponsiveLayout();
     updateToolbarState();
-    void syncFromMarkdown();
+    void syncFromMarkdown().then(() => {
+      window.scrollTo({ top: 0, left: 0 });
+      visualEditor.scrollTop = 0;
+      markdownInput.scrollTop = 0;
+    });
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.61.6", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.62", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
