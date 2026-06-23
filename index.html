@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.62.1">
+  <link rel="manifest" href="./manifest.json?v=0.63.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -17,6 +17,7 @@
   <script src="./vendor/prism/components/prism-bash.min.js"></script>
   <script src="./vendor/prism/components/prism-json.min.js"></script>
   <script src="./vendor/prism/components/prism-markdown.min.js"></script>
+  <script src="./vendor/mermaid/mermaid.min.js"></script>
   <title>New File - 0 lines, 0 chars - L1:C1 - MD Editor</title>
   <style>
     :root {
@@ -637,6 +638,28 @@
       font-weight: 700;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+    }
+
+    .mermaid-block {
+      margin: 0 0 1em;
+      overflow: auto;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel-strong);
+    }
+
+    .mermaid-block svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .mermaid-error {
+      margin: 0;
+      white-space: pre-wrap;
+      color: var(--accent);
     }
 
     .editor pre strong,
@@ -1358,7 +1381,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.62.1</div>
+      <div class="build-badge" id="buildBadge">v0.63.0</div>
     </footer>
   </main>
 
@@ -1458,7 +1481,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.62.1";
+    const APP_VERSION = "v0.63.0";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2711,6 +2734,43 @@
       return '<' + tag + ' class="' + className + '" data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '" contenteditable="false">' + rendered + "</" + tag + ">";
     }
 
+    let mermaidRenderCounter = 0;
+
+    function getMermaidTheme() {
+      return document.body && document.body.dataset.theme === "dark" ? "dark" : "default";
+    }
+
+    async function renderMermaidToHtml(source) {
+      const graph = String(source || "").trim();
+      if (!graph) {
+        return "";
+      }
+
+      try {
+        if (window.mermaid && typeof window.mermaid.initialize === "function" && typeof window.mermaid.render === "function") {
+          window.mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "strict",
+            theme: getMermaidTheme()
+          });
+          const renderId = "md-editor-mermaid-" + (++mermaidRenderCounter);
+          const result = await window.mermaid.render(renderId, graph);
+          return result && result.svg ? result.svg : "";
+        }
+      } catch (error) {
+        const message = error && error.message ? error.message : "Mermaid render error";
+        return '<pre class="mermaid-error">' + escapeHtml(message) + "</pre>";
+      }
+
+      return '<pre class="mermaid-error">Mermaid renderer unavailable</pre>';
+    }
+
+    async function createMermaidHtml(source) {
+      const graph = String(source || "").trim();
+      const rendered = await renderMermaidToHtml(graph);
+      return '<div class="mermaid-block" data-md-mermaid="' + escapeHtml(graph) + '" contenteditable="false">' + rendered + "</div>";
+    }
+
     const PRISM_LANGUAGE_ALIASES = {
       htm: "markup",
       html: "markup",
@@ -3331,7 +3391,11 @@
             closeLists();
             closeQuote();
             if (inCode) {
-              html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
+              if (normalizeCodeLanguage(codeLanguage) === "mermaid") {
+                html += await createMermaidHtml(codeLines.join("\n"));
+              } else {
+                html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
+              }
               codeLines = [];
             } else {
               codeLanguage = line.slice(3).trim();
@@ -3475,7 +3539,11 @@
       closeQuote();
 
         if (inCode) {
-          html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
+          if (normalizeCodeLanguage(codeLanguage) === "mermaid") {
+            html += await createMermaidHtml(codeLines.join("\n"));
+          } else {
+            html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
+          }
         }
 
       return {
@@ -3491,6 +3559,11 @@
         const isDisplay = node.getAttribute("data-md-display") === "true";
         const markdown = isDisplay ? "\\[\n" + source + "\n\\]" : "\\(" + source + "\\)";
         node.replaceWith(doc.createTextNode(markdown));
+      });
+
+      doc.querySelectorAll("[data-md-mermaid]").forEach(node => {
+        const source = node.getAttribute("data-md-mermaid") || "";
+        node.replaceWith(doc.createTextNode("```mermaid\n" + source + "\n```"));
       });
 
       return doc.body.innerHTML
@@ -3695,8 +3768,6 @@
         }
 
         const tag = node.tagName.toLowerCase();
-        const content = Array.from(node.childNodes).map(child => nodeToMarkdown(child)).join("");
-        const clean = content.replace(/\n{3,}/g, "\n\n");
 
         if (node.hasAttribute("data-md-math")) {
           const source = node.getAttribute("data-md-math") || "";
@@ -3704,6 +3775,14 @@
             ? "\\[\n" + source + "\n\\]\n\n"
             : "\\(" + source + "\\)";
         }
+
+        if (node.hasAttribute("data-md-mermaid")) {
+          const source = node.getAttribute("data-md-mermaid") || "";
+          return "```mermaid\n" + source + "\n```\n\n";
+        }
+
+        const content = Array.from(node.childNodes).map(child => nodeToMarkdown(child)).join("");
+        const clean = content.replace(/\n{3,}/g, "\n\n");
 
         switch (tag) {
           case "h1":
@@ -7944,6 +8023,15 @@
       if (tag === "p") {
         return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
       }
+      if (node.hasAttribute("data-md-mermaid")) {
+        const source = node.getAttribute("data-md-mermaid") || "";
+        const content = "```mermaid\n" + source + "\n```";
+        return makeRtfParagraph(escapeRtfText(content).replace(/\n/g, "\\line "), {
+          leftIndent: indent + 360,
+          spaceAfter: 140,
+          monospace: true
+        });
+      }
       if (node.hasAttribute("data-md-math")) {
         const source = node.getAttribute("data-md-math") || "";
         const isDisplay = node.getAttribute("data-md-display") === "true";
@@ -8594,7 +8682,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.62.1", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.63.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

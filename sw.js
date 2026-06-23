@@ -1,4 +1,4 @@
-const CACHE_NAME = "md-editor-shell-v0.62.1";
+const CACHE_NAME = "md-editor-shell-v0.63.0";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const APP_SHELL = [
   "./vendor/prism/components/prism-bash.min.js",
   "./vendor/prism/components/prism-json.min.js",
   "./vendor/prism/components/prism-markdown.min.js",
+  "./vendor/mermaid/mermaid.min.js",
   "./vendor/katex/fonts/KaTeX_AMS-Regular.woff2",
   "./vendor/katex/fonts/KaTeX_Caligraphic-Bold.woff2",
   "./vendor/katex/fonts/KaTeX_Caligraphic-Regular.woff2",
