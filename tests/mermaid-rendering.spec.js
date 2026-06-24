@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
+const path = require("path");
 
 test.describe("Mermaid rendering", () => {
   test("renders Mermaid fenced graphs in preview and visual editor while preserving Markdown source", async ({ page }) => {
@@ -34,7 +35,7 @@ test.describe("Mermaid rendering", () => {
   });
 
   test("renders the project analysis Mermaid example", async ({ page }) => {
-    const analysis = fs.readFileSync("C:/Users/giuse/project_structure_and_analysis.md", "utf8");
+    const analysis = fs.readFileSync(path.join(__dirname, "fixtures", "project-structure-analysis.md"), "utf8");
     const mermaidBlock = analysis.match(/```mermaid[\s\S]*?```/);
     expect(mermaidBlock).not.toBeNull();
 

@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
+const path = require("path");
 
 test.describe("math rendering", () => {
   test("renders inline and display LaTeX while preserving Markdown source", async ({ page }) => {
@@ -39,7 +40,7 @@ test.describe("math rendering", () => {
   });
 
   test("renders the spiral roadmap math examples", async ({ page }) => {
-    const roadmap = fs.readFileSync("D:/Mumath/mumath-pwa-src-v078/docs/spiral-roadmap.md", "utf8");
+    const roadmap = fs.readFileSync(path.join(__dirname, "fixtures", "spiral-roadmap.md"), "utf8");
 
     await page.goto("/");
     await page.locator("#markdownInput").fill(roadmap);
