@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.63.0">
+  <link rel="manifest" href="./manifest.json?v=0.63.1">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1381,7 +1381,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.63.0</div>
+      <div class="build-badge" id="buildBadge">v0.63.1</div>
     </footer>
   </main>
 
@@ -1481,7 +1481,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.63.0";
+    const APP_VERSION = "v0.63.1";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2224,6 +2224,17 @@
         "    print(messaggio)",
         "```",
         "",
+        "## Esempio di diagramma Mermaid",
+        "",
+        "```mermaid",
+        "graph LR",
+        "    A[Documento MD] --> B{Parser}",
+        "    B --> C[Editor Visuale]",
+        "    B --> D[Anteprima HTML]",
+        "    C --> E[Esporta]",
+        "    D --> E",
+        "```",
+        "",
         "## Privacy e dati locali",
         "",
         "- **Chiudi documento** chiude il lavoro corrente e pulisce la bozza della scheda attiva.",
@@ -2300,6 +2311,17 @@
         "def greet(name):",
         "    message = f\"Hello {name}\"",
         "    print(message)",
+        "```",
+        "",
+        "## Mermaid diagram example",
+        "",
+        "```mermaid",
+        "graph LR",
+        "    A[MD Document] --> B{Parser}",
+        "    B --> C[Visual Editor]",
+        "    B --> D[HTML Preview]",
+        "    C --> E[Export]",
+        "    D --> E",
         "```",
         "",
         "## Privacy and local data",
@@ -8761,7 +8783,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.63.0", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.63.1", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
