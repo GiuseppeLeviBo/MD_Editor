@@ -187,6 +187,59 @@ test.describe("find and replace", () => {
     expect(state.selectionStart).toBe(secondMatch);
   });
 
+  test("wraps to the first match after navigating past the last result", async ({ page }) => {
+    await page.goto("/");
+
+    const markdown = page.locator("#markdownInput");
+    await markdown.fill("alpha beta alpha");
+    const firstMatch = await markdown.evaluate(element => element.value.indexOf("alpha"));
+
+    await page.locator("#findReplaceButton").click();
+    await page.locator("#findReplaceSearchInput").fill("alpha");
+    await page.locator("#findNextButton").click();
+    await page.locator("#findNextButton").click();
+    await page.locator("#findNextButton").click();
+
+    const state = await markdown.evaluate(element => ({
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
+      selectionStart: element.selectionStart || 0
+    }));
+
+    expect(state.selectedText).toBe("alpha");
+    expect(state.selectionStart).toBe(firstMatch);
+  });
+
+  test("can search backward and wrap to the last match", async ({ page }) => {
+    await page.goto("/");
+
+    const markdown = page.locator("#markdownInput");
+    await markdown.fill("alpha beta alpha gamma alpha");
+    const secondMatch = await markdown.evaluate(element => element.value.indexOf("alpha", 1));
+    const lastMatch = await markdown.evaluate(element => element.value.lastIndexOf("alpha"));
+
+    await page.locator("#findReplaceButton").click();
+    await page.locator("#findReplaceSearchInput").fill("alpha");
+    await page.locator("#findPreviousButton").click();
+
+    let state = await markdown.evaluate(element => ({
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
+      selectionStart: element.selectionStart || 0
+    }));
+
+    expect(state.selectedText).toBe("alpha");
+    expect(state.selectionStart).toBe(lastMatch);
+
+    await page.locator("#findReplaceSearchInput").press("Shift+Enter");
+
+    state = await markdown.evaluate(element => ({
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
+      selectionStart: element.selectionStart || 0
+    }));
+
+    expect(state.selectedText).toBe("alpha");
+    expect(state.selectionStart).toBe(secondMatch);
+  });
+
   test("restarts from the user's cursor when it moves while the search dialog is open", async ({ page }) => {
     await page.goto("/");
 

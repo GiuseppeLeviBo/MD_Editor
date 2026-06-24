@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.63.1">
+  <link rel="manifest" href="./manifest.json?v=0.63.2">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1381,7 +1381,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.63.1</div>
+      <div class="build-badge" id="buildBadge">v0.63.2</div>
     </footer>
   </main>
 
@@ -1435,6 +1435,7 @@
       </div>
       <p class="dialog-summary" id="findReplaceSummary" aria-live="polite"></p>
       <div class="dialog-actions">
+        <button type="button" id="findPreviousButton" data-i18n="findPrevious">Trova precedente</button>
         <button type="button" id="findNextButton" data-i18n="findNext">Trova successivo</button>
         <button type="button" id="replaceOneButton" data-i18n="replaceOne">Sostituisci</button>
         <button type="button" id="replaceAllButton" data-i18n="replaceAll">Sostituisci tutto</button>
@@ -1481,7 +1482,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.63.1";
+    const APP_VERSION = "v0.63.2";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1858,6 +1859,7 @@
         findLabel: "Trova",
         replaceLabel: "Sostituisci con",
         matchCase: "Maiuscole/minuscole",
+        findPrevious: "Trova precedente",
         findNext: "Trova successivo",
         replaceOne: "Sostituisci",
         replaceAll: "Sostituisci tutto",
@@ -2028,6 +2030,7 @@
         findLabel: "Find",
         replaceLabel: "Replace with",
         matchCase: "Match case",
+        findPrevious: "Find previous",
         findNext: "Find next",
         replaceOne: "Replace",
         replaceAll: "Replace all",
@@ -5196,6 +5199,7 @@
         this.syncFromMarkdown = options.syncFromMarkdown;
         this.setStatusKey = options.setStatusKey;
         this.flushPendingHistorySnapshot = options.flushPendingHistorySnapshot;
+        this.findPreviousButton = options.findPreviousButton;
         this.findNextButton = options.findNextButton;
         this.replaceOneButton = options.replaceOneButton;
         this.replaceAllButton = options.replaceAllButton;
@@ -5393,6 +5397,7 @@
         }
 
         const hasMatches = count > 0;
+        this.findPreviousButton.disabled = !hasMatches;
         this.findNextButton.disabled = !hasMatches;
         this.replaceOneButton.disabled = !hasMatches;
         this.replaceAllButton.disabled = !hasMatches;
@@ -5466,6 +5471,15 @@
         return nextIndex === -1 ? 0 : nextIndex;
       }
 
+      getPreviousMatchIndexFromAnchor(anchor) {
+        for (let index = this.matches.length - 1; index >= 0; index -= 1) {
+          if (this.matches[index].end <= anchor) {
+            return index;
+          }
+        }
+        return this.matches.length - 1;
+      }
+
       findNext() {
         this.matches = this.getMatches();
         if (!this.matches.length) {
@@ -5477,6 +5491,19 @@
 
         const nextIndex = this.activeMatchIndex >= 0 ? this.activeMatchIndex + 1 : this.getNextMatchIndexFromAnchor(this.searchAnchor);
         return this.selectMatch(nextIndex);
+      }
+
+      findPrevious() {
+        this.matches = this.getMatches();
+        if (!this.matches.length) {
+          this.activeMatchIndex = -1;
+          this.updateSummary();
+          return false;
+        }
+        this.updateSummary();
+
+        const previousIndex = this.activeMatchIndex >= 0 ? this.activeMatchIndex - 1 : this.getPreviousMatchIndexFromAnchor(this.searchAnchor);
+        return this.selectMatch(previousIndex);
       }
 
       async replaceCurrent() {
@@ -8263,6 +8290,7 @@
       setStatusKey: key => setStatus(t(key)),
       flushPendingHistorySnapshot,
       findNextButton: document.getElementById("findNextButton"),
+      findPreviousButton: document.getElementById("findPreviousButton"),
       replaceOneButton: document.getElementById("replaceOneButton"),
       replaceAllButton: document.getElementById("replaceAllButton")
     });
@@ -8361,6 +8389,7 @@
     document.getElementById("imageInsertLinkButton").addEventListener("click", () => closeImageInsertDialog("link"));
     document.getElementById("imageInsertCancelButton").addEventListener("click", () => closeImageInsertDialog(null));
     document.getElementById("cancelImageInsertDialogButton").addEventListener("click", () => closeImageInsertDialog(null));
+    document.getElementById("findPreviousButton").addEventListener("click", () => findReplaceController.findPrevious());
     document.getElementById("findNextButton").addEventListener("click", () => findReplaceController.findNext());
     document.getElementById("replaceOneButton").addEventListener("click", () => {
       void findReplaceController.replaceCurrent();
@@ -8629,7 +8658,11 @@
     findReplaceSearchInput.addEventListener("keydown", event => {
       if (event.key === "Enter") {
         event.preventDefault();
-        findReplaceController.findNext();
+        if (event.shiftKey) {
+          findReplaceController.findPrevious();
+        } else {
+          findReplaceController.findNext();
+        }
       }
     });
     findReplaceMatchCase.addEventListener("change", () => {
@@ -8783,7 +8816,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.63.1", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.63.2", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
