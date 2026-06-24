@@ -4312,6 +4312,57 @@
         return null;
       }
 
+      try {
+        const visualBlocks = Array.from(visualEditor.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,th,figcaption,blockquote"))
+          .filter(element => (element.textContent || "").trim());
+
+        let activeBlockElement = null;
+        let node = selection.anchorNode;
+        while (node && node !== visualEditor) {
+          if (visualBlocks.includes(node)) {
+            activeBlockElement = node;
+            break;
+          }
+          node = node.parentNode;
+        }
+
+        if (!activeBlockElement) {
+          activeBlockElement = visualBlocks.find(block => block.contains(selection.anchorNode));
+        }
+
+        if (activeBlockElement) {
+          const blockIndex = visualBlocks.indexOf(activeBlockElement);
+          const markdown = markdownInput.value || "";
+          const ranges = getMarkdownBlockRanges(markdown);
+          const block = ranges.find(r => r.visualIndex === blockIndex);
+          if (block) {
+            const range = selection.getRangeAt(0).cloneRange();
+            const prefixRange = document.createRange();
+            prefixRange.selectNodeContents(activeBlockElement);
+            prefixRange.setEnd(range.startContainer, range.startOffset);
+            const localOffset = prefixRange.toString().length;
+
+            const blockSource = markdown.slice(block.contentStart, block.contentEnd);
+
+            // Walk through blockSource character by character, computing
+            // how many "visible" characters have been consumed up to each
+            // position.  markdownFragmentToPlainText strips all syntax the
+            // same way the visual editor renders it.
+            let targetLocalOffset = blockSource.length;
+            for (let i = 0; i <= blockSource.length; i++) {
+              const plain = markdownFragmentToPlainText(blockSource.slice(0, i));
+              if (plain.length >= localOffset) {
+                targetLocalOffset = i;
+                break;
+              }
+            }
+            return block.contentStart + targetLocalOffset;
+          }
+        }
+      } catch (err) {
+        // fall through to legacy path
+      }
+
       const range = selection.getRangeAt(0).cloneRange();
       const prefixRange = document.createRange();
       prefixRange.selectNodeContents(visualEditor);
@@ -4511,7 +4562,7 @@
       const sourceOffset = Math.max(block.contentStart, Math.min(offset, block.contentEnd));
       const blockSource = markdown.slice(block.contentStart, block.contentEnd);
       const plainBlockText = normalizeCaretSearchText(markdownFragmentToPlainText(blockSource)) || block.text;
-      const plainPrefix = normalizeCaretSearchText(markdownFragmentToPlainText(markdown.slice(block.contentStart, sourceOffset)));
+      const plainPrefix = markdownFragmentToPlainText(markdown.slice(block.contentStart, sourceOffset));
       const localOffset = plainPrefix.length;
       const caretSnippet = normalizeCaretSearchText(markdownFragmentToPlainText(markdown.slice(
         Math.max(block.contentStart, sourceOffset - 32),
@@ -4987,7 +5038,15 @@
       mirror.style.boxSizing = "border-box";
       mirror.style.width = textarea.clientWidth + "px";
       mirror.style.border = "none";
-      mirror.style.font = computedStyle.font;
+      if (computedStyle.font) {
+        mirror.style.font = computedStyle.font;
+      }
+      mirror.style.fontFamily = computedStyle.fontFamily;
+      mirror.style.fontSize = computedStyle.fontSize;
+      mirror.style.fontWeight = computedStyle.fontWeight;
+      mirror.style.fontStyle = computedStyle.fontStyle;
+      mirror.style.fontStretch = computedStyle.fontStretch;
+      mirror.style.fontVariant = computedStyle.fontVariant;
       mirror.style.lineHeight = computedStyle.lineHeight;
       mirror.style.letterSpacing = computedStyle.letterSpacing;
       mirror.style.paddingTop = computedStyle.paddingTop;
@@ -5007,8 +5066,14 @@
 
     function scrollTextareaOffsetIntoView(textarea, offset) {
       const offsetTop = getTextareaOffsetTop(textarea, offset);
+      // offsetTop includes paddingTop because the mirror replicates it.
+      // textarea.scrollTop is relative to the scrollable content which
+      // starts after paddingTop, so subtract it for correct alignment.
+      const computedStyle = window.getComputedStyle(textarea);
+      const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+      const contentOffsetTop = Math.max(0, offsetTop - paddingTop);
       const maxScrollTop = Math.max(0, textarea.scrollHeight - textarea.clientHeight);
-      const targetTop = offsetTop - (textarea.clientHeight * 0.5);
+      const targetTop = contentOffsetTop - (textarea.clientHeight * 0.5);
       textarea.scrollTop = Math.min(Math.max(0, targetTop), maxScrollTop);
     }
 
@@ -5042,7 +5107,21 @@
       focusWithoutImplicitScroll(markdownInput);
       markdownInput.setSelectionRange(safeOffset, safeOffset);
       scrollTextareaOffsetIntoView(markdownInput, safeOffset);
-      scrollElementIntoViewportCenter(markdownPanel);
+
+      // Scroll the outer viewport so that the caret line inside the textarea
+      // is centred on screen.  We compute the absolute position of the caret
+      // line by combining the textarea's position, its internal scrollTop,
+      // and the caret's offsetTop within the text.
+      const caretOffsetTop = getTextareaOffsetTop(markdownInput, safeOffset);
+      const textareaRect = markdownInput.getBoundingClientRect();
+      const caretAbsoluteY = textareaRect.top + window.scrollY
+        + caretOffsetTop - markdownInput.scrollTop;
+      const maxViewportScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const targetViewportTop = caretAbsoluteY - (window.innerHeight / 2);
+      window.scrollTo({
+        top: Math.min(Math.max(0, targetViewportTop), maxViewportScroll),
+        left: window.scrollX
+      });
       queueWindowTitleUpdate();
     }
 
