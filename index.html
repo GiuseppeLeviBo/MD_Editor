@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.63.2">
+  <link rel="manifest" href="./manifest.json?v=0.63.3">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1381,7 +1381,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.63.2</div>
+      <div class="build-badge" id="buildBadge">v0.63.3</div>
     </footer>
   </main>
 
@@ -1482,7 +1482,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.63.2";
+    const APP_VERSION = "v0.63.3";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -4331,19 +4331,19 @@
       };
     }
 
-    function getMarkdownOffsetFromVisualSelection() {
+    function getMarkdownOffsetFromRenderedSelection(container) {
       const selection = window.getSelection();
-      if (!selection || !selection.rangeCount || !visualEditor.contains(selection.anchorNode)) {
+      if (!selection || !selection.rangeCount || !container.contains(selection.anchorNode)) {
         return null;
       }
 
       try {
-        const visualBlocks = Array.from(visualEditor.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,th,figcaption,blockquote"))
+        const visualBlocks = Array.from(container.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,th,figcaption,blockquote"))
           .filter(element => (element.textContent || "").trim());
 
         let activeBlockElement = null;
         let node = selection.anchorNode;
-        while (node && node !== visualEditor) {
+        while (node && node !== container) {
           if (visualBlocks.includes(node)) {
             activeBlockElement = node;
             break;
@@ -4390,12 +4390,20 @@
 
       const range = selection.getRangeAt(0).cloneRange();
       const prefixRange = document.createRange();
-      prefixRange.selectNodeContents(visualEditor);
+      prefixRange.selectNodeContents(container);
       prefixRange.setEnd(range.startContainer, range.startOffset);
       const fragment = prefixRange.cloneContents();
-      const container = document.createElement("div");
-      container.appendChild(fragment);
-      return htmlToMarkdown(container.innerHTML).length;
+      const fragmentContainer = document.createElement("div");
+      fragmentContainer.appendChild(fragment);
+      return htmlToMarkdown(fragmentContainer.innerHTML).length;
+    }
+
+    function getMarkdownOffsetFromVisualSelection() {
+      return getMarkdownOffsetFromRenderedSelection(visualEditor);
+    }
+
+    function getMarkdownOffsetFromPreviewSelection() {
+      return getMarkdownOffsetFromRenderedSelection(preview);
     }
 
     function getCaretIndexFromVisualSelection() {
@@ -4575,14 +4583,14 @@
         || ranges[ranges.length - 1];
     }
 
-    function getVisualCaretTargetForMarkdownOffset(offset) {
+    function getRenderedCaretTargetForMarkdownOffset(container, offset) {
       const markdown = markdownInput.value || "";
       const block = getMarkdownBlockForOffset(markdown, offset);
       if (!block) {
-        return { element: visualEditor, offset: 0 };
+        return { element: container, offset: 0 };
       }
 
-      const visualBlocks = Array.from(visualEditor.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,th,figcaption,blockquote"))
+      const visualBlocks = Array.from(container.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,pre,td,th,figcaption,blockquote"))
         .filter(element => (element.textContent || "").trim());
       const sourceOffset = Math.max(block.contentStart, Math.min(offset, block.contentEnd));
       const blockSource = markdown.slice(block.contentStart, block.contentEnd);
@@ -4608,10 +4616,18 @@
         element = visualBlocks[block.visualIndex] || null;
       }
       if (!element) {
-        element = visualBlocks[visualBlocks.length - 1] || visualEditor;
+        element = visualBlocks[visualBlocks.length - 1] || container;
       }
 
       return { element, offset: Math.min(localOffset, (element.textContent || "").length) };
+    }
+
+    function getVisualCaretTargetForMarkdownOffset(offset) {
+      return getRenderedCaretTargetForMarkdownOffset(visualEditor, offset);
+    }
+
+    function getPreviewCaretTargetForMarkdownOffset(offset) {
+      return getRenderedCaretTargetForMarkdownOffset(preview, offset);
     }
 
     function setCaretInsideElementByTextOffset(element, offset) {
@@ -5160,6 +5176,14 @@
       queueWindowTitleUpdate();
     }
 
+    function focusPreviewAtMarkdownOffset(offset) {
+      const target = getPreviewCaretTargetForMarkdownOffset(offset);
+      setCaretInsideElementByTextOffset(target.element, target.offset);
+      scrollElementIntoContainerCenter(preview, target.element);
+      scrollElementIntoViewportCenter(target.element);
+      queueWindowTitleUpdate();
+    }
+
     function setViewModeRadio(mode) {
       const activeViewInput = document.querySelector('input[name="previewMode"][value="' + normalizeViewMode(mode) + '"]');
       if (activeViewInput) {
@@ -5199,6 +5223,10 @@
         this.syncFromMarkdown = options.syncFromMarkdown;
         this.setStatusKey = options.setStatusKey;
         this.flushPendingHistorySnapshot = options.flushPendingHistorySnapshot;
+        this.preview = options.preview;
+        this.getMarkdownOffsetFromPreviewSelection = options.getMarkdownOffsetFromPreviewSelection;
+        this.focusPreviewAtMarkdownOffset = options.focusPreviewAtMarkdownOffset;
+        this.searchSurface = "markdown";
         this.findPreviousButton = options.findPreviousButton;
         this.findNextButton = options.findNextButton;
         this.replaceOneButton = options.replaceOneButton;
@@ -5226,6 +5254,14 @@
         return this.replaceInput.value || "";
       }
 
+      getActiveSearchSurface() {
+        const selection = window.getSelection();
+        if (this.preview && selection && selection.anchorNode && this.preview.contains(selection.anchorNode)) {
+          return "preview";
+        }
+        return "markdown";
+      }
+
       getSelectableSearchText() {
         if (document.activeElement === this.markdownInput) {
           const start = this.markdownInput.selectionStart || 0;
@@ -5244,6 +5280,7 @@
       }
 
       open() {
+        this.searchSurface = this.getActiveSearchSurface();
         const suggestedText = this.getSelectableSearchText();
         this.searchAnchor = this.getInitialSearchAnchor();
         if (!this.getSearchTerm() && suggestedText) {
@@ -5258,6 +5295,12 @@
       }
 
       getInitialSearchAnchor() {
+        if (this.searchSurface === "preview" && this.getMarkdownOffsetFromPreviewSelection) {
+          const previewOffset = this.getMarkdownOffsetFromPreviewSelection();
+          if (Number.isFinite(previewOffset)) {
+            return previewOffset;
+          }
+        }
         return this.hasUserSearchAnchor ? this.userSearchAnchor : 0;
       }
 
@@ -5451,6 +5494,9 @@
         this.markdownInput.setSelectionRange(match.start, match.end);
         this.searchAnchor = match.end;
         this.ensureMatchVisible(match);
+        if (this.searchSurface === "preview" && this.focusPreviewAtMarkdownOffset) {
+          this.focusPreviewAtMarkdownOffset(match.start);
+        }
         return true;
       }
 
@@ -8286,6 +8332,9 @@
       matchCaseInput: findReplaceMatchCase,
       summary: findReplaceSummary,
       markdownInput,
+      preview,
+      getMarkdownOffsetFromPreviewSelection,
+      focusPreviewAtMarkdownOffset,
       syncFromMarkdown,
       setStatusKey: key => setStatus(t(key)),
       flushPendingHistorySnapshot,
@@ -8816,7 +8865,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.63.2", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.63.3", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
