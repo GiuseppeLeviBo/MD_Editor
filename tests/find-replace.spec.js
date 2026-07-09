@@ -166,6 +166,41 @@ test.describe("find and replace", () => {
     expect(state.selectionStart).toBe(firstMatch);
   });
 
+  test("starts from the matching Markdown position when opened from a preview selection", async ({ page }) => {
+    await page.goto("/");
+
+    const markdown = page.locator("#markdownInput");
+    await markdown.fill("# Intro\n\nalpha first\n\n## Middle\n\nalpha second\n\n## End\n\nalpha third");
+    const secondMatch = await markdown.evaluate(element => element.value.indexOf("alpha second"));
+
+    await page.locator("#preview").evaluate(preview => {
+      const paragraph = Array.from(preview.querySelectorAll("p")).find(node => node.textContent.includes("alpha second"));
+      if (!paragraph || !paragraph.firstChild) {
+        throw new Error("Unable to locate preview paragraph.");
+      }
+      const range = document.createRange();
+      range.setStart(paragraph.firstChild, 0);
+      range.setEnd(paragraph.firstChild, 5);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
+
+    await page.keyboard.press("Control+F");
+    await expect(page.locator("#findReplaceSearchInput")).toHaveValue("alpha");
+    await page.locator("#findNextButton").click();
+
+    const state = await markdown.evaluate(element => ({
+      selectedText: element.value.slice(element.selectionStart || 0, element.selectionEnd || 0),
+      selectionStart: element.selectionStart || 0,
+      previewSelection: window.getSelection().toString()
+    }));
+
+    expect(state.selectedText).toBe("alpha");
+    expect(state.selectionStart).toBe(secondMatch);
+    expect(state.previewSelection).toBe("alpha");
+  });
+
   test("starts from the user's Markdown cursor when the cursor was explicitly placed", async ({ page }) => {
     await page.goto("/");
 
