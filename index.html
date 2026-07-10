@@ -5494,9 +5494,6 @@
         this.markdownInput.setSelectionRange(match.start, match.end);
         this.searchAnchor = match.end;
         this.ensureMatchVisible(match);
-        if (this.searchSurface === "preview" && this.focusPreviewAtMarkdownOffset) {
-          this.focusPreviewAtMarkdownOffset(match.start);
-        }
         return true;
       }
 
