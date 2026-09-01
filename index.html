@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.63.3">
+  <link rel="manifest" href="./manifest.json?v=0.63.4">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1381,7 +1381,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.63.3</div>
+      <div class="build-badge" id="buildBadge">v0.63.4</div>
     </footer>
   </main>
 
@@ -1482,7 +1482,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.63.3";
+    const APP_VERSION = "v0.63.4";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2751,12 +2751,22 @@
       return '<code class="math-error">' + escapeHtml(source) + "</code>";
     }
 
-    function createMathHtml(latex, displayMode = false) {
+    function createMathHtml(latex, displayMode = false, delimiter = "") {
       const source = String(latex || "").trim();
       const tag = displayMode ? "div" : "span";
       const className = displayMode ? "math-block" : "math-inline";
       const rendered = renderLatexToHtml(source, displayMode);
-      return '<' + tag + ' class="' + className + '" data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '" contenteditable="false">' + rendered + "</" + tag + ">";
+      const delimiterAttr = delimiter ? ' data-md-delimiter="' + escapeHtml(delimiter) + '"' : "";
+      return '<' + tag + ' class="' + className + '" data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '"' + delimiterAttr + ' contenteditable="false">' + rendered + "</" + tag + ">";
+    }
+
+    function mathNodeToMarkdown(source, displayMode = false, delimiter = "") {
+      if (displayMode) {
+        return delimiter === "$$"
+          ? "$$\n" + source + "\n$$"
+          : "\\[\n" + source + "\n\\]";
+      }
+      return delimiter === "$" ? "$" + source + "$" : "\\(" + source + "\\)";
     }
 
     let mermaidRenderCounter = 0;
@@ -2862,19 +2872,82 @@
       return "<pre" + languageAttr + classAttr + "><code" + classAttr + ">" + highlightCodeToHtml(code, displayLanguage) + "</code></pre>";
     }
 
+    function isEscapedMarkdownCharacter(source, index) {
+      let slashCount = 0;
+      for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) {
+        slashCount += 1;
+      }
+      return slashCount % 2 === 1;
+    }
+
+    function findInlineMathClose(source, startIndex, delimiter) {
+      for (let index = startIndex; index < source.length; index += 1) {
+        if (delimiter === "\\(" && source.startsWith("\\)", index) && !isEscapedMarkdownCharacter(source, index)) {
+          return index;
+        }
+        if (delimiter === "$" && source[index] === "$" && source[index - 1] !== "$" && source[index + 1] !== "$" && !isEscapedMarkdownCharacter(source, index)) {
+          if (!/\s/.test(source[index - 1] || "") && !/\d/.test(source[index + 1] || "")) {
+            return index;
+          }
+        }
+      }
+      return -1;
+    }
+
     function protectInlineMath(text) {
       const mathFragments = [];
-      const protectedText = String(text || "").replace(/\\\(([\s\S]+?)\\\)/g, (match, latex) => {
-        if (!String(latex || "").trim()) {
-          return match;
+      const source = String(text || "");
+      let protectedText = "";
+      let index = 0;
+
+      while (index < source.length) {
+        if (source[index] === "`") {
+          let markerLength = 1;
+          while (source[index + markerLength] === "`") {
+            markerLength += 1;
+          }
+          const marker = "`".repeat(markerLength);
+          const closeIndex = source.indexOf(marker, index + markerLength);
+          if (closeIndex !== -1) {
+            protectedText += source.slice(index, closeIndex + markerLength);
+            index = closeIndex + markerLength;
+            continue;
+          }
         }
+
+        let delimiter = "";
+        let closeDelimiter = "";
+        if (source.startsWith("\\(", index) && !isEscapedMarkdownCharacter(source, index)) {
+          delimiter = "\\(";
+          closeDelimiter = "\\)";
+        } else if (source[index] === "$" && source[index + 1] !== "$" && !isEscapedMarkdownCharacter(source, index) && !/[\p{L}\p{N}]/u.test(source[index - 1] || "") && !/\s/.test(source[index + 1] || "")) {
+          delimiter = "$";
+          closeDelimiter = "$";
+        }
+
+        if (!delimiter) {
+          protectedText += source[index];
+          index += 1;
+          continue;
+        }
+
+        const contentStart = index + delimiter.length;
+        const closeIndex = findInlineMathClose(source, contentStart, delimiter);
+        const latex = closeIndex === -1 ? "" : source.slice(contentStart, closeIndex);
+        if (!latex.trim() || (delimiter === "$" && latex.includes("$"))) {
+          protectedText += source[index];
+          index += 1;
+          continue;
+        }
+
         const token = "__MD_INLINE_MATH_" + mathFragments.length + "__";
         mathFragments.push({
           token,
-          html: createMathHtml(latex, false)
+          html: createMathHtml(latex, false, delimiter === "$" ? "$" : "")
         });
-        return token;
-      });
+        protectedText += token;
+        index = closeIndex + closeDelimiter.length;
+      }
 
       return { protectedText, mathFragments };
     }
@@ -2890,31 +2963,34 @@
     function tryParseMarkdownMathBlock(lines, startIndex) {
       const line = lines[startIndex] || "";
       const trimmed = line.trim();
-      if (!trimmed.startsWith("\\[")) {
+      const isDollarDelimited = trimmed.startsWith("$$");
+      const openDelimiter = isDollarDelimited ? "$$" : "\\[";
+      const closeDelimiter = isDollarDelimited ? "$$" : "\\]";
+      if (!trimmed.startsWith(openDelimiter)) {
         return null;
       }
 
-      if (trimmed !== "\\[" && trimmed.endsWith("\\]")) {
+      if (trimmed !== openDelimiter && trimmed.endsWith(closeDelimiter)) {
         const inlineBlock = trimmed.slice(2, -2).trim();
         if (!inlineBlock) {
           return null;
         }
         return {
-          html: createMathHtml(inlineBlock, true),
+          html: createMathHtml(inlineBlock, true, isDollarDelimited ? "$$" : ""),
           consumed: 1
         };
       }
 
-      if (trimmed !== "\\[") {
+      if (trimmed !== openDelimiter) {
         return null;
       }
 
       const mathLines = [];
       let index = startIndex + 1;
       while (index < lines.length) {
-        if ((lines[index] || "").trim() === "\\]") {
+        if ((lines[index] || "").trim() === closeDelimiter) {
           return {
-            html: createMathHtml(mathLines.join("\n"), true),
+            html: createMathHtml(mathLines.join("\n"), true, isDollarDelimited ? "$$" : ""),
             consumed: index - startIndex + 1
           };
         }
@@ -3582,7 +3658,7 @@
       doc.querySelectorAll("[data-md-math]").forEach(node => {
         const source = node.getAttribute("data-md-math") || "";
         const isDisplay = node.getAttribute("data-md-display") === "true";
-        const markdown = isDisplay ? "\\[\n" + source + "\n\\]" : "\\(" + source + "\\)";
+        const markdown = mathNodeToMarkdown(source, isDisplay, node.getAttribute("data-md-delimiter") || "");
         node.replaceWith(doc.createTextNode(markdown));
       });
 
@@ -3796,9 +3872,8 @@
 
         if (node.hasAttribute("data-md-math")) {
           const source = node.getAttribute("data-md-math") || "";
-          return node.getAttribute("data-md-display") === "true"
-            ? "\\[\n" + source + "\n\\]\n\n"
-            : "\\(" + source + "\\)";
+          const isDisplay = node.getAttribute("data-md-display") === "true";
+          return mathNodeToMarkdown(source, isDisplay, node.getAttribute("data-md-delimiter") || "") + (isDisplay ? "\n\n" : "");
         }
 
         if (node.hasAttribute("data-md-mermaid")) {
@@ -4433,6 +4508,7 @@
         .replace(/```$/gm, "")
         .replace(/\\\[\s*|\s*\\\]/g, "")
         .replace(/\\\(|\\\)/g, "")
+        .replace(/\$\$|\$/g, "")
         .replace(/[`*_~|]/g, "")
         .replace(/\s+/g, " ");
     }
@@ -8862,7 +8938,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.63.3", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.63.4", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

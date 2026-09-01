@@ -60,9 +60,9 @@ The goal is to protect the most important promises of the product.
 - Double `Enter` at the end of a code block exits to a normal paragraph
 - Fenced code blocks with supported languages are syntax-highlighted in visual editor and preview while preserving Markdown source
 - `RTF` export keeps syntax-highlighted code blocks as plain monospace text without Prism token markup
-- Inline LaTeX math written as `\( ... \)` renders in visual editor and preview while preserving Markdown source
-- Display LaTeX math written as `\[ ... \]` renders in visual editor and preview while preserving Markdown source
-- LaTeX delimiters inside fenced code blocks remain inert text
+- Inline LaTeX math written as `$ ... $` or `\( ... \)` renders in visual editor and preview while preserving its delimiter style
+- Display LaTeX math written as `$$ ... $$` or `\[ ... \]` renders in visual editor and preview while preserving its delimiter style
+- LaTeX delimiters inside fenced or inline code remain inert text; escaped dollars and ordinary currency are not treated as math
 - `RTF` export preserves LaTeX formulas as source text instead of native equation objects
 - `H4-H6` render and round-trip correctly
 - Nested lists stay aligned between visual editor, Markdown, and preview
@@ -135,7 +135,7 @@ The goal is to protect the most important promises of the product.
 - Nested-list delete/backspace behavior still needs a small family of regressions around `DEL` and `Backspace`
 - Visual/Markdown/preview alignment after rich-text paste should be hardened with explicit regression tests
 - Security-oriented regressions for unsafe HTML and dangerous link schemes should be added explicitly
-- Additional LaTeX delimiter edge cases should be explored, especially escaped delimiters and mixed inline math with links/emphasis
+- Additional LaTeX delimiter edge cases should be explored, especially mixed inline math with links/emphasis
 
 ## Tables v1
 

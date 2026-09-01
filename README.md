@@ -6,7 +6,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.63.3
+## Release notes - v0.63.4
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Desktop view modes now include paired writing, visual-only, Markdown-only, preview-only, and full workspace layouts
@@ -16,7 +16,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 - Show document name, clean/modified state, length, and caret position in the PWA window title
 - Validated drag-and-drop opening with the same safety checks as `Open .md`
 - Project-folder linking for relative images and local Markdown links
-- Inline and display LaTeX math rendering through vendored KaTeX assets
+- Inline and display LaTeX math rendering through vendored KaTeX assets, with both `$...$` / `$$...$$` and `\(...\)` / `\[...\]` delimiters
 - Mermaid graph rendering for fenced `mermaid` blocks in the visual editor and live preview
 - Syntax highlighting for fenced code blocks in the visual editor, live preview, and browser print/PDF output
 - Editable `RTF` export for Word/LibreOffice workflows
@@ -32,7 +32,7 @@ This is a stabilization beta focused on simplicity, portability, and common Mark
 - Static app with vendored runtime assets for offline math, Mermaid graphs, and syntax highlighting
 - Pure-Markdown-first editing with common standard structures
 - Visual nested-list editing with indent/outdent controls
-- Render LaTeX math written as `\(inline\)` or `\[display\]`
+- Render LaTeX math written as `$inline$`, `$$display$$`, `\(inline\)`, or `\[display\]`
 - Render Mermaid graphs written in fenced `mermaid` code blocks
 - Highlight fenced code blocks with explicit languages such as `js`, `ts`, `html`, `css`, `json`, `python`, `bash`, and `markdown`
 - Open and edit `.md` files
