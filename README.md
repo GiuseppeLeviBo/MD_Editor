@@ -6,7 +6,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
-## Release notes - v0.63.4
+## Release notes - v0.63.5
 
 - Visual editor, Markdown source, and live HTML preview kept in sync for everyday writing
 - Desktop view modes now include paired writing, visual-only, Markdown-only, preview-only, and full workspace layouts
@@ -16,6 +16,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 - Show document name, clean/modified state, length, and caret position in the PWA window title
 - Validated drag-and-drop opening with the same safety checks as `Open .md`
 - Project-folder linking for relative images and local Markdown links
+- In-document index links scroll to their matching heading instead of opening a blank document
 - Inline and display LaTeX math rendering through vendored KaTeX assets, with both `$...$` / `$$...$$` and `\(...\)` / `\[...\]` delimiters
 - Mermaid graph rendering for fenced `mermaid` blocks in the visual editor and live preview
 - Syntax highlighting for fenced code blocks in the visual editor, live preview, and browser print/PDF output

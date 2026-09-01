@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.63.4">
+  <link rel="manifest" href="./manifest.json?v=0.63.5">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1381,7 +1381,7 @@
         Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.63.4</div>
+      <div class="build-badge" id="buildBadge">v0.63.5</div>
     </footer>
   </main>
 
@@ -1482,7 +1482,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.63.4";
+    const APP_VERSION = "v0.63.5";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2370,6 +2370,40 @@
       return /^(https?:|data:|blob:|mailto:|tel:|#)/i.test(path);
     }
 
+    function isInternalDocumentFragment(path) {
+      return normalizeLinkHref(path).startsWith("#");
+    }
+
+    function findRenderedFragmentTarget(link, href) {
+      const container = link.closest("#preview, #visualEditor");
+      if (!container) {
+        return { container: null, target: null };
+      }
+
+      let fragment = normalizeLinkHref(href).slice(1);
+      try {
+        fragment = decodeURIComponent(fragment);
+      } catch {}
+
+      const target = fragment
+        ? Array.from(container.querySelectorAll("[id]")).find(element => element.id === fragment) || null
+        : container;
+      return { container, target };
+    }
+
+    function scrollToRenderedFragment(link, href) {
+      const { container, target } = findRenderedFragmentTarget(link, href);
+      if (!container || !target) {
+        return false;
+      }
+      if (target === container) {
+        container.scrollTo({ top: 0, behavior: "auto" });
+      } else {
+        target.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
+      }
+      return true;
+    }
+
     function isRelativeDocumentResourcePath(path) {
       const normalizedPath = normalizeLinkHref(path);
       if (!normalizedPath) {
@@ -2494,6 +2528,12 @@
       if (!isSafeMarkdownHref(href)) {
         event.preventDefault();
         setStatus(t("statusUnsafeLinkBlocked"));
+        return;
+      }
+
+      if (isInternalDocumentFragment(href)) {
+        event.preventDefault();
+        scrollToRenderedFragment(link, href);
         return;
       }
 
@@ -2728,7 +2768,33 @@
       }
       const titleAttr = title ? ' title="' + escapeHtml(title) + '"' : "";
       const referenceAttr = referenceId ? ' data-md-ref="' + escapeHtml(referenceId) + '"' : "";
-      return '<a href="' + escapeHtml(normalizedHref) + '" data-md-href="' + escapeHtml(normalizedHref) + '"' + referenceAttr + titleAttr + ' target="_blank" rel="noreferrer">' + label + "</a>";
+      const browsingContextAttrs = isInternalDocumentFragment(normalizedHref) ? "" : ' target="_blank" rel="noreferrer"';
+      return '<a href="' + escapeHtml(normalizedHref) + '" data-md-href="' + escapeHtml(normalizedHref) + '"' + referenceAttr + titleAttr + browsingContextAttrs + ">" + label + "</a>";
+    }
+
+    function createMarkdownHeadingId(source, headingIdCounts) {
+      const plainText = String(source || "")
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1")
+        .replace(/<[^>]+>/g, "")
+        .replace(/[`*~]/g, "")
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "section";
+      const duplicateIndex = headingIdCounts.get(plainText) || 0;
+      headingIdCounts.set(plainText, duplicateIndex + 1);
+      return duplicateIndex ? plainText + "-" + duplicateIndex : plainText;
+    }
+
+    async function createMarkdownHeadingHtml(level, source, headingIdCounts) {
+      const id = createMarkdownHeadingId(source, headingIdCounts);
+      return "<h" + level + ' id="' + escapeHtml(id) + '">' + await applyInlineMarkdown(source) + "</h" + level + ">";
     }
 
     function renderLatexToHtml(latex, displayMode = false) {
@@ -3477,6 +3543,7 @@
         let codeLanguage = "";
         let codeLines = [];
         const warnings = new Set();
+        const headingIdCounts = new Map();
 
       function closeLists() {
         return;
@@ -3558,42 +3625,42 @@
         if (h1) {
           closeLists();
           closeQuote();
-          html += "<h1>" + await applyInlineMarkdown(h1[1]) + "</h1>";
+          html += await createMarkdownHeadingHtml(1, h1[1], headingIdCounts);
           continue;
         }
 
         if (h2) {
           closeLists();
           closeQuote();
-          html += "<h2>" + await applyInlineMarkdown(h2[1]) + "</h2>";
+          html += await createMarkdownHeadingHtml(2, h2[1], headingIdCounts);
           continue;
         }
 
         if (h3) {
           closeLists();
           closeQuote();
-          html += "<h3>" + await applyInlineMarkdown(h3[1]) + "</h3>";
+          html += await createMarkdownHeadingHtml(3, h3[1], headingIdCounts);
           continue;
         }
 
         if (h4) {
           closeLists();
           closeQuote();
-          html += "<h4>" + await applyInlineMarkdown(h4[1]) + "</h4>";
+          html += await createMarkdownHeadingHtml(4, h4[1], headingIdCounts);
           continue;
         }
 
         if (h5) {
           closeLists();
           closeQuote();
-          html += "<h5>" + await applyInlineMarkdown(h5[1]) + "</h5>";
+          html += await createMarkdownHeadingHtml(5, h5[1], headingIdCounts);
           continue;
         }
 
         if (h6) {
           closeLists();
           closeQuote();
-          html += "<h6>" + await applyInlineMarkdown(h6[1]) + "</h6>";
+          html += await createMarkdownHeadingHtml(6, h6[1], headingIdCounts);
           continue;
         }
 
@@ -8938,7 +9005,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.63.4", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.63.5", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

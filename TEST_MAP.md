@@ -161,5 +161,6 @@ The goal is to protect the most important promises of the product.
 - Unsaved changes warn on close
 - Save-as cancel does not trigger a fallback download
 - Linked local Markdown files open from preview clicks
+- In-document `#fragment` links scroll to stable heading IDs without opening another page
 - Local images render after the project folder is linked
 - Task list rendering, toggle, and toolbar creation
