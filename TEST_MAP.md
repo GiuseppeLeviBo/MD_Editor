@@ -33,6 +33,9 @@ The goal is to protect the most important promises of the product.
 - Relative local images render when the project folder is linked
 - Relative local Markdown links open inside the editor
 - Unsafe inline HTML such as `<script>` stays inert and is rendered as text
+- Standard CommonMark/GFM documents render like other Markdown viewers (paragraphs, emphasis, fences, nested lists, tables, links)
+- Visual edits re-serialize only the edited blocks; untouched Markdown stays byte-identical
+- Toggling a task checkbox changes only its `[ ]` / `[x]` marker
 - Dangerous link schemes such as `javascript:` are neutralized or treated as plain text
 
 ## Important
@@ -92,6 +95,11 @@ The goal is to protect the most important promises of the product.
 - PWA shell loads correctly and updates through the service worker
 - PWA shell caches vendored KaTeX CSS, JS, and fonts for offline math rendering
 - PWA shell caches vendored PrismJS assets for offline syntax highlighting
+- PWA shell caches vendored markdown-it, footnote plugin, and DOMPurify assets for offline rendering
+- UTF-16 (BOM), Windows-1252, and CRLF files open correctly; CRLF files are saved back with CRLF
+- Mermaid preview SVGs use their own ids, and invalid diagrams leave no nodes outside the editor
+- Raw HTML in Markdown documents is sanitized; non-Markdown text files show markup as text
+- GitHub alerts, footnotes, and front matter render and survive visual edits
 - App start works both on GitHub Pages and on a local static server
 - README screenshot and repository links stay valid
 - Save-as suggested location behaves coherently with linked-folder state
