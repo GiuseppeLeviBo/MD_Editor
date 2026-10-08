@@ -42,12 +42,12 @@ test.describe("list nesting", () => {
 
     await page.locator("#indentListButton").click();
 
-    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n  1\. Third item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n   1\. Third item/);
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Third item");
 
     await page.locator('[data-command="insertUnorderedList"]').click();
 
-    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n  - Third item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n   - Third item/);
     await expect(page.locator("#preview ol > li:nth-child(2) > ul > li")).toContainText("Third item");
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Third item");
   });
@@ -61,7 +61,7 @@ test.describe("list nesting", () => {
     await page.keyboard.press("Tab");
     await page.locator('[data-command="insertTaskList"]').click();
 
-    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n  - \[ \] Third item/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Second item\n   - \[ \] Third item/);
     await expect(page.locator('#preview ol > li:nth-child(2) ul.task-list input[type="checkbox"]')).toHaveCount(1);
     await expect.poll(() => getCurrentVisualListItemText(page)).toContain("Third item");
   });

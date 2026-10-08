@@ -139,7 +139,7 @@ test.describe("task list", () => {
   test("creates a task list from selected visual blocks using the toolbar", async ({ page }) => {
     await page.goto("/");
 
-    await page.locator("#markdownInput").fill("First task\nSecond task");
+    await page.locator("#markdownInput").fill("First task\n\nSecond task");
     await expect(page.locator("#visualEditor")).toContainText("First task");
 
     await selectVisualTextRange(page, "First task", "Second task");

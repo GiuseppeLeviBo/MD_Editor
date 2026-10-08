@@ -60,8 +60,11 @@ test.describe("math rendering", () => {
     });
 
     const roundTripped = await page.locator("#markdownInput").inputValue();
-    expect(roundTripped).toContain("$q_\\phi(z \\mid X)$");
-    expect(roundTripped).toContain("$$\nD_{\\text{KL}}");
+    expect(roundTripped).toBe(markdown);
+
+    const serialized = await page.evaluate(() => htmlToMarkdown(document.getElementById("visualEditor").innerHTML));
+    expect(serialized).toContain("$q_\\phi(z \\mid X)$");
+    expect(serialized).toContain("$$\nD_{\\text{KL}}");
   });
 
   test("leaves currency, escaped dollars, and inline code as text", async ({ page }) => {

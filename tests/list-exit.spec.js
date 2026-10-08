@@ -69,7 +69,7 @@ test.describe("list exit behavior", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.type("Back to numbering");
 
-    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Parent item\n  - \[ \] Nested task\n3\. Back to numbering/);
+    await expect(page.locator("#markdownInput")).toHaveValue(/1\. First item\n2\. Parent item\n   - \[ \] Nested task\n3\. Back to numbering/);
     await expect(page.locator("#preview > ol > li")).toHaveCount(3);
     await expect(page.locator("#preview > ol > li").nth(2)).toContainText("Back to numbering");
   });

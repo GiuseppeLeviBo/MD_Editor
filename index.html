@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.63.5">
+  <link rel="manifest" href="./manifest.json?v=0.64.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -18,6 +18,9 @@
   <script src="./vendor/prism/components/prism-json.min.js"></script>
   <script src="./vendor/prism/components/prism-markdown.min.js"></script>
   <script src="./vendor/mermaid/mermaid.min.js"></script>
+  <script src="./vendor/markdown-it/markdown-it.min.js"></script>
+  <script src="./vendor/markdown-it/markdown-it-footnote.min.js"></script>
+  <script src="./vendor/dompurify/purify.min.js"></script>
   <title>New File - 0 lines, 0 chars - L1:C1 - MD Editor</title>
   <style>
     :root {
@@ -861,12 +864,100 @@
 
     .editor img,
     .preview img {
-      display: block;
       max-width: 100%;
       height: auto;
+      vertical-align: middle;
+    }
+
+    /* Images alone in a paragraph become figures; inline images such as
+       badges stay in the text flow. */
+    .editor figure img,
+    .preview figure img {
+      display: block;
       border-radius: 18px;
       margin: 12px 0;
       box-shadow: 0 10px 30px rgba(83, 57, 31, 0.14);
+    }
+
+    .markdown-alert {
+      --alert-color: #0969da;
+    }
+
+    .editor .markdown-alert,
+    .preview .markdown-alert {
+      border-left-color: var(--alert-color);
+    }
+
+    .markdown-alert-tip {
+      --alert-color: #1a7f37;
+    }
+
+    .markdown-alert-important {
+      --alert-color: #8250df;
+    }
+
+    .markdown-alert-warning {
+      --alert-color: #9a6700;
+    }
+
+    .markdown-alert-caution {
+      --alert-color: #cf222e;
+    }
+
+    body[data-theme="dark"] .markdown-alert {
+      --alert-color: #4493f8;
+    }
+
+    body[data-theme="dark"] .markdown-alert-tip {
+      --alert-color: #3fb950;
+    }
+
+    body[data-theme="dark"] .markdown-alert-important {
+      --alert-color: #ab7df8;
+    }
+
+    body[data-theme="dark"] .markdown-alert-warning {
+      --alert-color: #d29922;
+    }
+
+    body[data-theme="dark"] .markdown-alert-caution {
+      --alert-color: #f85149;
+    }
+
+    .markdown-alert-title {
+      color: var(--alert-color);
+      font-weight: 600;
+    }
+
+    .md-html-block:empty {
+      display: none;
+    }
+
+    .md-html-block {
+      margin: 0 0 1em;
+    }
+
+    .editor .md-html-block,
+    .editor .front-matter,
+    .editor .footnotes {
+      cursor: default;
+    }
+
+    .editor pre.front-matter,
+    .preview pre.front-matter {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .editor .footnotes,
+    .preview .footnotes {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .editor .footnote-ref a,
+    .preview .footnote-ref a {
+      text-decoration: none;
     }
 
     .editor figure,
@@ -1378,10 +1469,10 @@
 
     <footer class="footer">
       <span data-i18n="footerText">
-        Supporta titoli, grassetto, corsivo, liste, task list, citazioni, link, blocchi di codice e regole orizzontali.
+        Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.63.5</div>
+      <div class="build-badge" id="buildBadge">v0.64.0</div>
     </footer>
   </main>
 
@@ -1482,7 +1573,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.63.5";
+    const APP_VERSION = "v0.64.0";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1630,6 +1721,9 @@
     };
     let savedSelection = null;
     let currentDocumentName = "documento.md";
+    // The editor works with "\n"; files opened with Windows line endings are
+    // written back with "\r\n".
+    let currentDocumentLineEnding = "\n";
     let currentFileHandle = null;
     let currentDocumentNeedsProjectFolder = false;
     let pendingFolderLinkHandle = null;
@@ -1664,6 +1758,9 @@
         this.directoryFiles = new Map();
         this.directoryCache = new Map();
         this.objectUrls = [];
+        // Folder of the current document inside the linked folder ("" = root).
+        // Relative paths in a document opened from a subfolder resolve from it.
+        this.documentBasePath = "";
       }
 
       clearResolvedResources() {
@@ -1675,19 +1772,31 @@
       clearDirectoryContext() {
         this.directoryHandle = null;
         this.directoryFiles = new Map();
+        this.documentBasePath = "";
         this.clearResolvedResources();
       }
 
       setDirectoryHandle(directoryHandle) {
         this.directoryHandle = directoryHandle;
         this.directoryFiles = new Map();
+        this.documentBasePath = "";
         this.clearResolvedResources();
       }
 
       setDirectoryFiles(directoryFiles) {
         this.directoryHandle = null;
         this.directoryFiles = directoryFiles || new Map();
+        this.documentBasePath = "";
         this.clearResolvedResources();
+      }
+
+      setDocumentBasePath(basePath) {
+        this.documentBasePath = normalizeResourcePath(basePath || "") || "";
+        this.clearResolvedResources();
+      }
+
+      getDocumentResourcePath(path) {
+        return normalizeDocumentResourcePath(path, this.documentBasePath);
       }
 
       hasLinkedDirectoryContext() {
@@ -1695,7 +1804,7 @@
       }
 
       async getLinkedFileEntry(path) {
-        const normalizedPath = normalizeResourcePath(path);
+        const normalizedPath = this.getDocumentResourcePath(path);
         if (!normalizedPath || !this.hasLinkedDirectoryContext()) {
           return null;
         }
@@ -1730,12 +1839,13 @@
           return path;
         }
 
-        if (this.directoryCache.has(path)) {
-          return this.directoryCache.get(path);
+        const normalizedPath = this.getDocumentResourcePath(path);
+        const cacheKey = normalizedPath || path;
+        if (this.directoryCache.has(cacheKey)) {
+          return this.directoryCache.get(cacheKey);
         }
 
         try {
-          const normalizedPath = normalizeResourcePath(path);
           if (!normalizedPath) {
             throw new Error("Invalid relative path.");
           }
@@ -1747,7 +1857,7 @@
             }
             const url = URL.createObjectURL(selectedFile);
             this.objectUrls.push(url);
-            this.directoryCache.set(path, url);
+            this.directoryCache.set(cacheKey, url);
             return url;
           }
 
@@ -1763,10 +1873,10 @@
           const file = await fileHandle.getFile();
           const url = URL.createObjectURL(file);
           this.objectUrls.push(url);
-          this.directoryCache.set(path, url);
+          this.directoryCache.set(cacheKey, url);
           return url;
         } catch {
-          this.directoryCache.set(path, path);
+          this.directoryCache.set(cacheKey, path);
           return path;
         }
       }
@@ -1853,7 +1963,7 @@
         markdownPanel: "Markdown",
         previewPanel: "Anteprima",
         previewHint: "HTML renderizzato",
-        footerText: "Supporta titoli, grassetto, corsivo, liste, task list, tabelle, citazioni, link, blocchi di codice e regole orizzontali. La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.",
+        footerText: "Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.",
         symbolDialogTitle: "Inserisci simboli speciali",
         findReplaceDialogTitle: "Trova e sostituisci",
         findLabel: "Trova",
@@ -2024,7 +2134,7 @@
         markdownPanel: "Markdown",
         previewPanel: "Preview",
         previewHint: "Rendered HTML",
-        footerText: "Supports headings, bold, italic, lists, task lists, tables, blockquotes, links, code blocks, and horizontal rules. The HTML/Markdown conversion is intentionally lightweight to keep the file simple and portable.",
+        footerText: "Standard Markdown (CommonMark and GitHub: tables, task lists, footnotes, alerts, safe HTML), LaTeX math, and Mermaid graphs. Visual edits rewrite only the blocks you touch.",
         symbolDialogTitle: "Insert special symbols",
         findReplaceDialogTitle: "Find and replace",
         findLabel: "Find",
@@ -2385,10 +2495,32 @@
         fragment = decodeURIComponent(fragment);
       } catch {}
 
-      const target = fragment
-        ? Array.from(container.querySelectorAll("[id]")).find(element => element.id === fragment) || null
-        : container;
+      if (!fragment) {
+        return { container, target: container };
+      }
+
+      // Exact ids first; then a tolerant match so tables of contents written
+      // for other renderers (accents kept, "---" for " - ") still scroll.
+      const candidates = Array.from(container.querySelectorAll("[id], a[name]"));
+      const normalizedFragment = normalizeFragmentForMatching(fragment);
+      const target = candidates.find(element => element.id === fragment)
+        || candidates.find(element => element.getAttribute("name") === fragment)
+        || (normalizedFragment
+          ? candidates.find(element => normalizeFragmentForMatching(element.id || element.getAttribute("name")) === normalizedFragment)
+          : null)
+        || null;
       return { container, target };
+    }
+
+    function normalizeFragmentForMatching(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+        .trim()
+        .replace(/[\s-]+/g, "-")
+        .replace(/^-|-$/g, "");
     }
 
     function scrollToRenderedFragment(link, href) {
@@ -2460,6 +2592,32 @@
       return normalized.join("/");
     }
 
+    // Turns a link or image destination written in a document into a path inside
+    // the linked folder: query and fragment are dropped, %20-style escapes are
+    // decoded, and relative paths start from the document's own folder.
+    function normalizeDocumentResourcePath(path, basePath = "") {
+      let cleaned = normalizeLinkHref(path);
+      if (cleaned.startsWith("<") && cleaned.endsWith(">")) {
+        cleaned = cleaned.slice(1, -1);
+      }
+      cleaned = cleaned.split(/[?#]/)[0];
+      const parts = splitResourcePath(cleaned).map(part => {
+        try {
+          return decodeURIComponent(part);
+        } catch {
+          return part;
+        }
+      });
+      const baseParts = /^[\\/]/.test(cleaned) ? [] : splitResourcePath(basePath || "");
+      return normalizeResourcePath(baseParts.concat(parts).join("/"));
+    }
+
+    function getResourceParentPath(path) {
+      const parts = splitResourcePath(path || "");
+      parts.pop();
+      return parts.join("/");
+    }
+
     function getMarkdownImageSource(node) {
       if (!node || typeof node.getAttribute !== "function") {
         return "";
@@ -2504,7 +2662,11 @@
         return false;
       }
 
-      const opened = await openMarkdownFile(entry.file, null, null, { preserveDirectoryContext: true });
+      const linkedPath = resourceResolver.getDocumentResourcePath(path);
+      const opened = await openMarkdownFile(entry.file, null, null, {
+        preserveDirectoryContext: true,
+        documentBasePath: getResourceParentPath(linkedPath)
+      });
       currentFileHandle = opened ? (entry.handle || null) : null;
       updateReloadButtonState();
       if (!opened) {
@@ -2638,6 +2800,35 @@
       return suspiciousControlBytes > Math.max(8, Math.floor(sampleLength * 0.03));
     }
 
+    function getUtf16ByteOrderMark(bytes) {
+      if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+        return "utf-16le";
+      }
+      if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+        return "utf-16be";
+      }
+      return "";
+    }
+
+    // UTF-8 (with or without BOM) is the default. UTF-16 files with a BOM (for
+    // example from Notepad or Windows PowerShell) and legacy Windows-1252 files
+    // are decoded too, instead of being rejected or shown with "?" characters.
+    function decodeTextDocumentBytes(bytes, allowLegacyEncoding) {
+      const utf16Encoding = getUtf16ByteOrderMark(bytes);
+      if (utf16Encoding) {
+        const text = new TextDecoder(utf16Encoding).decode(bytes);
+        const sample = text.slice(0, 4096);
+        const controlCharacters = (sample.match(/[\u0000-\u0008\u000e-\u001f\u007f]/g) || []).length;
+        return controlCharacters > Math.max(8, Math.floor(sample.length * 0.03)) ? null : text;
+      }
+
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        return allowLegacyEncoding ? new TextDecoder("windows-1252").decode(bytes) : null;
+      }
+    }
+
     async function readValidatedDocumentFile(file) {
       const extension = getFilenameExtension(file && file.name);
       const allowedByExtension = isAllowedTextDocumentExtension(extension);
@@ -2645,22 +2836,23 @@
 
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
-      if (looksLikeBinaryContent(bytes)) {
+      if (!getUtf16ByteOrderMark(bytes) && looksLikeBinaryContent(bytes)) {
         return { ok: false, reason: "binary" };
       }
 
-      try {
-        const decoder = new TextDecoder("utf-8", { fatal: !allowedByExtension && !allowedByType });
-        return { ok: true, text: decoder.decode(bytes) };
-      } catch {
-        return { ok: false, reason: "binary" };
-      }
+      const text = decodeTextDocumentBytes(bytes, allowedByExtension || allowedByType);
+      return text === null ? { ok: false, reason: "binary" } : { ok: true, text };
     }
 
 </script>
 
 <!-- === MarkdownEngine === -->
 <script id="Script-MarkdownEngine">
+    // The Markdown engine parses with markdown-it (CommonMark + GFM tables,
+    // strikethrough, footnotes, autolinks), vendored for offline use. Custom
+    // renderer rules keep emitting the data-md-* structure that the visual editor
+    // edits and serializes back to Markdown. Raw HTML from documents is passed
+    // through DOMPurify; everything else is produced by escaping renderers.
     function normalizeLinkHref(href) {
       return String(href || "").trim();
     }
@@ -2723,10 +2915,25 @@
       const contentLines = [];
       const definitions = new Map();
       const order = [];
+      let openFence = null;
 
       lines.forEach(line => {
+        const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+        if (openFence) {
+          if (fenceMatch && fenceMatch[1][0] === openFence[0] && fenceMatch[1].length >= openFence.length && !line.trim().slice(fenceMatch[1].length).trim()) {
+            openFence = null;
+          }
+          contentLines.push(line);
+          return;
+        }
+        if (fenceMatch) {
+          openFence = fenceMatch[1];
+          contentLines.push(line);
+          return;
+        }
+
         const match = line.match(/^\s*\[([^\]]+)\]:\s*(\S+)(?:\s+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\)))?\s*$/);
-        if (!match) {
+        if (!match || match[1].startsWith("^")) {
           contentLines.push(line);
           return;
         }
@@ -2757,21 +2964,6 @@
       return key ? definitions.get(key) || null : null;
     }
 
-    function createMarkdownAnchorHtml(label, href, options = {}) {
-      const { referenceId = "", title = "" } = options;
-      const normalizedHref = normalizeLinkHref(href);
-      if (!isSafeMarkdownHref(normalizedHref)) {
-        if (referenceId) {
-          return "[" + label + "][" + escapeHtml(referenceId) + "]";
-        }
-        return "[" + label + "](" + escapeHtml(normalizedHref) + ")";
-      }
-      const titleAttr = title ? ' title="' + escapeHtml(title) + '"' : "";
-      const referenceAttr = referenceId ? ' data-md-ref="' + escapeHtml(referenceId) + '"' : "";
-      const browsingContextAttrs = isInternalDocumentFragment(normalizedHref) ? "" : ' target="_blank" rel="noreferrer"';
-      return '<a href="' + escapeHtml(normalizedHref) + '" data-md-href="' + escapeHtml(normalizedHref) + '"' + referenceAttr + titleAttr + browsingContextAttrs + ">" + label + "</a>";
-    }
-
     function createMarkdownHeadingId(source, headingIdCounts) {
       const plainText = String(source || "")
         .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
@@ -2790,11 +2982,6 @@
       const duplicateIndex = headingIdCounts.get(plainText) || 0;
       headingIdCounts.set(plainText, duplicateIndex + 1);
       return duplicateIndex ? plainText + "-" + duplicateIndex : plainText;
-    }
-
-    async function createMarkdownHeadingHtml(level, source, headingIdCounts) {
-      const id = createMarkdownHeadingId(source, headingIdCounts);
-      return "<h" + level + ' id="' + escapeHtml(id) + '">' + await applyInlineMarkdown(source) + "</h" + level + ">";
     }
 
     function renderLatexToHtml(latex, displayMode = false) {
@@ -2817,13 +3004,13 @@
       return '<code class="math-error">' + escapeHtml(source) + "</code>";
     }
 
-    function createMathHtml(latex, displayMode = false, delimiter = "") {
+    function createMathHtml(latex, displayMode = false, delimiter = "", extraAttributes = "") {
       const source = String(latex || "").trim();
       const tag = displayMode ? "div" : "span";
       const className = displayMode ? "math-block" : "math-inline";
       const rendered = renderLatexToHtml(source, displayMode);
       const delimiterAttr = delimiter ? ' data-md-delimiter="' + escapeHtml(delimiter) + '"' : "";
-      return '<' + tag + ' class="' + className + '" data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '"' + delimiterAttr + ' contenteditable="false">' + rendered + "</" + tag + ">";
+      return '<' + tag + ' class="' + className + '"' + extraAttributes + ' data-md-math="' + escapeHtml(source) + '" data-md-display="' + String(Boolean(displayMode)) + '"' + delimiterAttr + ' contenteditable="false">' + rendered + "</" + tag + ">";
     }
 
     function mathNodeToMarkdown(source, displayMode = false, delimiter = "") {
@@ -2836,9 +3023,36 @@
     }
 
     let mermaidRenderCounter = 0;
+    let mermaidConfiguredTheme = "";
+    const mermaidRenderCache = new Map();
+    const MERMAID_RENDER_CACHE_LIMIT = 40;
 
     function getMermaidTheme() {
       return document.body && document.body.dataset.theme === "dark" ? "dark" : "default";
+    }
+
+    function configureMermaid(theme) {
+      if (mermaidConfiguredTheme === theme) {
+        return;
+      }
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        suppressErrorRendering: true,
+        theme
+      });
+      mermaidConfiguredTheme = theme;
+    }
+
+    // Mermaid renders through temporary nodes appended to <body>. A failed parse
+    // can leave them behind, so they are removed after every render attempt.
+    function removeMermaidRenderArtifacts(renderId) {
+      ["d", "i", ""].forEach(prefix => {
+        const node = document.getElementById(prefix + renderId);
+        if (node && node.parentElement === document.body) {
+          node.remove();
+        }
+      });
     }
 
     async function renderMermaidToHtml(source) {
@@ -2847,29 +3061,44 @@
         return "";
       }
 
-      try {
-        if (window.mermaid && typeof window.mermaid.initialize === "function" && typeof window.mermaid.render === "function") {
-          window.mermaid.initialize({
-            startOnLoad: false,
-            securityLevel: "strict",
-            theme: getMermaidTheme()
-          });
-          const renderId = "md-editor-mermaid-" + (++mermaidRenderCounter);
-          const result = await window.mermaid.render(renderId, graph);
-          return result && result.svg ? result.svg : "";
-        }
-      } catch (error) {
-        const message = error && error.message ? error.message : "Mermaid render error";
-        return '<pre class="mermaid-error">' + escapeHtml(message) + "</pre>";
+      if (!window.mermaid || typeof window.mermaid.initialize !== "function" || typeof window.mermaid.render !== "function") {
+        return '<pre class="mermaid-error">Mermaid renderer unavailable</pre>';
       }
 
-      return '<pre class="mermaid-error">Mermaid renderer unavailable</pre>';
+      const theme = getMermaidTheme();
+      const cacheKey = theme + "\u0000" + graph;
+      if (mermaidRenderCache.has(cacheKey)) {
+        return mermaidRenderCache.get(cacheKey);
+      }
+
+      const renderId = "md-editor-mermaid-" + (++mermaidRenderCounter);
+      let html = "";
+      try {
+        configureMermaid(theme);
+        const result = await window.mermaid.render(renderId, graph);
+        html = result && result.svg ? result.svg : "";
+      } catch (error) {
+        const message = error && error.message ? error.message : "Mermaid render error";
+        html = '<pre class="mermaid-error">' + escapeHtml(message) + "</pre>";
+      } finally {
+        removeMermaidRenderArtifacts(renderId);
+      }
+
+      mermaidRenderCache.set(cacheKey, html);
+      if (mermaidRenderCache.size > MERMAID_RENDER_CACHE_LIMIT) {
+        mermaidRenderCache.delete(mermaidRenderCache.keys().next().value);
+      }
+      return html;
     }
 
-    async function createMermaidHtml(source) {
-      const graph = String(source || "").trim();
-      const rendered = await renderMermaidToHtml(graph);
-      return '<div class="mermaid-block" data-md-mermaid="' + escapeHtml(graph) + '" contenteditable="false">' + rendered + "</div>";
+    // The preview gets the visual editor's HTML without editor-only source-map
+    // attributes. Mermaid SVG markers are referenced by id, so the preview copy
+    // also gets its own ids; otherwise arrowheads disappear while the visual
+    // panel is hidden.
+    function toPreviewHtml(html) {
+      return String(html || "")
+        .replace(/ data-md-(?:block|line)="\d+"/g, "")
+        .replace(/\bmd-editor-mermaid-(\d+)/g, "md-editor-mermaid-$1-preview");
     }
 
     const PRISM_LANGUAGE_ALIASES = {
@@ -2929,13 +3158,13 @@
       return escapeHtml(source);
     }
 
-    function createCodeBlockHtml(language, code) {
+    function createCodeBlockHtml(language, code, extraAttributes = "") {
       const displayLanguage = String(language || "").trim();
       const normalized = normalizeCodeLanguage(displayLanguage);
       const shouldHighlight = canHighlightCodeLanguage(displayLanguage);
       const languageAttr = displayLanguage ? ' data-language="' + escapeHtml(displayLanguage) + '"' : "";
       const classAttr = shouldHighlight ? ' class="language-' + escapeHtml(normalized) + '"' : "";
-      return "<pre" + languageAttr + classAttr + "><code" + classAttr + ">" + highlightCodeToHtml(code, displayLanguage) + "</code></pre>";
+      return "<pre" + languageAttr + classAttr + extraAttributes + "><code" + classAttr + ">" + highlightCodeToHtml(code, displayLanguage) + "</code></pre>";
     }
 
     function isEscapedMarkdownCharacter(source, index) {
@@ -2946,8 +3175,8 @@
       return slashCount % 2 === 1;
     }
 
-    function findInlineMathClose(source, startIndex, delimiter) {
-      for (let index = startIndex; index < source.length; index += 1) {
+    function findInlineMathClose(source, startIndex, delimiter, endIndex = source.length) {
+      for (let index = startIndex; index < endIndex; index += 1) {
         if (delimiter === "\\(" && source.startsWith("\\)", index) && !isEscapedMarkdownCharacter(source, index)) {
           return index;
         }
@@ -2958,113 +3187,6 @@
         }
       }
       return -1;
-    }
-
-    function protectInlineMath(text) {
-      const mathFragments = [];
-      const source = String(text || "");
-      let protectedText = "";
-      let index = 0;
-
-      while (index < source.length) {
-        if (source[index] === "`") {
-          let markerLength = 1;
-          while (source[index + markerLength] === "`") {
-            markerLength += 1;
-          }
-          const marker = "`".repeat(markerLength);
-          const closeIndex = source.indexOf(marker, index + markerLength);
-          if (closeIndex !== -1) {
-            protectedText += source.slice(index, closeIndex + markerLength);
-            index = closeIndex + markerLength;
-            continue;
-          }
-        }
-
-        let delimiter = "";
-        let closeDelimiter = "";
-        if (source.startsWith("\\(", index) && !isEscapedMarkdownCharacter(source, index)) {
-          delimiter = "\\(";
-          closeDelimiter = "\\)";
-        } else if (source[index] === "$" && source[index + 1] !== "$" && !isEscapedMarkdownCharacter(source, index) && !/[\p{L}\p{N}]/u.test(source[index - 1] || "") && !/\s/.test(source[index + 1] || "")) {
-          delimiter = "$";
-          closeDelimiter = "$";
-        }
-
-        if (!delimiter) {
-          protectedText += source[index];
-          index += 1;
-          continue;
-        }
-
-        const contentStart = index + delimiter.length;
-        const closeIndex = findInlineMathClose(source, contentStart, delimiter);
-        const latex = closeIndex === -1 ? "" : source.slice(contentStart, closeIndex);
-        if (!latex.trim() || (delimiter === "$" && latex.includes("$"))) {
-          protectedText += source[index];
-          index += 1;
-          continue;
-        }
-
-        const token = "__MD_INLINE_MATH_" + mathFragments.length + "__";
-        mathFragments.push({
-          token,
-          html: createMathHtml(latex, false, delimiter === "$" ? "$" : "")
-        });
-        protectedText += token;
-        index = closeIndex + closeDelimiter.length;
-      }
-
-      return { protectedText, mathFragments };
-    }
-
-    function restoreInlineMath(html, mathFragments) {
-      let result = html;
-      mathFragments.forEach(fragment => {
-        result = result.replace(fragment.token, fragment.html);
-      });
-      return result;
-    }
-
-    function tryParseMarkdownMathBlock(lines, startIndex) {
-      const line = lines[startIndex] || "";
-      const trimmed = line.trim();
-      const isDollarDelimited = trimmed.startsWith("$$");
-      const openDelimiter = isDollarDelimited ? "$$" : "\\[";
-      const closeDelimiter = isDollarDelimited ? "$$" : "\\]";
-      if (!trimmed.startsWith(openDelimiter)) {
-        return null;
-      }
-
-      if (trimmed !== openDelimiter && trimmed.endsWith(closeDelimiter)) {
-        const inlineBlock = trimmed.slice(2, -2).trim();
-        if (!inlineBlock) {
-          return null;
-        }
-        return {
-          html: createMathHtml(inlineBlock, true, isDollarDelimited ? "$$" : ""),
-          consumed: 1
-        };
-      }
-
-      if (trimmed !== openDelimiter) {
-        return null;
-      }
-
-      const mathLines = [];
-      let index = startIndex + 1;
-      while (index < lines.length) {
-        if ((lines[index] || "").trim() === closeDelimiter) {
-          return {
-            html: createMathHtml(mathLines.join("\n"), true, isDollarDelimited ? "$$" : ""),
-            consumed: index - startIndex + 1
-          };
-        }
-        mathLines.push(lines[index]);
-        index += 1;
-      }
-
-      return null;
     }
 
     function getMarkdownListLineInfo(line) {
@@ -3141,130 +3263,6 @@
       };
     }
 
-    async function renderMarkdownListBlock(lines, startIndex) {
-      const root = document.createElement("div");
-      const listStack = [];
-      const lastItems = [];
-      let index = startIndex;
-
-      while (index < lines.length) {
-        if (!lines[index].trim()) {
-          let nextIndex = index + 1;
-          while (nextIndex < lines.length && !lines[nextIndex].trim()) {
-            nextIndex += 1;
-          }
-          const nextInfo = nextIndex < lines.length ? getMarkdownListLineInfo(lines[nextIndex]) : null;
-          if (!nextInfo) {
-            break;
-          }
-          const gapItem = lastItems[nextInfo.depth];
-          if (gapItem) {
-            gapItem.classList.add("list-gap-after");
-          }
-          index = nextIndex;
-          continue;
-        }
-
-        const info = getMarkdownListLineInfo(lines[index]);
-        if (!info) {
-          break;
-        }
-
-        let desiredDepth = info.depth;
-        if (desiredDepth > 0 && !lastItems[desiredDepth - 1]) {
-          desiredDepth = 0;
-        }
-        while (listStack.length > desiredDepth + 1) {
-          listStack.pop();
-          lastItems.pop();
-        }
-
-        let currentList = listStack[desiredDepth] || null;
-        const desiredTag = info.containerTag || (info.type === "ol" ? "ol" : "ul");
-
-        if (!currentList || currentList.tagName.toLowerCase() !== desiredTag || (info.type === "task" && !currentList.classList.contains("task-list")) || (info.type !== "task" && currentList.classList.contains("task-list"))) {
-          const list = document.createElement(desiredTag);
-          if (desiredTag === "ol" && Number.isFinite(info.number) && info.number > 1) {
-            list.start = info.number;
-          }
-          if (info.type === "task") {
-            list.classList.add("task-list");
-          }
-
-          if (desiredDepth === 0) {
-            root.appendChild(list);
-          } else {
-            const parentItem = lastItems[desiredDepth - 1];
-            if (!parentItem) {
-              break;
-            }
-            parentItem.appendChild(list);
-          }
-
-          listStack[desiredDepth] = list;
-          listStack.length = desiredDepth + 1;
-          lastItems.length = desiredDepth;
-          currentList = list;
-        }
-
-        const listItem = document.createElement("li");
-        if (info.type === "task") {
-          listItem.dataset.task = "true";
-          listItem.dataset.checked = String(info.checked);
-          const labelHtml = await applyInlineMarkdown(info.content, { allowImages: false });
-          listItem.innerHTML = '<span class="task-item" contenteditable="false"><input type="checkbox" contenteditable="false"' + (info.checked ? ' checked="checked"' : "") + '><span class="task-text" contenteditable="true">' + labelHtml + "</span></span>";
-        } else {
-          listItem.innerHTML = await applyInlineMarkdown(info.content, { allowImages: false });
-        }
-
-        currentList.appendChild(listItem);
-        lastItems[desiredDepth] = listItem;
-        index += 1;
-      }
-
-      return {
-        html: root.innerHTML,
-        consumed: index - startIndex
-      };
-    }
-
-    async function renderMarkdownBlockquoteBlock(lines, startIndex) {
-      const root = document.createElement("div");
-      const quoteStack = [];
-      let index = startIndex;
-
-      while (index < lines.length) {
-        const info = getMarkdownQuoteLineInfo(lines[index]);
-        if (!info || info.depth <= 0) {
-          break;
-        }
-
-        while (quoteStack.length > info.depth) {
-          quoteStack.pop();
-        }
-
-        while (quoteStack.length < info.depth) {
-          const blockquote = document.createElement("blockquote");
-          if (!quoteStack.length) {
-            root.appendChild(blockquote);
-          } else {
-            quoteStack[quoteStack.length - 1].appendChild(blockquote);
-          }
-          quoteStack.push(blockquote);
-        }
-
-        const paragraph = document.createElement("p");
-        paragraph.innerHTML = await applyInlineMarkdown(info.content, { allowImages: false });
-        quoteStack[quoteStack.length - 1].appendChild(paragraph);
-        index += 1;
-      }
-
-      return {
-        html: root.innerHTML,
-        consumed: index - startIndex
-      };
-    }
-
     function t(key) {
       return translations[currentLanguage][key] || translations.it[key] || key;
     }
@@ -3297,7 +3295,7 @@
 
       for (const character of content) {
         if (escaping) {
-          current += character;
+          current += character === "|" ? "|" : "\\" + character;
           escaping = false;
           continue;
         }
@@ -3335,7 +3333,7 @@
 
       for (const cell of cells) {
         const normalized = cell.replace(/\s+/g, "");
-        if (!/^:?-{3,}:?$/.test(normalized)) {
+        if (!/^:?-+:?$/.test(normalized)) {
           return null;
         }
         if (normalized.startsWith(":") && normalized.endsWith(":")) {
@@ -3453,274 +3451,938 @@
       };
     }
 
-    async function renderMarkdownTable(table) {
-      const alignments = normalizeTableCells(table.alignments, table.header.length, "default");
-      let html = '<table data-md-table="true"><thead><tr>';
+    const VOID_HTML_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
 
-      for (let index = 0; index < table.header.length; index += 1) {
-        const alignment = alignments[index];
-        const content = await applyInlineMarkdown(table.header[index] || "", { allowImages: false });
-        const textAlign = alignment === "center" || alignment === "right" ? alignment : "left";
-        html += '<th data-align="' + alignment + '" style="text-align:' + textAlign + '">' + content + "</th>";
-      }
+    // Raw HTML tags outside this list are shown as text, like the editor always
+    // did for <script>; allowed tags are still sanitized by DOMPurify.
+    const MARKDOWN_ALLOWED_HTML_TAGS = new Set([
+      "a", "abbr", "article", "aside", "b", "bdi", "bdo", "blockquote", "br", "caption", "center", "cite", "code", "col", "colgroup",
+      "dd", "del", "details", "dfn", "div", "dl", "dt", "em", "figcaption", "figure", "footer", "h1", "h2", "h3", "h4", "h5", "h6",
+      "header", "hr", "i", "img", "ins", "kbd", "li", "main", "mark", "nav", "ol", "p", "picture", "pre", "q", "rp", "rt", "ruby",
+      "s", "samp", "section", "small", "source", "span", "strike", "strong", "sub", "summary", "sup", "table", "tbody", "td",
+      "tfoot", "th", "thead", "time", "tr", "tt", "u", "ul", "var", "wbr"
+    ]);
 
-      html += "</tr></thead><tbody>";
-
-      for (const row of table.rows) {
-        html += "<tr>";
-        for (let index = 0; index < table.header.length; index += 1) {
-          const alignment = alignments[index];
-          const content = await applyInlineMarkdown(row[index] || "", { allowImages: false });
-          const textAlign = alignment === "center" || alignment === "right" ? alignment : "left";
-          html += '<td data-align="' + alignment + '" style="text-align:' + textAlign + '">' + content + "</td>";
-        }
-        html += "</tr>";
-      }
-
-      html += "</tbody></table>";
-      return html;
+    function escapeDisallowedHtmlTags(html) {
+      return String(html || "").replace(/<(\/?)([a-zA-Z][\w-]*)/g, (match, slash, tag) => (
+        MARKDOWN_ALLOWED_HTML_TAGS.has(tag.toLowerCase()) ? match : "&lt;" + slash + tag
+      ));
     }
 
-    async function applyInlineMarkdown(text, options = {}) {
-      const { allowImages = true, referenceDefinitions = currentReferenceDefinitions } = options;
-      const { protectedText, mathFragments } = protectInlineMath(text);
-      const escaped = escapeHtml(protectedText);
-      const fragments = [];
-      const blockedImageLiterals = [];
-      let lastIndex = 0;
-      const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
-      let match;
+    // Raw HTML is rendered only for Markdown documents; other text files such as
+    // .html or .txt keep showing their markup as text.
+    function documentRendersRawHtml() {
+      const name = String(currentDocumentName || "");
+      return !/\.[^./\\]+$/.test(name) || /\.(md|markdown|mdown|mkd|mkdn|mdwn|mdx)$/i.test(name);
+    }
 
-      if (allowImages) {
-        while ((match = imagePattern.exec(escaped)) !== null) {
-          fragments.push(escaped.slice(lastIndex, match.index));
-          const alt = match[1];
-          const originalPath = match[2];
-          if (!canRenderMarkdownImageSource(originalPath)) {
-            const token = "__MD_BLOCKED_IMAGE_" + blockedImageLiterals.length + "__";
-            blockedImageLiterals.push(match[0]);
-            fragments.push(token);
-            lastIndex = match.index + match[0].length;
-            continue;
-          }
-          const resolvedPath = await resolveResourcePath(originalPath);
-          fragments.push('<img src="' + escapeHtml(resolvedPath) + '" data-md-src="' + escapeHtml(originalPath) + '" alt="' + alt + '">');
-          lastIndex = match.index + match[0].length;
+    const MARKDOWN_HTML_SANITIZE_CONFIG = {
+      ADD_ATTR: ["target", "contenteditable"],
+      FORBID_TAGS: ["style", "form", "button", "textarea", "select", "option", "link", "meta", "base"],
+      FORBID_ATTR: ["autofocus"]
+    };
+
+    // Counts unclosed HTML elements so an HTML block that opens a wrapper such as
+    // <details> can be grouped with the Markdown blocks it encloses.
+    function getHtmlTagBalance(html) {
+      let balance = 0;
+      const source = String(html || "").replace(/<!--[\s\S]*?-->/g, "");
+      for (const match of source.matchAll(/<(\/?)([a-zA-Z][\w-]*)\b[^>]*?(\/?)>/g)) {
+        const tag = match[2].toLowerCase();
+        if (VOID_HTML_TAGS.has(tag) || match[3] === "/") {
+          continue;
         }
+        balance += match[1] ? -1 : 1;
+      }
+      return balance;
+    }
+
+    function isRelativeHtmlImageSource(source) {
+      const normalizedSource = normalizeLinkHref(source);
+      return Boolean(normalizedSource) && !/^([a-z][a-z0-9+.-]*:|\/\/)/i.test(normalizedSource);
+    }
+
+    function collectHtmlImageSources(html) {
+      return Array.from(String(html || "").matchAll(/<img\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi))
+        .map(match => match[1] || match[2] || match[3] || "")
+        .filter(Boolean);
+    }
+
+    // Trusted fragments (math, Mermaid, highlighted code) are swapped for empty
+    // placeholders while user HTML around them is sanitized, then restored.
+    function protectTrustedHtml(env, html) {
+      if (!env || !env.sanitizeDepth) {
+        return html;
+      }
+      env.trustedFragments.push(html);
+      return '<span data-md-trusted="' + (env.trustedFragments.length - 1) + '"></span>';
+    }
+
+    function restoreTrustedHtml(html, env) {
+      return String(html || "").replace(/<span data-md-trusted="(\d+)"><\/span>/g, (match, index) => env.trustedFragments[Number(index)] || "");
+    }
+
+    function sanitizeDocumentHtml(html, env) {
+      if (!window.DOMPurify || typeof window.DOMPurify.sanitize !== "function") {
+        return escapeHtml(html);
       }
 
-      fragments.push(escaped.slice(lastIndex));
+      const fragment = window.DOMPurify.sanitize(String(html || ""), { ...MARKDOWN_HTML_SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true });
 
-      let result = fragments.join("")
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\[([^\]]+)\]\[([^\]]+)\]/g, (match, label, refId) => {
-          const definition = getReferenceDefinition(refId, referenceDefinitions);
-          return definition ? createMarkdownAnchorHtml(label, definition.href, { referenceId: definition.label, title: definition.title }) : match;
-        })
-        .replace(/\[([^\]]+)\]\[\]/g, (match, label) => {
-          const definition = getReferenceDefinition(label, referenceDefinitions);
-          return definition ? createMarkdownAnchorHtml(label, definition.href, { referenceId: definition.label, title: definition.title }) : match;
-        })
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, href) => createMarkdownAnchorHtml(label, href))
-        .replace(/~~([^~]+)~~/g, "<del>$1</del>")
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*([^*]+)\*/g, "<em>$1</em>");
-
-      blockedImageLiterals.forEach((literal, index) => {
-        result = result.replace("__MD_BLOCKED_IMAGE_" + index + "__", preserveEscapedMarkdownLiteral(literal));
+      fragment.querySelectorAll("a[href]").forEach(link => {
+        const href = link.getAttribute("href") || "";
+        if (!isSafeMarkdownHref(href)) {
+          link.removeAttribute("href");
+          return;
+        }
+        if (!isInternalDocumentFragment(href) && !link.hasAttribute("data-md-href")) {
+          link.setAttribute("target", "_blank");
+          link.setAttribute("rel", "noreferrer");
+        }
       });
 
-      return restoreInlineMath(result, mathFragments);
+      fragment.querySelectorAll("img[src]").forEach(image => {
+        if (image.hasAttribute("data-md-src")) {
+          return;
+        }
+        const source = image.getAttribute("src") || "";
+        if (!isRelativeHtmlImageSource(source)) {
+          return;
+        }
+        const resolved = env && env.resolvedHtmlImages ? env.resolvedHtmlImages.get(source) : "";
+        image.setAttribute("data-md-html-src", source);
+        if (resolved && resolved !== source) {
+          image.setAttribute("src", resolved);
+        } else {
+          image.removeAttribute("src");
+        }
+      });
+
+      const container = document.createElement("div");
+      container.appendChild(fragment);
+      return container.innerHTML;
     }
 
-      async function markdownToHtml(markdown) {
-        const referenceData = extractReferenceDefinitionData(markdown);
-        currentReferenceDefinitions = referenceData.definitions;
-        currentReferenceOrder = referenceData.order;
-        const lines = referenceData.contentLines;
-        let html = "";
-        let inCode = false;
-        let codeLanguage = "";
-        let codeLines = [];
-        const warnings = new Set();
-        const headingIdCounts = new Map();
+    function getBlockAttributes(token) {
+      const blockIndex = token && typeof token.attrGet === "function" ? token.attrGet("data-md-block") : null;
+      return blockIndex == null ? "" : ' data-md-block="' + escapeHtml(blockIndex) + '"';
+    }
 
-      function closeLists() {
-        return;
+    function measureLeadingIndent(text) {
+      let width = 0;
+      let length = 0;
+      while (length < text.length && (text[length] === " " || text[length] === "\t")) {
+        width = text[length] === "\t" ? width + 4 - (width % 4) : width + 1;
+        length += 1;
+      }
+      return { width, length };
+    }
+
+    // Earlier versions of the editor (and many hand-written files) nest list
+    // items two spaces under a numbered item. CommonMark needs the content
+    // column ("1. " = 3 spaces), so those lines are shifted before parsing. Only
+    // leading whitespace changes, so markdown-it line maps still match the source.
+    function normalizeLegacyListIndentation(source) {
+      const lines = String(source || "").split("\n");
+      const stack = [];
+      let fence = null;
+
+      function setIndent(index, measured, newWidth) {
+        if (newWidth !== measured.width) {
+          lines[index] = " ".repeat(Math.max(0, newWidth)) + lines[index].slice(measured.length);
+        }
       }
 
-      function closeQuote() {
-        return;
-      }
-
-        for (let index = 0; index < lines.length; index += 1) {
-          const line = lines[index];
-          if (line.startsWith("```")) {
-            closeLists();
-            closeQuote();
-            if (inCode) {
-              if (normalizeCodeLanguage(codeLanguage) === "mermaid") {
-                html += await createMermaidHtml(codeLines.join("\n"));
-              } else {
-                html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
-              }
-              codeLines = [];
-            } else {
-              codeLanguage = line.slice(3).trim();
-              codeLines = [];
-            }
-            inCode = !inCode;
-            continue;
-          }
-
-          if (inCode) {
-            codeLines.push(line);
-            continue;
-          }
-
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
         if (!line.trim()) {
-          closeLists();
-          closeQuote();
           continue;
         }
 
-        if (/^---+$/.test(line.trim())) {
-          closeLists();
-          closeQuote();
-          html += "<hr>";
-          continue;
-        }
+        const measured = measureLeadingIndent(line);
+        const body = line.slice(measured.length);
 
-        const mathBlock = tryParseMarkdownMathBlock(lines, index);
-        if (mathBlock) {
-          closeLists();
-          closeQuote();
-          html += mathBlock.html;
-          index += mathBlock.consumed - 1;
-          continue;
-        }
-
-        const tableCandidate = tryParseMarkdownTable(lines, index);
-        if (tableCandidate && !tableCandidate.invalid) {
-          closeLists();
-          closeQuote();
-          html += await renderMarkdownTable(tableCandidate.table);
-          index += tableCandidate.consumed - 1;
-          continue;
-        }
-
-        if (tableCandidate && tableCandidate.invalid) {
-          warnings.add("statusTableInvalid");
-        }
-
-        const h1 = line.match(/^# (.+)$/);
-        const h2 = line.match(/^## (.+)$/);
-        const h3 = line.match(/^### (.+)$/);
-        const h4 = line.match(/^#### (.+)$/);
-        const h5 = line.match(/^##### (.+)$/);
-        const h6 = line.match(/^###### (.+)$/);
-        const listInfo = getMarkdownListLineInfo(line);
-        const quoteInfo = getMarkdownQuoteLineInfo(line);
-
-        if (h1) {
-          closeLists();
-          closeQuote();
-          html += await createMarkdownHeadingHtml(1, h1[1], headingIdCounts);
-          continue;
-        }
-
-        if (h2) {
-          closeLists();
-          closeQuote();
-          html += await createMarkdownHeadingHtml(2, h2[1], headingIdCounts);
-          continue;
-        }
-
-        if (h3) {
-          closeLists();
-          closeQuote();
-          html += await createMarkdownHeadingHtml(3, h3[1], headingIdCounts);
-          continue;
-        }
-
-        if (h4) {
-          closeLists();
-          closeQuote();
-          html += await createMarkdownHeadingHtml(4, h4[1], headingIdCounts);
-          continue;
-        }
-
-        if (h5) {
-          closeLists();
-          closeQuote();
-          html += await createMarkdownHeadingHtml(5, h5[1], headingIdCounts);
-          continue;
-        }
-
-        if (h6) {
-          closeLists();
-          closeQuote();
-          html += await createMarkdownHeadingHtml(6, h6[1], headingIdCounts);
-          continue;
-        }
-
-        if (quoteInfo) {
-          closeLists();
-          const quoteBlock = await renderMarkdownBlockquoteBlock(lines, index);
-          html += quoteBlock.html;
-          index += quoteBlock.consumed - 1;
-          continue;
-        }
-
-        closeQuote();
-
-        const image = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-        if (image) {
-          closeLists();
-          const alt = escapeHtml(image[1]);
-          const originalSource = image[2];
-          if (!canRenderMarkdownImageSource(originalSource)) {
-            html += "<p>" + preserveEscapedMarkdownLiteral(escapeHtml(line)) + "</p>";
-            continue;
+        if (fence) {
+          const closeMatch = body.match(/^(`{3,}|~{3,})\s*$/);
+          if (fence.delta && measured.width >= fence.width) {
+            setIndent(index, measured, measured.width + fence.delta);
           }
-          const src = escapeHtml(await resolveResourcePath(originalSource));
-          html += '<figure><img src="' + src + '" data-md-src="' + escapeHtml(originalSource) + '" alt="' + alt + '">' + (alt ? "<figcaption>" + alt + "</figcaption>" : "") + "</figure>";
-          continue;
-        }
-
-        if (listInfo) {
-          const listBlock = await renderMarkdownListBlock(lines, index);
-          if (!listBlock.consumed) {
-            html += "<p>" + await applyInlineMarkdown(line) + "</p>";
-            continue;
+          if (closeMatch && closeMatch[1][0] === fence.marker[0] && closeMatch[1].length >= fence.marker.length) {
+            fence = null;
           }
-          html += listBlock.html;
-          index += listBlock.consumed - 1;
           continue;
         }
 
-        closeLists();
-        html += "<p>" + await applyInlineMarkdown(line) + "</p>";
+        const fenceMatch = body.match(/^(`{3,}|~{3,})/);
+        const markerMatch = fenceMatch ? null : body.match(/^([-*+]|\d{1,9}[.)])([ \t]+|$)/);
+
+        if (markerMatch && !/^([-*_])(\s*\1){2,}\s*$/.test(body)) {
+          while (stack.length && measured.width < stack[stack.length - 1].indent + 2) {
+            stack.pop();
+          }
+          const parent = stack[stack.length - 1] || null;
+          let newIndent = measured.width;
+          if (parent) {
+            newIndent = measured.width < parent.contentColumn
+              ? parent.contentColumn + parent.delta
+              : measured.width + parent.delta;
+          }
+          const spacing = markerMatch[2] ? measureLeadingIndent(markerMatch[2]).width : 1;
+          const contentColumn = measured.width + markerMatch[1].length + (spacing >= 1 && spacing <= 4 ? spacing : 1);
+          stack.push({ indent: measured.width, contentColumn, delta: newIndent - measured.width });
+          setIndent(index, measured, newIndent);
+          continue;
+        }
+
+        let owner = null;
+        for (let cursor = stack.length - 1; cursor >= 0; cursor -= 1) {
+          if (measured.width >= stack[cursor].indent + 2) {
+            owner = stack[cursor];
+            break;
+          }
+        }
+
+        if (!owner) {
+          if (measured.width < 2) {
+            stack.length = 0;
+          }
+          if (fenceMatch) {
+            fence = { marker: fenceMatch[1], width: measured.width, delta: 0 };
+          }
+          continue;
+        }
+
+        const newIndent = Math.max(measured.width, owner.contentColumn) + owner.delta;
+        setIndent(index, measured, newIndent);
+        if (fenceMatch) {
+          fence = { marker: fenceMatch[1], width: measured.width, delta: newIndent - measured.width };
+        }
       }
 
-      closeLists();
-      closeQuote();
+      return lines.join("\n");
+    }
 
-        if (inCode) {
-          if (normalizeCodeLanguage(codeLanguage) === "mermaid") {
-            html += await createMermaidHtml(codeLines.join("\n"));
-          } else {
-            html += createCodeBlockHtml(codeLanguage, codeLines.join("\n"));
+    function getMarkdownSourceLine(state, line) {
+      return state.src.slice(state.bMarks[line] + state.tShift[line], state.eMarks[line]);
+    }
+
+    function markdownFrontMatterRule(state, startLine, endLine, silent) {
+      if (startLine !== 0 || state.blkIndent !== 0 || state.tShift[0] !== 0) {
+        return false;
+      }
+      if (getMarkdownSourceLine(state, 0).replace(/\s+$/, "") !== "---") {
+        return false;
+      }
+
+      let closingLine = -1;
+      for (let line = 1; line < endLine; line += 1) {
+        const text = state.src.slice(state.bMarks[line], state.eMarks[line]).replace(/\s+$/, "");
+        if (text === "---" || text === "...") {
+          closingLine = line;
+          break;
+        }
+      }
+      if (closingLine < 0) {
+        return false;
+      }
+
+      const content = state.getLines(1, closingLine, 0, false);
+      if (content.trim() && !/^[\w"'-][^:\n]*:(\s|$)/m.test(content)) {
+        return false;
+      }
+      if (silent) {
+        return true;
+      }
+
+      const token = state.push("front_matter", "pre", 0);
+      token.block = true;
+      token.content = content.replace(/\n$/, "");
+      token.markup = "---";
+      token.map = [0, closingLine + 1];
+      state.line = closingLine + 1;
+      return true;
+    }
+
+    function markdownMathBlockRule(state, startLine, endLine, silent) {
+      const trimmed = getMarkdownSourceLine(state, startLine).trim();
+      let openDelimiter = "";
+      let closeDelimiter = "";
+      if (trimmed.startsWith("$$")) {
+        openDelimiter = "$$";
+        closeDelimiter = "$$";
+      } else if (trimmed.startsWith("\\[")) {
+        openDelimiter = "\\[";
+        closeDelimiter = "\\]";
+      } else {
+        return false;
+      }
+
+      const delimiter = openDelimiter === "$$" ? "$$" : "";
+
+      if (trimmed !== openDelimiter) {
+        if (trimmed.length < 4 || !trimmed.endsWith(closeDelimiter)) {
+          return false;
+        }
+        const inlineBlock = trimmed.slice(2, -2).trim();
+        if (!inlineBlock) {
+          return false;
+        }
+        if (silent) {
+          return true;
+        }
+        const token = state.push("math_block", "div", 0);
+        token.block = true;
+        token.content = inlineBlock;
+        token.markup = delimiter;
+        token.map = [startLine, startLine + 1];
+        state.line = startLine + 1;
+        return true;
+      }
+
+      let closingLine = -1;
+      for (let line = startLine + 1; line < endLine; line += 1) {
+        if (getMarkdownSourceLine(state, line).trim() === closeDelimiter) {
+          closingLine = line;
+          break;
+        }
+      }
+      if (closingLine < 0) {
+        return false;
+      }
+      if (silent) {
+        return true;
+      }
+
+      const token = state.push("math_block", "div", 0);
+      token.block = true;
+      token.content = state.getLines(startLine + 1, closingLine, state.blkIndent, false).replace(/\n$/, "");
+      token.markup = delimiter;
+      token.map = [startLine, closingLine + 1];
+      state.line = closingLine + 1;
+      return true;
+    }
+
+    function markdownMathInlineRule(state, silent) {
+      const source = state.src;
+      const start = state.pos;
+      let delimiter = "";
+
+      if (source[start] === "\\" && source[start + 1] === "(") {
+        delimiter = "\\(";
+      } else if (source[start] === "$") {
+        if (source[start + 1] === "$" || /[\p{L}\p{N}]/u.test(source[start - 1] || "") || /\s/.test(source[start + 1] || "")) {
+          return false;
+        }
+        delimiter = "$";
+      } else {
+        return false;
+      }
+
+      const contentStart = start + delimiter.length;
+      const closeIndex = findInlineMathClose(source, contentStart, delimiter, state.posMax);
+      if (closeIndex < 0) {
+        return false;
+      }
+
+      const latex = source.slice(contentStart, closeIndex);
+      if (!latex.trim() || (delimiter === "$" && (latex.includes("$") || latex.includes("\n")))) {
+        return false;
+      }
+
+      if (!silent) {
+        const token = state.push("math_inline", "math", 0);
+        token.content = latex;
+        token.markup = delimiter;
+      }
+      state.pos = closeIndex + (delimiter === "$" ? 1 : 2);
+      return true;
+    }
+
+    function findTokenBlockEnd(tokens, startIndex) {
+      let depth = 0;
+      for (let index = startIndex; index < tokens.length; index += 1) {
+        depth += tokens[index].nesting;
+        if (depth <= 0) {
+          return index;
+        }
+      }
+      return tokens.length - 1;
+    }
+
+    // Shapes list items the way the visual editor expects them: GFM task items
+    // become checkbox rows, single-paragraph items render without <p>, and blank
+    // lines between items are kept as list-gap-after markers.
+    function markdownListLayoutRule(state) {
+      const tokens = state.tokens;
+      const lines = state.env.mdSourceLines || [];
+
+      for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token.type !== "list_item_open") {
+          continue;
+        }
+
+        const closeIndex = findTokenBlockEnd(tokens, index);
+        const paragraphIndexes = [];
+        for (let cursor = index + 1; cursor < closeIndex; cursor += 1) {
+          if (tokens[cursor].type === "paragraph_open" && tokens[cursor].level === token.level + 1) {
+            paragraphIndexes.push(cursor);
           }
         }
 
-      return {
-        html,
-        warnings: Array.from(warnings)
+        const firstParagraph = tokens[index + 1] && tokens[index + 1].type === "paragraph_open" ? index + 1 : -1;
+        const inline = firstParagraph >= 0 ? tokens[firstParagraph + 1] : null;
+        const taskMatch = inline && inline.type === "inline" ? inline.content.match(/^\[([ xX])\](?:[ \t]+|$)/) : null;
+        const firstChild = inline && inline.children ? inline.children[0] : null;
+
+        if (taskMatch && firstChild && firstChild.type === "text" && firstChild.content.startsWith(taskMatch[0].trimEnd())) {
+          token.meta = { ...(token.meta || {}), task: { checked: taskMatch[1].toLowerCase() === "x" } };
+          inline.content = inline.content.slice(taskMatch[0].length);
+          firstChild.content = firstChild.content.slice(taskMatch[0].length).replace(/^[ \t]+/, "");
+          tokens[firstParagraph].hidden = true;
+          tokens[firstParagraph + 2].hidden = true;
+          tokens[firstParagraph + 2].meta = { ...(tokens[firstParagraph + 2].meta || {}), closeTaskText: true };
+        } else if (paragraphIndexes.length === 1) {
+          tokens[paragraphIndexes[0]].hidden = true;
+          tokens[paragraphIndexes[0] + 2].hidden = true;
+        }
+
+        const nextToken = tokens[closeIndex + 1];
+        if (nextToken && nextToken.type === "list_item_open" && nextToken.map && nextToken.map[0] > 0) {
+          const previousLine = lines[nextToken.map[0] - 1];
+          if (previousLine !== undefined && !previousLine.trim()) {
+            token.meta = { ...(token.meta || {}), gapAfter: true };
+          }
+        }
+      }
+
+      for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token.type !== "bullet_list_open" && token.type !== "ordered_list_open") {
+          continue;
+        }
+        const closeIndex = findTokenBlockEnd(tokens, index);
+        const items = [];
+        for (let cursor = index + 1; cursor < closeIndex; cursor += 1) {
+          if (tokens[cursor].type === "list_item_open" && tokens[cursor].level === token.level + 1) {
+            items.push(tokens[cursor]);
+          }
+        }
+        if (items.length && items.every(item => item.meta && item.meta.task)) {
+          token.attrJoin("class", "task-list");
+        }
+      }
+
+      for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        const inline = tokens[index + 2];
+        if (token.type !== "blockquote_open" || !tokens[index + 1] || tokens[index + 1].type !== "paragraph_open" || !inline || inline.type !== "inline") {
+          continue;
+        }
+        const children = inline.children || [];
+        const alertMatch = children[0] && children[0].type === "text"
+          ? children[0].content.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/i)
+          : null;
+        if (!alertMatch || (children[1] && children[1].type !== "softbreak")) {
+          continue;
+        }
+        token.attrJoin("class", "markdown-alert markdown-alert-" + alertMatch[1].toLowerCase());
+        token.attrSet("data-md-alert", alertMatch[1].toUpperCase());
+        children.splice(0, children[1] ? 2 : 1);
+        if (!children.length) {
+          tokens[index + 1].hidden = true;
+          tokens[index + 3].hidden = true;
+        }
+      }
+
+      for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token.type !== "paragraph_open" || token.hidden) {
+          continue;
+        }
+        const inline = tokens[index + 1];
+        const children = inline && inline.children ? inline.children : [];
+        if (children.length === 1 && children[0].type === "image" && canRenderMarkdownImageSource(children[0].attrGet("src") || "")) {
+          token.meta = { ...(token.meta || {}), figure: true };
+          tokens[index + 2].meta = { ...(tokens[index + 2].meta || {}), figure: true };
+          children[0].meta = { ...(children[0].meta || {}), inFigure: true };
+        }
+      }
+    }
+
+    function getMarkdownRendererAlignment(token) {
+      const style = token.attrGet("style") || "";
+      const match = style.match(/text-align:\s*(left|center|right)/i);
+      return match ? match[1].toLowerCase() : "default";
+    }
+
+    function renderMarkdownTableCell(tag) {
+      return (tokens, index) => {
+        const token = tokens[index];
+        const alignment = getMarkdownRendererAlignment(token);
+        const textAlign = alignment === "center" || alignment === "right" ? alignment : "left";
+        return "<" + tag + ' data-align="' + alignment + '" style="text-align:' + textAlign + '">';
       };
     }
 
-    function inlineHtmlToMarkdown(html) {
+    function createMarkdownParser(options = {}) {
+      if (typeof window.markdownit !== "function") {
+        return null;
+      }
+
+      const md = window.markdownit({
+        html: options.html !== false,
+        linkify: true,
+        typographer: false,
+        breaks: false
+      });
+
+      // Link safety is enforced by the renderer so unsafe links stay visible as text.
+      md.validateLink = () => true;
+      md.normalizeLink = url => url;
+      md.normalizeLinkText = text => text;
+
+      if (typeof window.markdownitFootnote === "function") {
+        md.use(window.markdownitFootnote);
+      }
+
+      md.block.ruler.before("table", "front_matter", markdownFrontMatterRule);
+      md.block.ruler.before("code", "math_block", markdownMathBlockRule, { alt: ["paragraph", "reference", "blockquote", "list"] });
+      md.inline.ruler.before("escape", "math_inline", markdownMathInlineRule);
+      md.core.ruler.push("md_editor_list_layout", markdownListLayoutRule);
+
+      const linkRule = md.inline.ruler.__rules__.find(rule => rule.name === "link");
+      if (linkRule) {
+        const originalLinkRule = linkRule.fn;
+        md.inline.ruler.at("link", (state, silent) => {
+          const start = state.pos;
+          const tokenCount = state.tokens.length;
+          const matched = originalLinkRule(state, silent);
+          if (!matched || silent) {
+            return matched;
+          }
+          const consumed = state.src.slice(start, state.pos);
+          if (consumed.endsWith(")")) {
+            return matched;
+          }
+          const fullReference = consumed.match(/\]\[([^\]]+)\]$/);
+          const label = fullReference
+            ? fullReference[1]
+            : consumed.replace(/\[\]$/, "").replace(/^\[/, "").replace(/\]$/, "");
+          const linkOpen = state.tokens.slice(tokenCount).find(token => token.type === "link_open");
+          if (linkOpen && label.trim()) {
+            linkOpen.meta = { ...(linkOpen.meta || {}), referenceLabel: label.trim() };
+          }
+          return matched;
+        });
+      }
+
+      const rules = md.renderer.rules;
+
+      md.renderer.renderToken = function renderToken(tokens, index) {
+        const token = tokens[index];
+        if (token.hidden) {
+          return "";
+        }
+        return (token.nesting === -1 ? "</" : "<") + token.tag + this.renderAttrs(token) + ">";
+      };
+
+      const baseRenderInline = md.renderer.renderInline.bind(md.renderer);
+      md.renderer.renderInline = function renderInline(tokens, options, env) {
+        const hasHtml = tokens.some(token => token.type === "html_inline");
+        if (!hasHtml || env.sanitizeDepth) {
+          return baseRenderInline(tokens, options, env);
+        }
+        env.sanitizeDepth += 1;
+        let html = "";
+        try {
+          html = baseRenderInline(tokens, options, env);
+        } finally {
+          env.sanitizeDepth -= 1;
+        }
+        return restoreTrustedHtml(sanitizeDocumentHtml(html, env), env);
+      };
+
+      rules.paragraph_open = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        if (token.hidden) {
+          return "";
+        }
+        return (token.meta && token.meta.figure ? "<figure" : "<p") + self.renderAttrs(token) + ">";
+      };
+
+      rules.paragraph_close = (tokens, index) => {
+        const token = tokens[index];
+        let html = token.hidden ? "" : (token.meta && token.meta.figure ? "</figure>" : "</p>");
+        if (token.meta && token.meta.closeTaskText) {
+          html += "</span></span>";
+        }
+        return html;
+      };
+
+      rules.heading_open = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        const inline = tokens[index + 1];
+        token.attrSet("id", createMarkdownHeadingId(inline ? inline.content : "", env.headingIdCounts));
+        return "<" + token.tag + self.renderAttrs(token) + ">";
+      };
+
+      rules.list_item_open = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        const task = token.meta && token.meta.task;
+        if (token.meta && token.meta.gapAfter) {
+          token.attrJoin("class", "list-gap-after");
+        }
+        if (token.map) {
+          token.attrSet("data-md-line", String(token.map[0]));
+        }
+        if (!task) {
+          return "<li" + self.renderAttrs(token) + ">";
+        }
+        token.attrSet("data-task", "true");
+        token.attrSet("data-checked", String(task.checked));
+        return "<li" + self.renderAttrs(token) + '><span class="task-item" contenteditable="false"><input type="checkbox" contenteditable="false"' + (task.checked ? ' checked="checked"' : "") + '><span class="task-text" contenteditable="true">';
+      };
+
+      rules.table_open = (tokens, index, options, env, self) => '<table data-md-table="true"' + self.renderAttrs(tokens[index]) + ">";
+
+      rules.blockquote_open = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        const alert = token.attrGet("data-md-alert");
+        const title = alert ? alert.charAt(0) + alert.slice(1).toLowerCase() : "";
+        return "<blockquote" + self.renderAttrs(token) + ">"
+          + (alert ? '<p class="markdown-alert-title" data-md-generated="alert-title" contenteditable="false">' + escapeHtml(title) + "</p>" : "");
+      };
+      rules.th_open = renderMarkdownTableCell("th");
+      rules.td_open = renderMarkdownTableCell("td");
+      rules.s_open = () => "<del>";
+      rules.s_close = () => "</del>";
+      rules.hardbreak = () => "<br>";
+      rules.softbreak = () => "\n";
+
+      rules.code_block = (tokens, index, options, env) => {
+        const token = tokens[index];
+        return protectTrustedHtml(env, createCodeBlockHtml("", token.content.replace(/\n$/, ""), getBlockAttributes(token)));
+      };
+
+      rules.fence = (tokens, index, options, env) => {
+        const token = tokens[index];
+        const info = String(token.info || "").trim();
+        const code = token.content.replace(/\n$/, "");
+        if (normalizeCodeLanguage(info) === "mermaid") {
+          const graph = code.trim();
+          const rendered = token.meta && typeof token.meta.mermaidHtml === "string" ? token.meta.mermaidHtml : "";
+          return protectTrustedHtml(env, '<div class="mermaid-block"' + getBlockAttributes(token) + ' data-md-mermaid="' + escapeHtml(graph) + '" contenteditable="false">' + rendered + "</div>");
+        }
+        return protectTrustedHtml(env, createCodeBlockHtml(info, code, getBlockAttributes(token)));
+      };
+
+      rules.math_inline = (tokens, index, options, env) => {
+        const token = tokens[index];
+        return protectTrustedHtml(env, createMathHtml(token.content, false, token.markup === "$" ? "$" : ""));
+      };
+
+      rules.math_block = (tokens, index, options, env) => {
+        const token = tokens[index];
+        return protectTrustedHtml(env, createMathHtml(token.content, true, token.markup, getBlockAttributes(token)));
+      };
+
+      rules.front_matter = (tokens, index, options, env) => {
+        const token = tokens[index];
+        const source = "---\n" + token.content + "\n---";
+        return protectTrustedHtml(env, '<pre class="front-matter"' + getBlockAttributes(token) + ' data-md-source="' + escapeHtml(source) + '" contenteditable="false"><code>' + escapeHtml(token.content) + "</code></pre>");
+      };
+
+      rules.html_inline = (tokens, index) => escapeDisallowedHtmlTags(tokens[index].content);
+
+      rules.html_block = (tokens, index, options, env) => {
+        const token = tokens[index];
+        if (env.sanitizeDepth) {
+          return escapeDisallowedHtmlTags(token.content);
+        }
+        return sanitizeDocumentHtml(escapeDisallowedHtmlTags(token.content), env);
+      };
+
+      rules.md_html_group = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        env.sanitizeDepth += 1;
+        let html = "";
+        try {
+          html = self.render(token.meta.tokens, options, env);
+        } finally {
+          env.sanitizeDepth -= 1;
+        }
+        const safeHtml = restoreTrustedHtml(sanitizeDocumentHtml(html, env), env);
+        return '<div class="md-html-block"' + getBlockAttributes(token) + ' data-md-source="' + escapeHtml(token.meta.source || "") + '" contenteditable="false">' + safeHtml + "</div>";
+      };
+
+      rules.link_open = (tokens, index, options, env) => {
+        const token = tokens[index];
+        const href = normalizeLinkHref(token.attrGet("href") || "");
+        env.linkStack.push({ href, safe: isSafeMarkdownHref(href) });
+        if (!isSafeMarkdownHref(href)) {
+          return "[";
+        }
+        const title = token.attrGet("title") || "";
+        const referenceLabel = token.meta && token.meta.referenceLabel ? token.meta.referenceLabel : "";
+        let autolinkAttr = "";
+        if (token.markup === "linkify") {
+          autolinkAttr = ' data-md-autolink="linkify"';
+        } else if (token.markup === "autolink") {
+          autolinkAttr = ' data-md-autolink="angle"';
+        }
+        const browsingContextAttrs = isInternalDocumentFragment(href) ? "" : ' target="_blank" rel="noreferrer"';
+        return '<a href="' + escapeHtml(href) + '" data-md-href="' + escapeHtml(href) + '"'
+          + (referenceLabel ? ' data-md-ref="' + escapeHtml(referenceLabel) + '"' : "")
+          + autolinkAttr
+          + (title ? ' title="' + escapeHtml(title) + '"' : "")
+          + browsingContextAttrs + ">";
+      };
+
+      rules.link_close = (tokens, index, options, env) => {
+        const link = env.linkStack.pop();
+        if (link && !link.safe) {
+          return "](" + escapeHtml(link.href) + ")";
+        }
+        return "</a>";
+      };
+
+      rules.image = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        const source = normalizeLinkHref(token.attrGet("src") || "");
+        const alt = self.renderInlineAsText(token.children || [], options, env);
+        const title = token.attrGet("title") || "";
+        if (!canRenderMarkdownImageSource(source)) {
+          return preserveEscapedMarkdownLiteral(escapeHtml("![" + alt + "](" + source + (title ? ' "' + title + '"' : "") + ")"));
+        }
+        const resolvedSource = token.meta && token.meta.resolvedSrc ? token.meta.resolvedSrc : source;
+        const image = '<img src="' + escapeHtml(resolvedSource) + '" data-md-src="' + escapeHtml(source) + '" alt="' + escapeHtml(alt) + '"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">";
+        if (token.meta && token.meta.inFigure && alt) {
+          return protectTrustedHtml(env, image + "<figcaption>" + escapeHtml(alt) + "</figcaption>");
+        }
+        return protectTrustedHtml(env, image);
+      };
+
+      rules.footnote_ref = (tokens, index, options, env, self) => {
+        const token = tokens[index];
+        const anchorId = self.rules.footnote_anchor_name(tokens, index, options, env, self);
+        const caption = self.rules.footnote_caption(tokens, index, options, env, self);
+        let referenceId = anchorId;
+        if (token.meta.subId > 0) {
+          referenceId += ":" + token.meta.subId;
+        }
+        const footnote = env.footnotes && env.footnotes.list ? env.footnotes.list[token.meta.id] : null;
+        const sourceAttr = token.meta.label != null
+          ? ' data-md-footnote="' + escapeHtml(token.meta.label) + '"'
+          : ' data-md-footnote-inline="' + escapeHtml(footnote && footnote.content ? footnote.content : "") + '"';
+        return '<sup class="footnote-ref"' + sourceAttr + ' contenteditable="false"><a href="#fn' + anchorId + '" id="fnref' + referenceId + '">' + caption + "</a></sup>";
+      };
+
+      rules.footnote_block_open = () => '<section class="footnotes" data-md-generated="footnotes" contenteditable="false"><hr class="footnotes-sep"><ol class="footnotes-list">';
+      rules.footnote_block_close = () => "</ol></section>";
+
+      return md;
+    }
+
+    const markdownParser = createMarkdownParser();
+    const markdownTextDocumentParser = createMarkdownParser({ html: false });
+
+    async function resolveMarkdownTokenResources(tokens, env) {
+      const jobs = [];
+      const htmlImageSources = new Set();
+
+      const visit = list => {
+        list.forEach(token => {
+          if (token.type === "image") {
+            const source = normalizeLinkHref(token.attrGet("src") || "");
+            if (canRenderMarkdownImageSource(source)) {
+              jobs.push(resolveResourcePath(source).then(resolved => {
+                token.meta = { ...(token.meta || {}), resolvedSrc: resolved };
+              }));
+            }
+          } else if (token.type === "fence" && normalizeCodeLanguage(token.info) === "mermaid") {
+            jobs.push(renderMermaidToHtml(token.content.replace(/\n$/, "")).then(html => {
+              token.meta = { ...(token.meta || {}), mermaidHtml: html };
+            }));
+          } else if ((token.type === "html_block" || token.type === "html_inline") && hasLinkedDirectoryContext()) {
+            collectHtmlImageSources(token.content)
+              .filter(isRelativeHtmlImageSource)
+              .forEach(source => htmlImageSources.add(source));
+          }
+          if (token.children) {
+            visit(token.children);
+          }
+        });
+      };
+
+      visit(tokens);
+      htmlImageSources.forEach(source => {
+        jobs.push(resolveResourcePath(source).then(resolved => {
+          env.resolvedHtmlImages.set(source, resolved);
+        }));
+      });
+      await Promise.all(jobs);
+    }
+
+    function getLineStartOffsets(lines) {
+      const offsets = [];
+      let offset = 0;
+      lines.forEach(line => {
+        offsets.push(offset);
+        offset += line.length + 1;
+      });
+      return offsets;
+    }
+
+    // Assigns a data-md-block index to every top-level rendered block and records
+    // the exact source text it came from, plus the text between blocks. The
+    // visual editor uses this table to re-emit untouched blocks verbatim.
+    function indexMarkdownTopLevelBlocks(tokens, source, lines) {
+      const ranges = [];
+      for (let index = 0; index < tokens.length; index += 1) {
+        const end = tokens[index].nesting === 1 ? findTokenBlockEnd(tokens, index) : index;
+        ranges.push({ start: index, end: end + 1 });
+        index = end;
+      }
+
+      const lineOffsets = getLineStartOffsets(lines);
+      const outputTokens = [];
+      const blocks = [];
+
+      function lastContentLine(startLine, endLine) {
+        let end = Math.min(endLine, lines.length);
+        while (end > startLine + 1 && !String(lines[end - 1] || "").trim()) {
+          end -= 1;
+        }
+        return end;
+      }
+
+      function addBlock(token, startLine, endLine) {
+        const lastLine = lastContentLine(startLine, endLine);
+        const start = lineOffsets[startLine] || 0;
+        const end = (lineOffsets[lastLine - 1] || 0) + String(lines[lastLine - 1] || "").length;
+        token.attrSet("data-md-block", String(blocks.length));
+        blocks.push({ start, end, source: source.slice(start, end) });
+      }
+
+      for (let rangeIndex = 0; rangeIndex < ranges.length; rangeIndex += 1) {
+        const range = ranges[rangeIndex];
+        const first = tokens[range.start];
+
+        if (first.type === "html_block" && first.map) {
+          let balance = getHtmlTagBalance(first.content);
+          let lastRange = rangeIndex;
+          while (balance > 0 && lastRange + 1 < ranges.length) {
+            const nextFirst = tokens[ranges[lastRange + 1].start];
+            if (nextFirst.type === "footnote_block_open" || !nextFirst.map) {
+              break;
+            }
+            lastRange += 1;
+            if (nextFirst.type === "html_block") {
+              balance += getHtmlTagBalance(nextFirst.content);
+            }
+          }
+
+          const groupTokens = tokens.slice(range.start, ranges[lastRange].end);
+          const endLine = groupTokens.reduce((max, token) => token.map ? Math.max(max, token.map[1]) : max, first.map[1]);
+          const group = new first.constructor("md_html_group", "div", 0);
+          group.block = true;
+          group.map = [first.map[0], endLine];
+          group.meta = { tokens: groupTokens };
+          addBlock(group, first.map[0], endLine);
+          group.meta.source = blocks[blocks.length - 1].source;
+          outputTokens.push(group);
+          rangeIndex = lastRange;
+          continue;
+        }
+
+        if (first.map) {
+          addBlock(first, first.map[0], first.map[1]);
+        }
+        for (let index = range.start; index < range.end; index += 1) {
+          outputTokens.push(tokens[index]);
+        }
+      }
+
+      blocks.forEach((block, index) => {
+        const next = blocks[index + 1];
+        block.gapAfter = source.slice(block.end, next ? next.start : source.length);
+      });
+
+      return {
+        tokens: outputTokens,
+        table: {
+          blocks,
+          leading: blocks.length ? source.slice(0, blocks[0].start) : source
+        }
+      };
+    }
+
+    function collectMarkdownWarnings(tokens, lines) {
+      const warnings = new Set();
+      const coveredLines = new Set();
+      tokens.forEach(token => {
+        if (token.map && (token.type === "fence" || token.type === "code_block" || token.type === "table_open" || token.type === "html_block" || token.type === "math_block" || token.type === "front_matter")) {
+          for (let line = token.map[0]; line < token.map[1]; line += 1) {
+            coveredLines.add(line);
+          }
+        }
+      });
+
+      for (let index = 0; index + 1 < lines.length; index += 1) {
+        if (coveredLines.has(index) || !lines[index].trim().startsWith("|") || !lines[index + 1].trim().startsWith("|")) {
+          continue;
+        }
+        const candidate = tryParseMarkdownTable(lines, index);
+        if (candidate && candidate.invalid) {
+          warnings.add("statusTableInvalid");
+          break;
+        }
+      }
+
+      return Array.from(warnings);
+    }
+
+    async function markdownToHtml(markdown) {
+      const source = String(markdown || "").replace(/\r\n?/g, "\n");
+      const referenceData = extractReferenceDefinitionData(source);
+      currentReferenceDefinitions = referenceData.definitions;
+      currentReferenceOrder = referenceData.order;
+
+      const parser = documentRendersRawHtml() ? markdownParser : markdownTextDocumentParser;
+      if (!parser) {
+        return {
+          html: "<pre>" + escapeHtml(source) + "</pre>",
+          warnings: [],
+          blocks: null
+        };
+      }
+
+      const lines = source.split("\n");
+      const env = {
+        mdSourceLines: lines,
+        headingIdCounts: new Map(),
+        linkStack: [],
+        sanitizeDepth: 0,
+        trustedFragments: [],
+        resolvedHtmlImages: new Map()
+      };
+      const tokens = parser.parse(normalizeLegacyListIndentation(source), env);
+      await resolveMarkdownTokenResources(tokens, env);
+      const indexed = indexMarkdownTopLevelBlocks(tokens, source, lines);
+      const html = parser.renderer.render(indexed.tokens, parser.options, env);
+
+      return {
+        html,
+        warnings: collectMarkdownWarnings(tokens, lines),
+        blocks: indexed.table
+      };
+    }
+
+    const INLINE_HTML_PASSTHROUGH_TAGS = new Set(["sup", "sub", "kbd", "mark", "u", "ins", "small", "abbr"]);
+
+    function inlineHtmlToMarkdown(html, options = {}) {
+      const { hardBreaks = false } = options;
       const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
       doc.querySelectorAll("[data-md-math]").forEach(node => {
         const source = node.getAttribute("data-md-math") || "";
@@ -3734,7 +4396,36 @@
         node.replaceWith(doc.createTextNode("```mermaid\n" + source + "\n```"));
       });
 
-      return doc.body.innerHTML
+      doc.querySelectorAll("[data-md-footnote]").forEach(node => {
+        node.replaceWith(doc.createTextNode("[^" + node.getAttribute("data-md-footnote") + "]"));
+      });
+
+      doc.querySelectorAll("[data-md-footnote-inline]").forEach(node => {
+        node.replaceWith(doc.createTextNode("^[" + node.getAttribute("data-md-footnote-inline") + "]"));
+      });
+
+      doc.querySelectorAll("a[data-md-autolink]").forEach(node => {
+        const href = node.getAttribute("data-md-href") || node.getAttribute("href") || "";
+        const text = node.textContent || href;
+        node.replaceWith(doc.createTextNode(node.getAttribute("data-md-autolink") === "angle" ? "<" + href + ">" : text));
+      });
+
+      doc.querySelectorAll("img[data-md-html-src]").forEach(node => {
+        node.setAttribute("src", node.getAttribute("data-md-html-src") || "");
+        node.removeAttribute("data-md-html-src");
+      });
+
+      doc.querySelectorAll(Array.from(INLINE_HTML_PASSTHROUGH_TAGS).join(",")).forEach(node => {
+        const tag = node.tagName.toLowerCase();
+        node.replaceWith(doc.createTextNode("<" + tag + ">"), ...Array.from(node.childNodes), doc.createTextNode("</" + tag + ">"));
+      });
+
+      let source = doc.body.innerHTML;
+      if (hardBreaks) {
+        source = source.replace(/(?:\s*<br\s*\/?>)+\s*$/i, "");
+      }
+
+      return source
         .replace(/<\/?span[^>]*>/gi, "")
         .replace(/<a [^>]*data-md-ref="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2][$1]")
         .replace(/<a [^>]*data-md-href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
@@ -3750,16 +4441,18 @@
         .replace(/<(del|s|strike)[^>]*>(.*?)<\/\1>/gi, "~~$2~~")
         .replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`")
         .replace(/<a [^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
-        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<br\s*\/?>/gi, hardBreaks ? "\\\n" : "\n")
         .replace(/<[^>]+>/g, "")
         .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
         .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">");
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, "\"")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, "&");
     }
 
     function normalizeNodeText(value) {
-      return value.replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+      return value.replace(/ /g, " ").replace(/\n{3,}/g, "\n\n").trim();
     }
 
     function syncCheckboxAttributes(root = visualEditor) {
@@ -3779,7 +4472,21 @@
       });
     }
 
-    function htmlToMarkdown(html) {
+    function indentMarkdownLines(markdown, indent) {
+      return String(markdown || "")
+        .split("\n")
+        .map(line => line.trim() ? indent + line : "")
+        .join("\n");
+    }
+
+    const MARKDOWN_BLOCK_ELEMENT_TAGS = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "blockquote", "pre", "table", "figure", "hr", "section", "article", "details", "header", "footer", "nav", "aside", "dl"]);
+
+    function isMarkdownBlockElement(node) {
+      return Boolean(node && node.nodeType === Node.ELEMENT_NODE && MARKDOWN_BLOCK_ELEMENT_TAGS.has(node.tagName.toLowerCase()));
+    }
+
+    function htmlToMarkdown(html, options = {}) {
+      const { includeReferenceDefinitions = true } = options;
       const doc = new DOMParser().parseFromString(html.replace(/\r/g, ""), "text/html");
 
       function tableNodeToMarkdown(node) {
@@ -3835,21 +4542,55 @@
           });
       }
 
-      function listItemToMarkdown(node, prefix, depth = 0) {
+      function listItemToMarkdown(node, prefix, indent = "") {
         const nestedLists = Array.from(node.children).filter(child => child.matches && child.matches("ul, ol"));
         const clone = node.cloneNode(true);
-        clone.querySelectorAll("ul, ol").forEach(childList => childList.remove());
+        Array.from(clone.children)
+          .filter(child => child.matches && child.matches("ul, ol"))
+          .forEach(childList => childList.remove());
         const isTaskItem = node.dataset.task === "true";
         const checkbox = clone.querySelector('input[type="checkbox"]');
         if (checkbox) {
           checkbox.remove();
         }
+        const contentIndent = indent + " ".repeat(prefix.length + 1);
         const taskText = clone.querySelector(".task-text");
-        const inlineSource = taskText ? taskText.innerHTML : clone.innerHTML;
-        const label = normalizeNodeText(inlineHtmlToMarkdown(inlineSource || clone.textContent || ""));
-        const markerPrefix = "  ".repeat(depth) + prefix;
+        const extraBlocks = [];
+        let inlineSource = "";
 
-        let line = markerPrefix;
+        if (taskText) {
+          inlineSource = taskText.innerHTML;
+          const taskRow = taskText.closest(".task-item") || taskText;
+          Array.from(clone.childNodes)
+            .filter(child => child !== taskRow && isMarkdownBlockElement(child))
+            .forEach(child => extraBlocks.push(child));
+        } else if (Array.from(clone.childNodes).some(isMarkdownBlockElement)) {
+          const inlineNodes = [];
+          Array.from(clone.childNodes).forEach(child => {
+            if (isMarkdownBlockElement(child)) {
+              if (!inlineSource && !inlineNodes.length && !extraBlocks.length && child.tagName.toLowerCase() === "p") {
+                inlineSource = child.innerHTML;
+              } else {
+                extraBlocks.push(child);
+              }
+              return;
+            }
+            if (!extraBlocks.length) {
+              inlineNodes.push(child);
+            }
+          });
+          if (inlineNodes.length) {
+            const holder = doc.createElement("div");
+            inlineNodes.forEach(child => holder.appendChild(child.cloneNode(true)));
+            inlineSource = holder.innerHTML + inlineSource;
+          }
+        } else {
+          inlineSource = clone.innerHTML;
+        }
+
+        const label = normalizeNodeText(inlineHtmlToMarkdown(inlineSource || "", { hardBreaks: false }));
+
+        let line = indent + prefix;
         if (isTaskItem) {
           const originalCheckbox = node.querySelector('input[type="checkbox"]');
           const marker = originalCheckbox && originalCheckbox.checked ? "[x]" : "[ ]";
@@ -3858,20 +4599,26 @@
           line += " " + label;
         }
 
+        const extraMarkdown = extraBlocks
+          .map(child => nodeToMarkdown(child).replace(/\s+$/, ""))
+          .filter(markdown => markdown.trim())
+          .map(markdown => "\n\n" + indentMarkdownLines(markdown, contentIndent))
+          .join("");
+
         const nestedMarkdown = nestedLists
-          .map(list => listNodeToMarkdown(list, depth + 1, false))
+          .map(list => listNodeToMarkdown(list, contentIndent, false))
           .filter(Boolean)
           .join("\n");
 
-        return nestedMarkdown ? line + "\n" + nestedMarkdown : line;
+        return line + extraMarkdown + (nestedMarkdown ? "\n" + nestedMarkdown : "");
       }
 
-      function listNodeToMarkdown(node, depth = 0, addTrailingGap = true) {
+      function listNodeToMarkdown(node, indent = "", addTrailingGap = true) {
         const isOrderedList = node.tagName.toLowerCase() === "ol";
         const startNumber = isOrderedList ? Number.parseInt(node.getAttribute("start") || "1", 10) || 1 : 1;
         const lines = Array.from(node.children)
           .map((item, index) => ({
-            markdown: listItemToMarkdown(item, isOrderedList ? (startNumber + index) + "." : "-", depth),
+            markdown: listItemToMarkdown(item, isOrderedList ? (startNumber + index) + "." : "-", indent),
             gapAfter: item.classList.contains("list-gap-after")
           }))
           .filter(entry => entry.markdown);
@@ -3888,17 +4635,22 @@
           }
         });
 
-        return markdown + (addTrailingGap && depth === 0 ? "\n\n" : "");
+        return markdown + (addTrailingGap && !indent ? "\n\n" : "");
       }
 
       function blockquoteNodeToMarkdown(node, depth = 1) {
         const parts = [];
+        const quotePrefix = "> ".repeat(depth);
+        const alert = node.getAttribute("data-md-alert");
+        if (alert) {
+          parts.push({ nested: false, alertMarker: true, markdown: quotePrefix + "[!" + alert + "]" });
+        }
 
         Array.from(node.childNodes).forEach(child => {
           if (child.nodeType === Node.TEXT_NODE) {
             const text = normalizeNodeText(child.textContent || "");
             if (text) {
-              parts.push(prefixMarkdownLines(text, "> ".repeat(depth)));
+              parts.push({ nested: false, markdown: prefixMarkdownLines(text, quotePrefix) });
             }
             return;
           }
@@ -3911,7 +4663,7 @@
           if (tag === "blockquote") {
             const nested = blockquoteNodeToMarkdown(child, depth + 1).trim();
             if (nested) {
-              parts.push(nested);
+              parts.push({ nested: true, markdown: nested });
             }
             return;
           }
@@ -3920,10 +4672,17 @@
           if (!childMarkdown) {
             return;
           }
-          parts.push(prefixMarkdownLines(childMarkdown, "> ".repeat(depth)));
+          parts.push({ nested: false, markdown: prefixMarkdownLines(childMarkdown, quotePrefix) });
         });
 
-        return parts.filter(Boolean).join("\n") + "\n\n";
+        // A nested quote may follow a paragraph directly; other blocks need an
+        // empty quote line or CommonMark would merge them into one paragraph.
+        return parts.map((part, index) => {
+          if (!index) {
+            return part.markdown;
+          }
+          return (part.nested || parts[index - 1].alertMarker ? "\n" : "\n" + quotePrefix.trimEnd() + "\n") + part.markdown;
+        }).join("") + "\n\n";
       }
 
       function nodeToMarkdown(node) {
@@ -3937,6 +4696,14 @@
 
         const tag = node.tagName.toLowerCase();
 
+        if (node.hasAttribute("data-md-generated")) {
+          return "";
+        }
+
+        if (node.hasAttribute("data-md-source")) {
+          return (node.getAttribute("data-md-source") || "") + "\n\n";
+        }
+
         if (node.hasAttribute("data-md-math")) {
           const source = node.getAttribute("data-md-math") || "";
           const isDisplay = node.getAttribute("data-md-display") === "true";
@@ -3946,6 +4713,10 @@
         if (node.hasAttribute("data-md-mermaid")) {
           const source = node.getAttribute("data-md-mermaid") || "";
           return "```mermaid\n" + source + "\n```\n\n";
+        }
+
+        if (node.hasAttribute("data-md-footnote")) {
+          return "[^" + node.getAttribute("data-md-footnote") + "]";
         }
 
         const content = Array.from(node.childNodes).map(child => nodeToMarkdown(child)).join("");
@@ -3966,7 +4737,7 @@
             return "###### " + clean.trim() + "\n\n";
           case "p":
           case "div":
-            return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML)) + "\n\n";
+            return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML, { hardBreaks: true })) + "\n\n";
           case "strong":
           case "b":
           case "em":
@@ -3987,9 +4758,9 @@
           case "blockquote":
             return blockquoteNodeToMarkdown(node, 1);
           case "ul":
-            return listNodeToMarkdown(node, 0, true);
+            return listNodeToMarkdown(node, "", true);
           case "ol":
-            return listNodeToMarkdown(node, 0, true);
+            return listNodeToMarkdown(node, "", true);
           case "li":
             return normalizeNodeText(inlineHtmlToMarkdown(node.innerHTML));
           case "pre":
@@ -4013,7 +4784,6 @@
             return "---\n\n";
           case "br":
             return "\n";
-          case "div":
           case "section":
           case "article":
           case "body":
@@ -4027,19 +4797,168 @@
         .replace(/• /g, "- ")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
-      const referenceLines = collectReferenceDefinitionsFromDocument();
+      const referenceLines = includeReferenceDefinitions ? collectReferenceDefinitionsFromDocument() : [];
       return (bodyMarkdown + (referenceLines.length ? "\n\n" + referenceLines.join("\n") : ""))
         .replace(/\n{3,}/g, "\n\n")
         .trim();
+    }
+
+    // Visual edits must not rewrite the parts of a document the user did not
+    // touch. Each top-level block rendered from Markdown carries data-md-block;
+    // a block whose DOM is unchanged is emitted with its original source text
+    // (and the original text between blocks), and only edited or new blocks are
+    // converted from HTML.
+    function createVisualBlockState(blockTable, root) {
+      if (!blockTable || !Array.isArray(blockTable.blocks)) {
+        return null;
+      }
+      const snapshots = [];
+      Array.from(root ? root.children : []).forEach(element => {
+        const blockIndex = Number.parseInt(element.getAttribute("data-md-block") || "", 10);
+        if (Number.isInteger(blockIndex) && snapshots[blockIndex] === undefined) {
+          snapshots[blockIndex] = element.outerHTML;
+        }
+      });
+      return {
+        blocks: blockTable.blocks,
+        leading: blockTable.leading || "",
+        snapshots,
+        snapshotMarkdown: []
+      };
+    }
+
+    function serializeVisualBlockHtml(html) {
+      return htmlToMarkdown(html, { includeReferenceDefinitions: false });
+    }
+
+    function isVisualBlockUnchanged(element, blockIndex, state) {
+      const snapshot = state.snapshots[blockIndex];
+      if (snapshot === undefined) {
+        return false;
+      }
+      if (element.outerHTML === snapshot) {
+        return true;
+      }
+      if (state.snapshotMarkdown[blockIndex] === undefined) {
+        state.snapshotMarkdown[blockIndex] = serializeVisualBlockHtml(snapshot);
+      }
+      return serializeVisualBlockHtml(element.outerHTML) === state.snapshotMarkdown[blockIndex];
+    }
+
+    function serializeVisualDocument(root, state) {
+      if (!state) {
+        return htmlToMarkdown(root.innerHTML);
+      }
+
+      const pieces = [];
+      let inlineRun = [];
+
+      function flushInlineRun() {
+        if (!inlineRun.length) {
+          return;
+        }
+        const holder = document.createElement("p");
+        inlineRun.forEach(node => holder.appendChild(node.cloneNode(true)));
+        inlineRun = [];
+        const markdown = serializeVisualBlockHtml(holder.outerHTML);
+        if (markdown) {
+          pieces.push({ blockIndex: null, original: false, text: markdown });
+        }
+      }
+
+      Array.from(root.childNodes).forEach(node => {
+        if (!isMarkdownBlockElement(node)) {
+          if (node.nodeType === Node.TEXT_NODE && !node.textContent.trim() && !inlineRun.length) {
+            return;
+          }
+          if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
+            inlineRun.push(node);
+          }
+          return;
+        }
+
+        flushInlineRun();
+        if (node.hasAttribute("data-md-generated")) {
+          return;
+        }
+
+        const blockIndex = Number.parseInt(node.getAttribute("data-md-block") || "", 10);
+        const knownBlock = Number.isInteger(blockIndex) && blockIndex >= 0 && blockIndex < state.blocks.length;
+        if (knownBlock && isVisualBlockUnchanged(node, blockIndex, state)) {
+          pieces.push({ blockIndex, original: true, text: state.blocks[blockIndex].source });
+          return;
+        }
+
+        const markdown = serializeVisualBlockHtml(node.outerHTML);
+        if (markdown) {
+          pieces.push({ blockIndex: knownBlock ? blockIndex : null, original: false, text: markdown });
+        }
+      });
+      flushInlineRun();
+
+      const emittedGaps = new Set();
+      const gapContent = blockIndex => {
+        const gap = blockIndex < 0 ? state.leading : (state.blocks[blockIndex] ? state.blocks[blockIndex].gapAfter : "");
+        return /\S/.test(gap || "") ? gap.trim() : "";
+      };
+
+      let markdown = "";
+      pieces.forEach((piece, index) => {
+        const previous = pieces[index - 1];
+        if (!previous) {
+          if (piece.original && piece.blockIndex === 0) {
+            markdown += state.leading;
+            emittedGaps.add(-1);
+          }
+        } else if (previous.original && piece.original && piece.blockIndex === previous.blockIndex + 1) {
+          markdown += state.blocks[previous.blockIndex].gapAfter;
+          emittedGaps.add(previous.blockIndex);
+        } else {
+          if (previous.blockIndex !== null && !emittedGaps.has(previous.blockIndex) && gapContent(previous.blockIndex)) {
+            markdown += "\n\n" + gapContent(previous.blockIndex);
+            emittedGaps.add(previous.blockIndex);
+          }
+          markdown += "\n\n";
+        }
+        markdown += piece.text;
+      });
+
+      const last = pieces[pieces.length - 1];
+      if (last && last.original && last.blockIndex === state.blocks.length - 1) {
+        markdown += state.blocks[last.blockIndex].gapAfter;
+        emittedGaps.add(last.blockIndex);
+      } else if (last && last.blockIndex !== null && !emittedGaps.has(last.blockIndex) && gapContent(last.blockIndex)) {
+        markdown += "\n\n" + gapContent(last.blockIndex);
+        emittedGaps.add(last.blockIndex);
+      }
+
+      const leftover = [];
+      for (let blockIndex = -1; blockIndex < state.blocks.length; blockIndex += 1) {
+        if (!emittedGaps.has(blockIndex) && gapContent(blockIndex)) {
+          leftover.push(gapContent(blockIndex));
+        }
+      }
+      if (leftover.length) {
+        markdown = markdown.replace(/\s+$/, "") + (markdown.trim() ? "\n\n" : "") + leftover.join("\n\n");
+      }
+
+      const keepsTrailingGap = last && last.original && last.blockIndex === state.blocks.length - 1 && !leftover.length;
+      return keepsTrailingGap ? markdown : markdown.replace(/\s+$/, "");
     }
 
 </script>
 
 <!-- === FileManager === -->
 <script id="Script-FileManager">
+    function getMarkdownForSaving() {
+      return currentDocumentLineEnding === "\n"
+        ? markdownInput.value
+        : markdownInput.value.replace(/\n/g, currentDocumentLineEnding);
+    }
+
     async function saveMarkdownWithPicker() {
       if (!window.showSaveFilePicker) {
-        const blob = new Blob([markdownInput.value], { type: "text/markdown;charset=utf-8" });
+        const blob = new Blob([getMarkdownForSaving()], { type: "text/markdown;charset=utf-8" });
         downloadBlobFile(blob, currentDocumentName);
         hasPersistedDocumentVersion = true;
         lastDownloadedMarkdown = markdownInput.value;
@@ -4068,7 +4987,7 @@
             ]
         });
         const writable = await fileHandle.createWritable();
-        await writable.write(markdownInput.value);
+        await writable.write(getMarkdownForSaving());
         await writable.close();
         hasPersistedDocumentVersion = true;
         lastDownloadedMarkdown = markdownInput.value;
@@ -4087,7 +5006,7 @@
         try {
           fileSaveInFlight = true;
           const writable = await currentFileHandle.createWritable();
-          await writable.write(markdownInput.value);
+          await writable.write(getMarkdownForSaving());
           await writable.close();
           hasPersistedDocumentVersion = true;
           lastDownloadedMarkdown = markdownInput.value;
@@ -4872,7 +5791,7 @@
         return false;
       }
 
-      const markdown = htmlToMarkdown(visualEditor.innerHTML);
+      const markdown = documentSyncController.serializeVisualEditor();
       visualEditorMutationBaseline = visualEditor.innerHTML;
       if (markdown === markdownInput.value) {
         return false;
@@ -4923,6 +5842,10 @@
 
     function setCurrentDirectoryFiles(directoryFiles) {
       resourceResolver.setDirectoryFiles(directoryFiles);
+    }
+
+    function setCurrentDocumentBasePath(basePath) {
+      resourceResolver.setDocumentBasePath(basePath);
     }
 
     async function doesDirectoryMatchCurrentDocument(directoryHandle) {
@@ -5122,6 +6045,21 @@
         this.queueHistorySnapshot = options.queueHistorySnapshot;
         this.setStatusKey = options.setStatusKey;
         this.version = 0;
+        // Source map of the blocks currently shown in the visual editor. It is
+        // only replaced when the visual DOM is rebuilt from a render.
+        this.visualBlockState = null;
+        this.visualSource = "";
+      }
+
+      showInVisualEditor(renderResult, markdown) {
+        this.visualEditor.innerHTML = renderResult.html;
+        this.visualBlockState = createVisualBlockState(renderResult.blocks, this.visualEditor);
+        this.visualSource = markdown;
+        markVisualEditorMutationBaseline();
+      }
+
+      serializeVisualEditor() {
+        return this.serializeVisualHtml(this.visualEditor, this.visualBlockState);
       }
 
       async fromMarkdown() {
@@ -5132,9 +6070,8 @@
         if (version !== this.version) {
           return;
         }
-        this.visualEditor.innerHTML = renderResult.html;
-        markVisualEditorMutationBaseline();
-        this.preview.innerHTML = renderResult.html;
+        this.showInVisualEditor(renderResult, markdown);
+        this.preview.innerHTML = toPreviewHtml(renderResult.html);
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
         this.setStatusKey(renderResult.warnings.length ? renderResult.warnings[0] : "statusFromMarkdown");
@@ -5143,7 +6080,7 @@
       async fromVisual(normalizeVisualEditor = false) {
         const version = ++this.version;
         this.syncCheckboxAttributes(this.visualEditor);
-        const markdown = this.serializeVisualHtml(this.visualEditor.innerHTML);
+        const markdown = this.serializeVisualEditor();
         this.markdownInput.value = markdown;
         this.clearResolvedResources();
         const renderResult = await this.renderMarkdown(markdown);
@@ -5151,12 +6088,11 @@
           return;
         }
         if (normalizeVisualEditor) {
-          this.visualEditor.innerHTML = renderResult.html;
-          markVisualEditorMutationBaseline();
+          this.showInVisualEditor(renderResult, markdown);
         } else {
           markVisualEditorMutationBaseline();
         }
-        this.preview.innerHTML = renderResult.html;
+        this.preview.innerHTML = toPreviewHtml(renderResult.html);
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
         this.setStatusKey(renderResult.warnings.length ? renderResult.warnings[0] : "statusFromVisual");
@@ -5168,7 +6104,7 @@
       visualEditor,
       preview,
       renderMarkdown: markdownToHtml,
-      serializeVisualHtml: htmlToMarkdown,
+      serializeVisualHtml: serializeVisualDocument,
       clearResolvedResources,
       syncCheckboxAttributes,
       saveDraft: value => saveSessionValue("draft_markdown", value),
@@ -5184,6 +6120,58 @@
     async function syncFromVisual(normalizeVisualEditor = false) {
       await documentSyncController.fromVisual(normalizeVisualEditor);
       queueWindowTitleUpdate();
+    }
+
+    const MARKDOWN_TASK_LINE_PATTERN = /^(\s*(?:>\s*)*(?:[-*+]|\d{1,9}[.)])[ \t]+\[)([ xX])(\])/;
+
+    // Toggling a task checkbox changes only the "[ ]" / "[x]" marker on the
+    // item's source line, so the rest of the list keeps its original Markdown.
+    function patchTaskCheckboxInMarkdown(checkbox) {
+      const listItem = checkbox.closest('li[data-task="true"]');
+      const lineIndex = Number.parseInt(listItem ? listItem.getAttribute("data-md-line") || "" : "", 10);
+      if (!listItem || !Number.isInteger(lineIndex) || visualEditor.querySelectorAll('li[data-md-line="' + lineIndex + '"]').length !== 1) {
+        return "fallback";
+      }
+
+      const sourceLines = String(documentSyncController.visualSource || "").split("\n");
+      const currentLines = String(markdownInput.value || "").split("\n");
+      const sourceLine = sourceLines[lineIndex];
+      const currentLine = currentLines[lineIndex];
+      const sourceMatch = sourceLine ? sourceLine.match(MARKDOWN_TASK_LINE_PATTERN) : null;
+      const currentMatch = currentLine ? currentLine.match(MARKDOWN_TASK_LINE_PATTERN) : null;
+      if (
+        sourceLines.length !== currentLines.length
+        || !sourceMatch
+        || !currentMatch
+        || sourceMatch[1] !== currentMatch[1]
+        || sourceLine.slice(sourceMatch[0].length) !== currentLine.slice(currentMatch[0].length)
+      ) {
+        return "fallback";
+      }
+
+      if ((currentMatch[2].toLowerCase() === "x") === checkbox.checked) {
+        return "unchanged";
+      }
+
+      currentLines[lineIndex] = currentMatch[1] + (checkbox.checked ? "x" : " ") + currentMatch[3] + currentLine.slice(currentMatch[0].length);
+      markdownInput.value = currentLines.join("\n");
+      return "patched";
+    }
+
+    function handleTaskCheckboxToggle(checkbox) {
+      const listItem = checkbox.closest('li[data-task="true"]');
+      if (listItem) {
+        listItem.dataset.checked = String(checkbox.checked);
+      }
+      if (!checkbox.isConnected || !visualEditor.contains(checkbox)) {
+        return;
+      }
+      const result = patchTaskCheckboxInMarkdown(checkbox);
+      if (result === "patched") {
+        void syncFromMarkdown();
+      } else if (result === "fallback") {
+        void syncFromVisual(false);
+      }
     }
 
     function getTextareaLineStartOffset(textarea, lineIndex) {
@@ -7733,7 +8721,7 @@
     }
 
     async function openMarkdownFile(file, directoryHandle = null, fileHandle = null, options = {}) {
-      const { preserveDirectoryContext = false } = options;
+      const { preserveDirectoryContext = false, documentBasePath = null } = options;
       const validationResult = await readValidatedDocumentFile(file);
       if (!validationResult.ok) {
         setStatus(t(validationResult.reason === "binary" ? "statusBinaryFileBlocked" : "statusUnsupportedDocumentFile"));
@@ -7753,7 +8741,12 @@
       } else {
         clearResolvedResources();
       }
-      lastLoadedMarkdown = String(validationResult.text || "");
+      if (documentBasePath !== null) {
+        setCurrentDocumentBasePath(documentBasePath);
+      }
+      const loadedText = String(validationResult.text || "");
+      currentDocumentLineEnding = /\r\n/.test(loadedText) ? "\r\n" : "\n";
+      lastLoadedMarkdown = loadedText.replace(/\r\n?/g, "\n");
       currentDocumentNeedsProjectFolder = documentNeedsProjectFolder(lastLoadedMarkdown);
       lastDownloadedMarkdown = lastLoadedMarkdown;
       markdownInput.value = lastLoadedMarkdown;
@@ -7815,7 +8808,8 @@
           return;
         }
 
-        const diskText = await diskFile.text();
+        const diskResult = await readValidatedDocumentFile(diskFile);
+        const diskText = diskResult.ok ? String(diskResult.text || "").replace(/\r\n?/g, "\n") : null;
         if (diskText === lastDownloadedMarkdown) {
           lastKnownFileSignature = diskSignature;
           lastPromptedExternalSignature = "";
@@ -7880,6 +8874,7 @@
       clearDirectoryContext();
       hideFolderSuggestion();
       currentDocumentName = "documento.md";
+      currentDocumentLineEnding = "\n";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
       currentDocumentNeedsProjectFolder = false;
@@ -7905,6 +8900,7 @@
       clearDirectoryContext();
       hideFolderSuggestion();
       currentDocumentName = "documento.md";
+      currentDocumentLineEnding = "\n";
       lastLoadedMarkdown = "";
       lastDownloadedMarkdown = "";
       currentDocumentNeedsProjectFolder = false;
@@ -8677,7 +9673,12 @@
       subtree: true
     });
 
-    visualEditor.addEventListener("input", () => {
+    visualEditor.addEventListener("input", event => {
+      if (event.target && event.target.matches && event.target.matches('input[type="checkbox"]')) {
+        handleTaskCheckboxToggle(event.target);
+        updateToolbarState();
+        return;
+      }
       void syncFromVisual();
       updateToolbarState();
     });
@@ -8686,11 +9687,7 @@
 
     visualEditor.addEventListener("change", event => {
       if (event.target.matches('input[type="checkbox"]')) {
-        const listItem = event.target.closest('li[data-task="true"]');
-        if (listItem) {
-          listItem.dataset.checked = String(event.target.checked);
-        }
-        void syncFromVisual(false);
+        handleTaskCheckboxToggle(event.target);
         updateToolbarState();
       }
     });
@@ -8790,11 +9787,7 @@
     visualEditor.addEventListener("click", event => {
       if (event.target.matches('input[type="checkbox"]')) {
         window.setTimeout(() => {
-          const listItem = event.target.closest('li[data-task="true"]');
-          if (listItem) {
-            listItem.dataset.checked = String(event.target.checked);
-          }
-          void syncFromVisual(false);
+          handleTaskCheckboxToggle(event.target);
           updateToolbarState();
         }, 0);
         return;
@@ -8807,7 +9800,12 @@
         const taskText = taskItem.querySelector(".task-text");
         if (taskText) {
           window.setTimeout(() => {
-            moveCaretToTaskTextFromPoint(taskText, event.clientX, event.clientY);
+            // mousedown usually placed the caret already; moving it again here
+            // would race with keys typed right after the click.
+            const selection = window.getSelection();
+            if (!selection || !selection.anchorNode || !taskText.contains(selection.anchorNode)) {
+              moveCaretToTaskTextFromPoint(taskText, event.clientX, event.clientY);
+            }
             updateToolbarState();
           }, 0);
         }
@@ -9005,7 +10003,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.63.5", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.64.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
