@@ -3092,13 +3092,31 @@
     }
 
     // The preview gets the visual editor's HTML without editor-only source-map
-    // attributes. Mermaid SVG markers are referenced by id, so the preview copy
-    // also gets its own ids; otherwise arrowheads disappear while the visual
-    // panel is hidden.
-    function toPreviewHtml(html) {
-      return String(html || "")
-        .replace(/ data-md-(?:block|line)="\d+"/g, "")
-        .replace(/\bmd-editor-mermaid-(\d+)/g, "md-editor-mermaid-$1-preview");
+    // attributes. Mermaid SVG markers are referenced by id, so each preview
+    // diagram also gets its own ids; otherwise arrowheads disappear while the
+    // visual panel is hidden. Only attributes and <style> text inside the
+    // diagram's SVG are rewritten, never document text.
+    function preparePreviewDom(root) {
+      root.querySelectorAll("[data-md-block], [data-md-line]").forEach(element => {
+        element.removeAttribute("data-md-block");
+        element.removeAttribute("data-md-line");
+      });
+
+      root.querySelectorAll(".mermaid-block svg[id]").forEach(svg => {
+        const baseId = svg.id;
+        const previewId = baseId + "-preview";
+        const rewrite = value => value.split(baseId).join(previewId);
+        [svg, ...svg.querySelectorAll("*")].forEach(element => {
+          Array.from(element.attributes).forEach(attribute => {
+            if (attribute.value.includes(baseId)) {
+              element.setAttribute(attribute.name, rewrite(attribute.value));
+            }
+          });
+          if (element.tagName.toLowerCase() === "style" && element.textContent.includes(baseId)) {
+            element.textContent = rewrite(element.textContent);
+          }
+        });
+      });
     }
 
     const PRISM_LANGUAGE_ALIASES = {
@@ -4417,7 +4435,11 @@
 
       doc.querySelectorAll(Array.from(INLINE_HTML_PASSTHROUGH_TAGS).join(",")).forEach(node => {
         const tag = node.tagName.toLowerCase();
-        node.replaceWith(doc.createTextNode("<" + tag + ">"), ...Array.from(node.childNodes), doc.createTextNode("</" + tag + ">"));
+        const attributes = Array.from(node.attributes)
+          .filter(attribute => !/^(data-md-|contenteditable$)/i.test(attribute.name))
+          .map(attribute => " " + attribute.name + '="' + attribute.value.replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '"')
+          .join("");
+        node.replaceWith(doc.createTextNode("<" + tag + attributes + ">"), ...Array.from(node.childNodes), doc.createTextNode("</" + tag + ">"));
       });
 
       let source = doc.body.innerHTML;
@@ -6071,7 +6093,8 @@
           return;
         }
         this.showInVisualEditor(renderResult, markdown);
-        this.preview.innerHTML = toPreviewHtml(renderResult.html);
+        this.preview.innerHTML = renderResult.html;
+        preparePreviewDom(this.preview);
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
         this.setStatusKey(renderResult.warnings.length ? renderResult.warnings[0] : "statusFromMarkdown");
@@ -6092,7 +6115,8 @@
         } else {
           markVisualEditorMutationBaseline();
         }
-        this.preview.innerHTML = toPreviewHtml(renderResult.html);
+        this.preview.innerHTML = renderResult.html;
+        preparePreviewDom(this.preview);
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
         this.setStatusKey(renderResult.warnings.length ? renderResult.warnings[0] : "statusFromVisual");

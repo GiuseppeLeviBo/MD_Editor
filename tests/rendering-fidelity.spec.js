@@ -271,6 +271,17 @@ test.describe("Markdown source preservation", () => {
     await expect(page.locator("#markdownInput")).toHaveValue(markdown.replace("Edit me", "Edit me now"));
   });
 
+  test("editing a paragraph keeps attributes of inline HTML elements", async ({ page }) => {
+    await page.goto("/");
+    await openDocument(page, 'Text <abbr title="Hypertext Markup Language">HTML</abbr> and <mark class="hl">marked</mark> here');
+
+    await placeCursorAtEndOfVisualText(page, "here");
+    await page.keyboard.type(" now");
+
+    await expect(page.locator("#markdownInput")).toHaveValue('Text <abbr title="Hypertext Markup Language">HTML</abbr> and <mark class="hl">marked</mark> here now');
+    await expect(page.locator("#preview abbr")).toHaveAttribute("title", "Hypertext Markup Language");
+  });
+
   test("editing the last block keeps reference and footnote definitions", async ({ page }) => {
     await page.goto("/");
     await openDocument(page, "See [docs][d] and a note[^n].\n\n[d]: https://example.com\n[^n]: Footnote text.");
@@ -289,7 +300,8 @@ test.describe("Markdown source preservation", () => {
 test.describe("Mermaid robustness", () => {
   test("gives preview diagrams their own SVG ids and leaves no error nodes behind", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#markdownInput").fill("```mermaid\ngraph TD\nA-->B\n```");
+    await page.locator("#markdownInput").fill("Ids like md-editor-mermaid-1 stay as written.\n\n```mermaid\ngraph TD\nA-->B\n```");
+    await expect(page.locator("#preview > p")).toHaveText("Ids like md-editor-mermaid-1 stay as written.");
     await expect(page.locator("#preview .mermaid-block svg")).toHaveCount(1);
     await expect(page.locator("#visualEditor .mermaid-block svg")).toHaveCount(1);
 
