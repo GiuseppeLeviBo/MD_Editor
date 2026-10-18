@@ -4,6 +4,39 @@
 
 ## Italiano
 
+### v0.66.0 — Scorciatoie da word processor
+
+Le scorciatoie da tastiera ora sono quelle di Word e Google Docs, così chi è abituato a un word processor le trova dove se le aspetta.
+
+#### Cosa cambia
+
+| Comando | Prima | Ora |
+| --- | --- | --- |
+| Apri file | — | **Ctrl/Cmd + O** |
+| Sottolineato | — | **Ctrl/Cmd + U** |
+| Link | — | **Ctrl/Cmd + K** |
+| Barrato | Ctrl/Cmd + Shift + E | **Alt/Option + Shift + 5** (oppure Ctrl/Cmd + Shift + X) |
+| Elenco puntato / numerato / attività | Ctrl/Cmd + U / Ctrl/Cmd + O / — | **Ctrl/Cmd + Shift + 8 / 7 / 9** |
+| Testo normale | Ctrl/Cmd + 0 | **Ctrl/Cmd + Alt/Option + 0** |
+| Titoli | Ctrl/Cmd + 1–3 | **Ctrl/Cmd + Alt/Option + 1–6** |
+| Citazione / blocco di codice | Ctrl/Cmd + 9 / — | **Ctrl/Cmd + Alt/Option + 7 / 8** |
+| Elenco delle scorciatoie | — | **Ctrl/Cmd + /** |
+
+Salva, Salva con nome, Stampa, Trova/Sostituisci, Annulla e Ripeti restano invariati.
+
+- **Ctrl/Cmd + /** (o il nuovo pulsante ⌨ Scorciatoie) mostra l'elenco completo in qualsiasi momento.
+- Le scorciatoie funzionano anche nel **pannello Markdown**: ad esempio Ctrl/Cmd + B racchiude la selezione tra `**`, Ctrl/Cmd + Alt + 2 trasforma la riga in un titolo di secondo livello.
+- Funzionano con **qualsiasi tastiera**, anche araba, ebraica o russa, perché conta il tasto premuto e non la lettera stampata.
+- I vecchi tasti Ctrl + 1, 2, 3 e 9 in molti browser cambiano scheda: per questo i titoli ora usano Ctrl + Alt, come in Google Docs.
+
+#### Sottolineato
+
+Il Markdown non ha il sottolineato. **Ctrl/Cmd + U** (o il nuovo pulsante U) lo salva come `<u>testo</u>`: questo editor lo mostra correttamente, anche in stampa e nell'export RTF, ma altri programmi o siti (per esempio GitHub) possono mostrarlo come testo normale. Il documento di benvenuto lo spiega insieme alla tabella delle scorciatoie aggiornata.
+
+#### Aggiornare l'app installata
+
+Chiudi e riapri l'app dopo la pubblicazione; l'etichetta in basso deve indicare **v0.66.0**.
+
 ### v0.65.0 — File più chiari e memoria opzionale
 
 Questa versione rende prevedibile il lavoro con i file: un solo modo di salvare, messaggi che dicono cosa è successo davvero e nessuna perdita silenziosa del collegamento al file. Aggiunge una memoria tra le sessioni pensata per il computer di casa, spenta di default per proteggere chi usa computer condivisi.
@@ -40,6 +73,39 @@ Questa versione rende prevedibile il lavoro con i file: un solo modo di salvare,
 L'app installata (PWA) si aggiorna da sola: dopo la pubblicazione chiudila e riaprila; se serve, ripeti una seconda volta. L'etichetta in basso deve indicare **v0.65.0**.
 
 ## English
+
+### v0.66.0 — Word-processor shortcuts
+
+Keyboard shortcuts now follow Word and Google Docs, so people used to a word processor find them where they expect.
+
+#### What changes
+
+| Command | Before | Now |
+| --- | --- | --- |
+| Open file | — | **Ctrl/Cmd + O** |
+| Underline | — | **Ctrl/Cmd + U** |
+| Link | — | **Ctrl/Cmd + K** |
+| Strikethrough | Ctrl/Cmd + Shift + E | **Alt/Option + Shift + 5** (or Ctrl/Cmd + Shift + X) |
+| Bulleted / numbered / task list | Ctrl/Cmd + U / Ctrl/Cmd + O / — | **Ctrl/Cmd + Shift + 8 / 7 / 9** |
+| Normal text | Ctrl/Cmd + 0 | **Ctrl/Cmd + Alt/Option + 0** |
+| Headings | Ctrl/Cmd + 1–3 | **Ctrl/Cmd + Alt/Option + 1–6** |
+| Quote / code block | Ctrl/Cmd + 9 / — | **Ctrl/Cmd + Alt/Option + 7 / 8** |
+| Shortcut list | — | **Ctrl/Cmd + /** |
+
+Save, Save as, Print, Find/Replace, Undo, and Redo are unchanged.
+
+- **Ctrl/Cmd + /** (or the new ⌨ Shortcuts button) shows the full list at any time.
+- Shortcuts also work in the **Markdown panel**: for example Ctrl/Cmd + B wraps the selection in `**`, Ctrl/Cmd + Alt + 2 turns the line into a level-2 heading.
+- They work with **any keyboard**, including Arabic, Hebrew, or Russian layouts, because the physical key counts, not the printed letter.
+- The old Ctrl + 1, 2, 3, and 9 switch tabs in many browsers; headings now use Ctrl + Alt, as in Google Docs.
+
+#### Underline
+
+Markdown has no underline. **Ctrl/Cmd + U** (or the new U button) saves it as `<u>text</u>`: this editor shows it correctly, also in print and in RTF export, but other programs or sites (for example GitHub) may show it as plain text. The welcome document explains this next to the updated shortcut table.
+
+#### Updating the installed app
+
+Close and reopen the app after the release is published; the label at the bottom should read **v0.66.0**.
 
 ### v0.65.0 — Clearer file handling and optional memory
 

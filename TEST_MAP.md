@@ -86,6 +86,9 @@ The goal is to protect the most important promises of the product.
 - Paste into the visual editor re-normalizes and keeps views aligned
 - `Ctrl/Cmd + P` opens a printable rendered preview
 - Keyboard shortcuts work on desktop without corrupting content
+- Shortcuts follow Word/Google Docs (Ctrl+O open, Ctrl+U underline as `<u>`, Ctrl+K link, Ctrl+Alt+0-8 paragraph styles, Ctrl+Shift+7/8/9 lists) in the visual editor and in the Markdown panel
+- Shortcuts match the physical key (any keyboard layout) and leave AltGr characters alone
+- `Ctrl/Cmd + /` lists every shortcut; the welcome document table is generated from the same list
 - Closing and reopening restores the per-tab draft correctly
 - `Clear local data` resets local/session state and returns to the initial screen
 - Local object URLs are revoked when closing the document or clearing local data

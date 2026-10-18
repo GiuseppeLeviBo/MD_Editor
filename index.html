@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.65.0">
+  <link rel="manifest" href="./manifest.json?v=0.66.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -169,6 +169,40 @@
 
     .tool-button[hidden] {
       display: none;
+    }
+
+    .shortcut-dialog {
+      max-width: 640px;
+    }
+
+    .shortcut-dialog-note {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .shortcut-dialog-body {
+      max-height: 60vh;
+      overflow: auto;
+    }
+
+    .shortcut-dialog-body h4 {
+      margin: 12px 0 6px;
+    }
+
+    .shortcut-dialog-body table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .shortcut-dialog-body td {
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .shortcut-dialog-body td:last-child {
+      text-align: end;
+      white-space: nowrap;
     }
 
     .recent-documents-list {
@@ -1390,6 +1424,7 @@
       <div class="tool-group">
         <button type="button" class="tool-button" data-command="bold" data-i18n-title="bold"><span class="tool-icon">𝐁</span><span data-i18n="bold">Grassetto</span></button>
         <button type="button" class="tool-button" data-command="italic" data-i18n-title="italic"><span class="tool-icon">𝘐</span><span data-i18n="italic">Corsivo</span></button>
+        <button type="button" class="tool-button" data-command="underline" data-i18n-title="underline"><span class="tool-icon"><u>U</u></span><span data-i18n="underline">Sottolineato</span></button>
         <button type="button" class="tool-button" data-command="strikeThrough" data-i18n-title="strike"><span class="tool-icon">S</span><span data-i18n="strike">Barrato</span></button>
         <button type="button" class="tool-button" data-command="insertUnorderedList" data-i18n-title="bulletList"><span class="tool-icon">•</span><span data-i18n="bulletList">Lista</span></button>
         <button type="button" class="tool-button" data-command="insertOrderedList" data-i18n-title="numberedList"><span class="tool-icon">1.</span><span data-i18n="numberedList">Numerata</span></button>
@@ -1413,6 +1448,7 @@
         <button type="button" class="tool-button" id="imageButton" data-i18n-title="image"><span class="tool-icon">🖼</span><span data-i18n="image">Immagine</span></button>
         <button type="button" class="tool-button" id="symbolButton" data-i18n-title="symbols"><span class="tool-icon">☺</span><span data-i18n="symbols">Simboli</span></button>
         <button type="button" class="tool-button" id="findReplaceButton" data-i18n-title="findReplace"><span class="tool-icon">⌕</span><span data-i18n="findReplace">Trova/Sostituisci</span></button>
+        <button type="button" class="tool-button" id="shortcutHelpButton" data-i18n-title="shortcutHelp"><span class="tool-icon">⌨</span><span data-i18n="shortcutHelp">Scorciatoie</span></button>
       </div>
 
       <div class="tool-group file-actions">
@@ -1512,7 +1548,7 @@
         Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.65.0</div>
+      <div class="build-badge" id="buildBadge">v0.66.0</div>
     </footer>
   </main>
 
@@ -1541,6 +1577,17 @@
         <button type="button" id="imageInsertLinkButton" data-i18n="imageInsertLink">Link</button>
         <button type="button" id="imageInsertCancelButton" data-i18n="close">Chiudi</button>
       </div>
+    </div>
+  </div>
+
+  <div class="dialog-backdrop" id="shortcutHelpDialog" aria-hidden="true">
+    <div class="dialog shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcutHelpDialogTitle">
+      <div class="dialog-header">
+        <h3 class="dialog-title" id="shortcutHelpDialogTitle" data-i18n="shortcutDialogTitle">Scorciatoie da tastiera</h3>
+        <button type="button" id="closeShortcutHelpDialogButton" data-i18n="close">Chiudi</button>
+      </div>
+      <p class="shortcut-dialog-note" data-i18n="shortcutDialogNote"></p>
+      <div class="shortcut-dialog-body" id="shortcutHelpList"></div>
     </div>
   </div>
 
@@ -1626,7 +1673,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.65.0";
+    const APP_VERSION = "v0.66.0";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1938,25 +1985,146 @@
     }
 
     const resourceResolver = new ResourceResolver();
-    const shortcutHints = {
-      bold: "Ctrl/Cmd + B",
-      italic: "Ctrl/Cmd + I",
-      strike: "Ctrl/Cmd + Shift + E",
-      bulletList: "Ctrl/Cmd + U",
-      numberedList: "Ctrl/Cmd + O",
-      findReplace: "Ctrl/Cmd + H",
-      indentList: "Tab",
-      outdentList: "Shift + Tab",
-      quote: "Ctrl/Cmd + 9",
-      heading1: "Ctrl/Cmd + 1",
-      heading2: "Ctrl/Cmd + 2",
-      heading3: "Ctrl/Cmd + 3",
-      paragraph: "Ctrl/Cmd + 0",
-      reloadDocument: "Ctrl/Cmd + Shift + R",
-      saveCopyAs: "Ctrl/Cmd + Shift + S",
-      downloadMarkdown: "Ctrl/Cmd + S",
-      printPreview: "Ctrl/Cmd + P"
+    // Keyboard shortcuts follow Google Docs and Word. Keys are matched by their
+    // physical position (KeyboardEvent.code), so they work with any keyboard
+    // layout; "primary" is Ctrl on Windows/Linux and Cmd on macOS. This table
+    // drives the key handlers, the toolbar tooltips, the Ctrl+/ dialog and the
+    // shortcut table in the welcome document. "label" is a translation key.
+    const KEYBOARD_SHORTCUTS = [
+      { id: "open", group: "file", label: "shortcutLabelOpen", keys: [{ primary: true, code: "KeyO" }] },
+      { id: "save", group: "file", label: "downloadMarkdown", keys: [{ primary: true, code: "KeyS" }] },
+      { id: "saveAs", group: "file", label: "saveCopyAs", keys: [{ primary: true, shift: true, code: "KeyS" }] },
+      { id: "print", group: "file", label: "printDocument", keys: [{ primary: true, code: "KeyP" }] },
+      { id: "reloadFile", group: "file", label: "reloadDocument", keys: [{ primary: true, shift: true, code: "KeyR" }] },
+      { id: "undo", group: "edit", label: "undoAction", keys: [{ primary: true, code: "KeyZ" }] },
+      { id: "redo", group: "edit", label: "redoAction", keys: [{ primary: true, code: "KeyY" }, { primary: true, shift: true, code: "KeyZ" }] },
+      { id: "findReplace", group: "edit", label: "shortcutLabelFindReplace", keys: [{ primary: true, code: "KeyF" }, { primary: true, code: "KeyH" }] },
+      { id: "shortcutHelp", group: "edit", label: "shortcutHelp", keys: [{ primary: true, code: "Slash" }] },
+      { id: "bold", group: "text", label: "bold", keys: [{ primary: true, code: "KeyB" }] },
+      { id: "italic", group: "text", label: "italic", keys: [{ primary: true, code: "KeyI" }] },
+      { id: "underline", group: "text", label: "underline", keys: [{ primary: true, code: "KeyU" }] },
+      { id: "strike", group: "text", label: "strike", keys: [{ alt: true, shift: true, code: "Digit5" }, { primary: true, shift: true, code: "KeyX" }] },
+      { id: "link", group: "text", label: "link", keys: [{ primary: true, code: "KeyK" }] },
+      { id: "paragraph", group: "paragraph", label: "shortcutLabelParagraph", keys: [{ primary: true, alt: true, code: "Digit0" }] },
+      { id: "heading1", group: "paragraph", label: "heading1", keys: [{ primary: true, alt: true, code: "Digit1" }] },
+      { id: "heading2", group: "paragraph", label: "heading2", keys: [{ primary: true, alt: true, code: "Digit2" }] },
+      { id: "heading3", group: "paragraph", label: "heading3", keys: [{ primary: true, alt: true, code: "Digit3" }] },
+      { id: "heading4", group: "paragraph", label: "heading4", keys: [{ primary: true, alt: true, code: "Digit4" }] },
+      { id: "heading5", group: "paragraph", label: "heading5", keys: [{ primary: true, alt: true, code: "Digit5" }] },
+      { id: "heading6", group: "paragraph", label: "heading6", keys: [{ primary: true, alt: true, code: "Digit6" }] },
+      { id: "quote", group: "paragraph", label: "quote", keys: [{ primary: true, alt: true, code: "Digit7" }] },
+      { id: "codeBlock", group: "paragraph", label: "shortcutLabelCodeBlock", keys: [{ primary: true, alt: true, code: "Digit8" }] },
+      { id: "bulletList", group: "lists", label: "shortcutLabelBulletList", keys: [{ primary: true, shift: true, code: "Digit8" }] },
+      { id: "numberedList", group: "lists", label: "shortcutLabelNumberedList", keys: [{ primary: true, shift: true, code: "Digit7" }] },
+      { id: "taskList", group: "lists", label: "shortcutLabelTaskList", keys: [{ primary: true, shift: true, code: "Digit9" }] },
+      { id: "indentList", group: "lists", label: "shortcutLabelIndent", keys: [{ code: "Tab" }], displayOnly: true },
+      { id: "outdentList", group: "lists", label: "shortcutLabelOutdent", keys: [{ shift: true, code: "Tab" }], displayOnly: true }
+    ];
+
+    const KEYBOARD_SHORTCUT_GROUPS = ["file", "edit", "text", "paragraph", "lists"];
+
+    // Toolbar buttons (data-i18n-title key) that show a shortcut in their tooltip.
+    const SHORTCUT_TOOLTIP_KEYS = {
+      openMarkdown: "open",
+      downloadMarkdown: "save",
+      saveCopyAs: "saveAs",
+      reloadDocument: "reloadFile",
+      findReplace: "findReplace",
+      shortcutHelp: "shortcutHelp",
+      bold: "bold",
+      italic: "italic",
+      underline: "underline",
+      strike: "strike",
+      link: "link",
+      paragraph: "paragraph",
+      heading1: "heading1",
+      heading2: "heading2",
+      heading3: "heading3",
+      heading4: "heading4",
+      heading5: "heading5",
+      heading6: "heading6",
+      quote: "quote",
+      code: "codeBlock",
+      bulletList: "bulletList",
+      numberedList: "numberedList",
+      taskList: "taskList",
+      indentList: "indentList",
+      outdentList: "outdentList"
     };
+
+    function formatShortcutKey(key) {
+      const parts = [];
+      if (key.primary) {
+        parts.push("Ctrl/Cmd");
+      }
+      if (key.alt) {
+        parts.push("Alt/Option");
+      }
+      if (key.shift) {
+        parts.push("Shift");
+      }
+      const code = key.code || "";
+      if (/^Key[A-Z]$/.test(code)) {
+        parts.push(code.slice(3));
+      } else if (/^Digit\d$/.test(code)) {
+        parts.push(code.slice(5));
+      } else if (code === "Slash") {
+        parts.push("/");
+      } else {
+        parts.push(code);
+      }
+      return parts.join(" + ");
+    }
+
+    function getShortcutById(id) {
+      return KEYBOARD_SHORTCUTS.find(shortcut => shortcut.id === id) || null;
+    }
+
+    function formatShortcut(id) {
+      const shortcut = getShortcutById(id);
+      return shortcut ? shortcut.keys.map(formatShortcutKey).join(" · ") : "";
+    }
+
+    function matchesShortcutKey(event, key) {
+      const primaryPressed = event.ctrlKey || event.metaKey;
+      if (Boolean(key.primary) !== primaryPressed || Boolean(key.alt) !== event.altKey || Boolean(key.shift) !== event.shiftKey) {
+        return false;
+      }
+      if (event.code) {
+        return event.code === key.code;
+      }
+      const fallbackKey = String(event.key || "").toLowerCase();
+      return fallbackKey === key.code.replace(/^(Key|Digit)/, "").toLowerCase() || (key.code === "Slash" && fallbackKey === "/");
+    }
+
+    // Returns the id of the shortcut pressed, or "" when the event is not a
+    // shortcut: text being composed with an input method, or AltGr producing a
+    // character on layouts where Ctrl+Alt+key types symbols (e.g. "{").
+    function getPressedShortcut(event) {
+      if (!event || event.isComposing || event.keyCode === 229) {
+        return "";
+      }
+      const altGraph = typeof event.getModifierState === "function" && event.getModifierState("AltGraph");
+      if (altGraph && String(event.key || "").length === 1 && !/^[0-9]$/.test(event.key)) {
+        return "";
+      }
+      const shortcut = KEYBOARD_SHORTCUTS.find(item => !item.displayOnly && item.keys.some(key => matchesShortcutKey(event, key)));
+      return shortcut ? shortcut.id : "";
+    }
+
+    function buildShortcutTableMarkdown(language) {
+      const labels = translations[language] || translations.it;
+      const label = key => labels[key] || translations.it[key] || key;
+      const lines = ["| " + label("shortcutTableCommand") + " | " + label("shortcutTableKeys") + " |", "| --- | --- |"];
+      KEYBOARD_SHORTCUT_GROUPS.forEach(group => {
+        KEYBOARD_SHORTCUTS
+          .filter(shortcut => shortcut.group === group)
+          .forEach(shortcut => {
+            lines.push("| " + label(shortcut.label) + " | " + formatShortcut(shortcut.id) + " |");
+          });
+      });
+      return lines;
+    }
     let historyEntries = [];
     let historyIndex = -1;
     let isApplyingHistoryState = false;
@@ -1973,6 +2141,29 @@
         numberedList: "Numerata",
         taskList: "Attivita",
         indentList: "Rientra",
+        underline: "Sottolineato",
+        printDocument: "Stampa / PDF",
+        undoAction: "Annulla",
+        redoAction: "Ripeti",
+        shortcutHelp: "Scorciatoie",
+        shortcutDialogTitle: "Scorciatoie da tastiera",
+        shortcutTableCommand: "Comando",
+        shortcutTableKeys: "Scorciatoia",
+        shortcutGroupFile: "File",
+        shortcutGroupEdit: "Modifica",
+        shortcutGroupText: "Testo",
+        shortcutGroupParagraph: "Paragrafo",
+        shortcutGroupLists: "Elenchi",
+        shortcutDialogNote: "Su Mac usa Cmd al posto di Ctrl e Option al posto di Alt. Le scorciatoie funzionano sia nell'editor visuale sia nel pannello Markdown.",
+        shortcutLabelOpen: "Apri file",
+        shortcutLabelFindReplace: "Trova e sostituisci",
+        shortcutLabelParagraph: "Testo normale",
+        shortcutLabelCodeBlock: "Blocco di codice",
+        shortcutLabelBulletList: "Elenco puntato",
+        shortcutLabelNumberedList: "Elenco numerato",
+        shortcutLabelTaskList: "Elenco di attività",
+        shortcutLabelIndent: "Aumenta rientro (elenchi)",
+        shortcutLabelOutdent: "Riduci rientro (elenchi)",
         outdentList: "Esci rientro",
         table: "Tabella",
         quote: "Citazione",
@@ -2134,6 +2325,8 @@
         boldTitle: "Applica il grassetto",
         italicTitle: "Applica il corsivo",
         strikeTitle: "Applica o rimuovi il barrato",
+        underlineTitle: "Sottolinea: il Markdown non ha il sottolineato, viene salvato come <u>testo</u>",
+        shortcutHelpTitle: "Mostra tutte le scorciatoie da tastiera",
         bulletListTitle: "Inserisci una lista puntata",
         numberedListTitle: "Inserisci una lista numerata",
         taskListTitle: "Inserisci o rimuovi una task list",
@@ -2176,6 +2369,29 @@
         numberedList: "Numbered",
         taskList: "Tasks",
         indentList: "Indent",
+        underline: "Underline",
+        printDocument: "Print / PDF",
+        undoAction: "Undo",
+        redoAction: "Redo",
+        shortcutHelp: "Shortcuts",
+        shortcutDialogTitle: "Keyboard shortcuts",
+        shortcutTableCommand: "Command",
+        shortcutTableKeys: "Shortcut",
+        shortcutGroupFile: "File",
+        shortcutGroupEdit: "Edit",
+        shortcutGroupText: "Text",
+        shortcutGroupParagraph: "Paragraph",
+        shortcutGroupLists: "Lists",
+        shortcutDialogNote: "On a Mac use Cmd instead of Ctrl and Option instead of Alt. Shortcuts work both in the visual editor and in the Markdown panel.",
+        shortcutLabelOpen: "Open file",
+        shortcutLabelFindReplace: "Find and replace",
+        shortcutLabelParagraph: "Normal text",
+        shortcutLabelCodeBlock: "Code block",
+        shortcutLabelBulletList: "Bulleted list",
+        shortcutLabelNumberedList: "Numbered list",
+        shortcutLabelTaskList: "Task list",
+        shortcutLabelIndent: "Indent (lists)",
+        shortcutLabelOutdent: "Outdent (lists)",
         outdentList: "Outdent",
         table: "Table",
         quote: "Quote",
@@ -2337,6 +2553,8 @@
         boldTitle: "Apply bold",
         italicTitle: "Apply italic",
         strikeTitle: "Apply or remove strikethrough",
+        underlineTitle: "Underline: Markdown has no underline, so it is saved as <u>text</u>",
+        shortcutHelpTitle: "Show all keyboard shortcuts",
         bulletListTitle: "Insert a bulleted list",
         numberedListTitle: "Insert a numbered list",
         taskListTitle: "Insert or remove a task list",
@@ -2469,8 +2687,9 @@
         "",
         "## Privacy e dati locali",
         "",
-        "- **Chiudi documento** chiude il lavoro corrente e pulisce la bozza della scheda attiva.",
-        "- **Pulisci dati locali** rimuove bozza, preferenze e dati salvati nel browser di questa postazione.",
+        "- **Chiudi documento** chiude il lavoro corrente e lascia un foglio vuoto.",
+        "- **Ricorda** (spento di default) ricorda file recenti e bozze su questo dispositivo: attivalo solo su un computer tuo.",
+        "- **Pulisci dati locali** rimuove bozze, file recenti, preferenze e dati salvati nel browser di questa postazione.",
         "- **Pulisci dati locali** non cancella i file originali sul disco, nella cartella del progetto o sulla chiavetta.",
         "",
         "## Nota su cartelle e immagini locali",
@@ -2486,23 +2705,11 @@
         "",
         "## Scorciatoie da tastiera",
         "",
-        "| Comando | Scorciatoia |",
-        "| --- | --- |",
-        "| Grassetto | Ctrl/Cmd + B |",
-        "| Corsivo | Ctrl/Cmd + I |",
-        "| Barrato | Ctrl/Cmd + Shift + E |",
-        "| Lista puntata | Ctrl/Cmd + U |",
-        "| Lista numerata | Ctrl/Cmd + O |",
-        "| Paragrafo | Ctrl/Cmd + 0 |",
-        "| Titolo 1 | Ctrl/Cmd + 1 |",
-        "| Titolo 2 | Ctrl/Cmd + 2 |",
-        "| Titolo 3 | Ctrl/Cmd + 3 |",
-        "| Citazione | Ctrl/Cmd + 9 |",
-        "| Trova/Sostituisci | Ctrl/Cmd + H |",
-        "| Ricarica file | Ctrl/Cmd + Shift + R |",
-        "| Scarica .md | Ctrl/Cmd + S |",
-        "| Salva copia | Ctrl/Cmd + Shift + S |",
-        "| Anteprima di stampa | Ctrl/Cmd + P |"
+        "Le scorciatoie sono quelle di Word e Google Docs e funzionano sia nell'editor visuale sia nel pannello Markdown. Su Mac usa Cmd al posto di Ctrl e Option al posto di Alt. **Ctrl/Cmd + /** mostra questo elenco in qualsiasi momento.",
+        "",
+        "> **Sottolineato:** il Markdown non ha il sottolineato. **Ctrl/Cmd + U** lo salva come `<u>testo</u>`: questo editor lo mostra correttamente, ma altri programmi o siti (per esempio GitHub) possono mostrarlo come testo normale.",
+        "",
+        ...buildShortcutTableMarkdown("it")
       ].join("\n"),
       en: [
         "# Markdown WYSIWYG Editor",
@@ -2558,8 +2765,9 @@
         "",
         "## Privacy and local data",
         "",
-        "- **Close document** closes the current work and clears the draft stored for this browser tab.",
-        "- **Clear local data** removes the draft, preferences, and local data saved by this browser on this workstation.",
+        "- **Close document** closes the current work and leaves a blank sheet.",
+        "- **Remember** (off by default) keeps recent files and drafts on this device: turn it on only on a computer that is yours.",
+        "- **Clear local data** removes drafts, recent files, preferences, and local data saved by this browser on this workstation.",
         "- **Clear local data** does not delete the original files on disk, in the project folder, or on a USB drive.",
         "",
         "## Notes about folders and local images",
@@ -2575,23 +2783,11 @@
         "",
         "## Keyboard shortcuts",
         "",
-        "| Command | Shortcut |",
-        "| --- | --- |",
-        "| Bold | Ctrl/Cmd + B |",
-        "| Italic | Ctrl/Cmd + I |",
-        "| Strikethrough | Ctrl/Cmd + Shift + E |",
-        "| Bulleted list | Ctrl/Cmd + U |",
-        "| Numbered list | Ctrl/Cmd + O |",
-        "| Paragraph | Ctrl/Cmd + 0 |",
-        "| Heading 1 | Ctrl/Cmd + 1 |",
-        "| Heading 2 | Ctrl/Cmd + 2 |",
-        "| Heading 3 | Ctrl/Cmd + 3 |",
-        "| Quote | Ctrl/Cmd + 9 |",
-        "| Find/Replace | Ctrl/Cmd + H |",
-        "| Reload file | Ctrl/Cmd + Shift + R |",
-        "| Download .md | Ctrl/Cmd + S |",
-        "| Save copy | Ctrl/Cmd + Shift + S |",
-        "| Print preview | Ctrl/Cmd + P |"
+        "Shortcuts follow Word and Google Docs and work both in the visual editor and in the Markdown panel. On a Mac use Cmd instead of Ctrl and Option instead of Alt. **Ctrl/Cmd + /** shows this list at any time.",
+        "",
+        "> **Underline:** Markdown has no underline. **Ctrl/Cmd + U** saves it as `<u>text</u>`: this editor shows it correctly, but other programs or sites (for example GitHub) may show it as plain text.",
+        "",
+        ...buildShortcutTableMarkdown("en")
       ].join("\n")
     };
 
@@ -5746,7 +5942,7 @@
       });
 
         document.querySelectorAll("[data-i18n-title]").forEach(node => {
-          const shortcutHint = shortcutHints[node.dataset.i18nTitle];
+          const shortcutHint = formatShortcut(SHORTCUT_TOOLTIP_KEYS[node.dataset.i18nTitle] || "");
           const baseTitle = t(node.dataset.i18nTitle + "Title");
           node.title = shortcutHint ? baseTitle + " (" + shortcutHint + ")" : baseTitle;
           node.setAttribute("aria-label", t(node.dataset.i18nTitle));
@@ -8212,7 +8408,7 @@
       document.querySelectorAll("[data-command]").forEach(button => {
         const command = button.dataset.command;
         let active = false;
-        if (["bold", "italic", "strikeThrough"].includes(command)) {
+        if (["bold", "italic", "underline", "strikeThrough"].includes(command)) {
           active = isCommandActive(command);
         } else if (command === "insertUnorderedList") {
           active = listType === "ul";
@@ -8558,101 +8754,240 @@
         return;
       }
 
-      const isModifierPressed = event.ctrlKey || event.metaKey;
-      if (!isModifierPressed || event.altKey) {
+      const shortcut = getPressedShortcut(event);
+      if (shortcut && runVisualFormattingShortcut(shortcut)) {
+        event.preventDefault();
+      }
+    }
+
+    // Formatting shortcuts in the visual editor. Returns false for shortcuts
+    // that are handled elsewhere (file commands, undo, find).
+    function runVisualFormattingShortcut(id) {
+      const headingMatch = id.match(/^heading([1-6])$/);
+      if (headingMatch) {
+        setBlock("h" + headingMatch[1]);
+        return true;
+      }
+      switch (id) {
+        case "bold":
+        case "italic":
+        case "underline":
+          execCommand(id);
+          return true;
+        case "strike":
+          execCommand("strikeThrough");
+          return true;
+        case "link":
+          insertLink();
+          return true;
+        case "paragraph":
+          if (isSelectionInsideTable()) {
+            showTableBlockCommandStatus();
+          } else {
+            convertSelectionToParagraph();
+          }
+          return true;
+        case "quote":
+          setBlock("blockquote");
+          return true;
+        case "codeBlock":
+          insertCodeBlock();
+          return true;
+        case "bulletList":
+          execCommand("insertUnorderedList");
+          return true;
+        case "numberedList":
+          execCommand("insertOrderedList");
+          return true;
+        case "taskList":
+          execCommand("insertTaskList");
+          return true;
+        default:
+          return false;
+      }
+    }
+
+
+    const MARKDOWN_INLINE_WRAPPERS = {
+      bold: ["**", "**"],
+      italic: ["*", "*"],
+      underline: ["<u>", "</u>"],
+      strike: ["~~", "~~"]
+    };
+
+    const MARKDOWN_BLOCK_PREFIX_PATTERN = /^(\s*)(#{1,6}[ \t]+|>[ \t]?|[-*+][ \t]+\[[ xX]\][ \t]+|[-*+][ \t]+|\d{1,9}[.)][ \t]+)/;
+
+    function replaceMarkdownSource(start, end, replacement, selectionStart, selectionEnd) {
+      markdownInput.focus();
+      markdownInput.setRangeText(replacement, start, end, "end");
+      markdownInput.setSelectionRange(selectionStart, selectionEnd);
+      markdownInput.dispatchEvent(new Event("input", { bubbles: true }));
+      queueWindowTitleUpdate();
+    }
+
+    function countRepeatedCharacter(value, index, step, character) {
+      let count = 0;
+      for (let cursor = index; cursor >= 0 && cursor < value.length && value[cursor] === character; cursor += step) {
+        count += 1;
+      }
+      return count;
+    }
+
+    function isWrappedBy(value, start, end, open, close) {
+      if (value.slice(start - open.length, start) !== open || value.slice(end, end + close.length) !== close) {
+        return false;
+      }
+      // "*" is italic only when it is not part of "**" (bold): "***" is both.
+      if (open === "*") {
+        const before = countRepeatedCharacter(value, start - 1, -1, "*");
+        const after = countRepeatedCharacter(value, end, 1, "*");
+        return before % 2 === 1 && after % 2 === 1;
+      }
+      return true;
+    }
+
+    function toggleMarkdownInlineWrapper(open, close) {
+      const value = markdownInput.value;
+      const start = markdownInput.selectionStart;
+      const end = markdownInput.selectionEnd;
+      const selected = value.slice(start, end);
+      if (isWrappedBy(value, start, end, open, close)) {
+        replaceMarkdownSource(start - open.length, end + close.length, selected, start - open.length, end - open.length);
+        return;
+      }
+      if (selected.length >= open.length + close.length && selected.startsWith(open) && selected.endsWith(close)) {
+        const inner = selected.slice(open.length, selected.length - close.length);
+        replaceMarkdownSource(start, end, inner, start, start + inner.length);
+        return;
+      }
+      replaceMarkdownSource(start, end, open + selected + close, start + open.length, start + open.length + selected.length);
+    }
+
+    function insertMarkdownSourceLink() {
+      const start = markdownInput.selectionStart;
+      const end = markdownInput.selectionEnd;
+      const selected = markdownInput.value.slice(start, end);
+      const url = normalizeLinkHref(window.prompt(t("promptInsertUrl"), "https://"));
+      if (!url) {
+        return;
+      }
+      if (!isSafeMarkdownHref(url)) {
+        setStatus(t("statusUnsafeLinkBlocked"));
+        return;
+      }
+      const label = selected || url;
+      const link = "[" + label + "](" + url + ")";
+      replaceMarkdownSource(start, end, link, start + 1, start + 1 + label.length);
+    }
+
+    // Applies a paragraph style to every line touched by the selection in the
+    // Markdown panel, replacing any heading, quote or list marker already there.
+    function applyMarkdownSourceBlockStyle(id) {
+      const value = markdownInput.value;
+      const selectionStart = markdownInput.selectionStart;
+      let selectionEnd = markdownInput.selectionEnd;
+      if (selectionEnd > selectionStart && value[selectionEnd - 1] === "\n") {
+        selectionEnd -= 1;
+      }
+      const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+      const nextBreak = value.indexOf("\n", selectionEnd);
+      const lineEnd = nextBreak === -1 ? value.length : nextBreak;
+      const lines = value.slice(lineStart, lineEnd).split("\n");
+
+      if (id === "codeBlock") {
+        const isFenced = lines.length >= 2 && /^\s*(```|~~~)/.test(lines[0]) && /^\s*(```|~~~)\s*$/.test(lines[lines.length - 1]);
+        const replacement = isFenced ? lines.slice(1, -1).join("\n") : ["```", ...lines, "```"].join("\n");
+        replaceMarkdownSource(lineStart, lineEnd, replacement, lineStart, lineStart + replacement.length);
         return;
       }
 
-      const key = event.key.toLowerCase();
-
-      if (key === "b") {
-        event.preventDefault();
-        execCommand("bold");
-        return;
-      }
-
-      if (key === "i") {
-        event.preventDefault();
-        execCommand("italic");
-        return;
-      }
-
-      if (key === "u") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
+      const headingMatch = id.match(/^heading([1-6])$/);
+      const prefixFor = index => {
+        if (headingMatch) {
+          return "#".repeat(Number(headingMatch[1])) + " ";
         }
-        execCommand("insertUnorderedList");
-        return;
-      }
+        return {
+          quote: "> ",
+          bulletList: "- ",
+          numberedList: (index + 1) + ". ",
+          taskList: "- [ ] ",
+          paragraph: ""
+        }[id];
+      };
 
-      if (key === "o") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
+      const contentLines = lines.filter(line => line.trim());
+      const alreadyStyled = id !== "paragraph" && contentLines.length > 0 && contentLines.every((line, index) => {
+        const match = line.match(MARKDOWN_BLOCK_PREFIX_PATTERN);
+        const prefix = match ? match[2].replace(/[ \t]+$/, " ") : "";
+        return id === "numberedList" ? /^\d{1,9}[.)] $/.test(prefix) : prefix === prefixFor(index);
+      });
+
+      let counter = 0;
+      const replacement = lines.map(line => {
+        if (!line.trim()) {
+          return line;
         }
-        execCommand("insertOrderedList");
-        return;
-      }
+        const match = line.match(MARKDOWN_BLOCK_PREFIX_PATTERN);
+        const indent = match ? match[1] : (line.match(/^\s*/) || [""])[0];
+        const content = match ? line.slice(match[0].length) : line.slice(indent.length);
+        const prefix = alreadyStyled ? "" : prefixFor(counter);
+        counter += 1;
+        return indent + prefix + content;
+      }).join("\n");
+      replaceMarkdownSource(lineStart, lineEnd, replacement, lineStart, lineStart + replacement.length);
+    }
 
-      if (key === "e" && event.shiftKey) {
-        event.preventDefault();
-        toggleStrikethrough();
-        return;
+    function runMarkdownSourceShortcut(id) {
+      if (MARKDOWN_INLINE_WRAPPERS[id]) {
+        toggleMarkdownInlineWrapper(...MARKDOWN_INLINE_WRAPPERS[id]);
+        return true;
       }
-
-      if (key === "0") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
-        }
-        convertSelectionToParagraph();
-        return;
+      if (id === "link") {
+        insertMarkdownSourceLink();
+        return true;
       }
-
-      if (key === "1") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
-        }
-        setBlock("h1");
-        return;
+      if (/^heading[1-6]$/.test(id) || ["paragraph", "quote", "codeBlock", "bulletList", "numberedList", "taskList"].includes(id)) {
+        applyMarkdownSourceBlockStyle(id);
+        return true;
       }
+      return false;
+    }
 
-      if (key === "2") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
-        }
-        setBlock("h2");
-        return;
-      }
+    const shortcutHelpDialog = document.getElementById("shortcutHelpDialog");
+    const shortcutHelpList = document.getElementById("shortcutHelpList");
 
-      if (key === "3") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
-        }
-        setBlock("h3");
-        return;
-      }
+    function renderShortcutHelp() {
+      shortcutHelpList.textContent = "";
+      const groupLabels = {
+        file: "shortcutGroupFile",
+        edit: "shortcutGroupEdit",
+        text: "shortcutGroupText",
+        paragraph: "shortcutGroupParagraph",
+        lists: "shortcutGroupLists"
+      };
+      KEYBOARD_SHORTCUT_GROUPS.forEach(group => {
+        const heading = document.createElement("h4");
+        heading.textContent = t(groupLabels[group]);
+        const table = document.createElement("table");
+        KEYBOARD_SHORTCUTS.filter(shortcut => shortcut.group === group).forEach(shortcut => {
+          const row = table.insertRow();
+          row.insertCell().textContent = t(shortcut.label);
+          row.insertCell().textContent = formatShortcut(shortcut.id);
+        });
+        shortcutHelpList.append(heading, table);
+      });
+    }
 
-      if (key === "9") {
-        event.preventDefault();
-        if (isSelectionInsideTable()) {
-          showTableBlockCommandStatus();
-          return;
-        }
-        setBlock("blockquote");
-        return;
-      }
+    function openShortcutHelpDialog() {
+      renderShortcutHelp();
+      shortcutHelpDialog.classList.add("is-open");
+      shortcutHelpDialog.setAttribute("aria-hidden", "false");
+      document.getElementById("closeShortcutHelpDialogButton").focus();
+    }
 
+    function closeShortcutHelpDialog() {
+      shortcutHelpDialog.classList.remove("is-open");
+      shortcutHelpDialog.setAttribute("aria-hidden", "true");
     }
 
     function replaceListItemWithBlock(listItem, replacementBlock) {
@@ -9692,6 +10027,15 @@
         if (tag === "del" || tag === "s") {
           return `\\strike ${serializeInlineNodesToRtf(node.childNodes)}\\strike0 `;
         }
+        if (tag === "u" || tag === "ins") {
+          return `\\ul ${serializeInlineNodesToRtf(node.childNodes)}\\ulnone `;
+        }
+        if (tag === "sup") {
+          return `\\super ${serializeInlineNodesToRtf(node.childNodes)}\\nosupersub `;
+        }
+        if (tag === "sub") {
+          return `\\sub ${serializeInlineNodesToRtf(node.childNodes)}\\nosupersub `;
+        }
         if (tag === "code") {
           return `\\f1 ${serializeInlineNodesToRtf(node.childNodes)}\\f0 `;
         }
@@ -10409,51 +10753,80 @@
       }
     });
 
+    function isTextEntryTarget(target) {
+      return Boolean(target && target.closest && target.closest("input, textarea, select, [contenteditable='true']"));
+    }
+
+    // Document-wide shortcuts (file, history, find, help). Formatting
+    // shortcuts are handled by the visual editor and the Markdown panel.
+    function runGlobalShortcut(id) {
+      switch (id) {
+        case "undo":
+        case "redo":
+          if (!isEditingSurfaceActive()) {
+            return false;
+          }
+          void (id === "undo" ? undoHistory() : redoHistory());
+          return true;
+        case "open":
+          void openMarkdownWithPicker();
+          return true;
+        case "save":
+          void downloadMarkdown();
+          return true;
+        case "saveAs":
+          void saveMarkdownCopyAs();
+          return true;
+        case "print":
+          printRenderedDocument();
+          return true;
+        case "reloadFile":
+          void reloadCurrentDocumentFromDisk();
+          return true;
+        case "findReplace":
+          findReplaceController.open();
+          return true;
+        case "shortcutHelp":
+          openShortcutHelpDialog();
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    markdownInput.addEventListener("keydown", event => {
+      const shortcut = getPressedShortcut(event);
+      if (shortcut && runMarkdownSourceShortcut(shortcut)) {
+        event.preventDefault();
+      }
+    });
+
+    document.getElementById("shortcutHelpButton").addEventListener("click", openShortcutHelpDialog);
+    document.getElementById("closeShortcutHelpDialogButton").addEventListener("click", closeShortcutHelpDialog);
+    shortcutHelpDialog.addEventListener("click", event => {
+      if (event.target === shortcutHelpDialog) {
+        closeShortcutHelpDialog();
+      }
+    });
+
     document.addEventListener("keydown", event => {
       if (event.defaultPrevented) {
         return;
       }
-      const isModifierPressed = event.ctrlKey || event.metaKey;
-      if (isModifierPressed && !event.altKey) {
-        const key = event.key.toLowerCase();
-        if (isEditingSurfaceActive() && key === "z") {
-          event.preventDefault();
-          if (event.shiftKey) {
-            void redoHistory();
-          } else {
-            void undoHistory();
-          }
-          return;
-        }
-        if (isEditingSurfaceActive() && key === "y") {
-          event.preventDefault();
-          void redoHistory();
-          return;
-        }
-        if (key === "s") {
-          event.preventDefault();
-          if (event.shiftKey) {
-            void saveMarkdownCopyAs();
-          } else {
-            void downloadMarkdown();
-          }
-          return;
-        }
-        if (key === "h" || key === "f") {
-          event.preventDefault();
-          findReplaceController.open();
-          return;
-        }
-        if (key === "r" && event.shiftKey) {
-          event.preventDefault();
-          void reloadCurrentDocumentFromDisk();
-          return;
-        }
-        if (key === "p") {
-          event.preventDefault();
-          printRenderedDocument();
-          return;
-        }
+      const shortcut = getPressedShortcut(event);
+      if (shortcut && runGlobalShortcut(shortcut)) {
+        event.preventDefault();
+        return;
+      }
+      // Formatting shortcuts pressed outside the editors must not reach the
+      // browser (Ctrl+U would open the page source, Ctrl+K the search bar).
+      if (shortcut && !isTextEntryTarget(event.target)) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === "Escape" && shortcutHelpDialog.classList.contains("is-open")) {
+        closeShortcutHelpDialog();
+        return;
       }
       if (event.key === "Escape" && symbolDialog.classList.contains("is-open")) {
         closeSymbolDialog();
@@ -10844,7 +11217,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.65.0", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.66.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
