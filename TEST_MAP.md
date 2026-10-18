@@ -22,7 +22,11 @@ The goal is to protect the most important promises of the product.
 - Unsaved changes trigger warning on tab/window close
 - `Ctrl/Cmd + S` opens a single save flow, with no duplicate fallback
 - `Ctrl/Cmd + Shift + S` always opens the save-copy picker when supported
-- `Close document` warns if the latest version is not saved
+- `Close document` warns if the latest version is not saved and always leaves a blank sheet
+- Opening a file asks about unsaved changes once, also in browsers without the File System Access API
+- Saving asks before overwriting a file changed by another program since it was opened
+- Device memory is off by default and writes nothing to IndexedDB until the user confirms the shared-computer warning
+- `Clear local data` deletes the device memory database and turns the memory off
 - `Clear local data` never deletes original files
 - PWA window title shows document name, clean/modified state, length, and caret position without modifying document content
 - Desktop view-mode controls show paired, visual-only, Markdown-only, preview-only, and full layouts
@@ -43,7 +47,9 @@ The goal is to protect the most important promises of the product.
 - Default language follows browser/system language
 - Default document text matches the active language
 - Changing language on the initial screen updates the initial document too
-- Refreshing the page restores the current per-tab draft from `sessionStorage`
+- Refreshing the page restores the current per-tab draft from `sessionStorage`, with the document name and saved state
+- With device memory on, restarting the app restores the unsaved draft and offers to reconnect it to its file
+- Recent files reopen from the Recent dialog; dropped files keep their handle in Chromium
 - Bold updates visual editor, Markdown, and preview coherently
 - Italic updates visual editor, Markdown, and preview coherently
 - Strikethrough toggles on and off
