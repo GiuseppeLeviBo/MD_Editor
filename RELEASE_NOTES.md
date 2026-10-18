@@ -4,6 +4,17 @@
 
 ## Italiano
 
+### v0.66.1 — Torna il documento di benvenuto
+
+#### Correzione
+
+- Il **documento di benvenuto** compare di nuovo a ogni avvio dell'app, con la tabella delle scorciatoie aggiornata e la spiegazione del sottolineato. Dalla v0.65.0 compariva solo al primissimo avvio, quindi chi aveva già usato l'app non vedeva le nuove scorciatoie.
+- **Chiudi documento** continua a portare a un foglio vuoto, che resta vuoto anche se aggiorni la pagina.
+
+#### Aggiornare l'app installata
+
+Chiudi e riapri l'app dopo la pubblicazione; l'etichetta in basso deve indicare **v0.66.1**.
+
 ### v0.66.0 — Scorciatoie da word processor
 
 Le scorciatoie da tastiera ora sono quelle di Word e Google Docs, così chi è abituato a un word processor le trova dove se le aspetta.
@@ -73,6 +84,17 @@ Questa versione rende prevedibile il lavoro con i file: un solo modo di salvare,
 L'app installata (PWA) si aggiorna da sola: dopo la pubblicazione chiudila e riaprila; se serve, ripeti una seconda volta. L'etichetta in basso deve indicare **v0.65.0**.
 
 ## English
+
+### v0.66.1 — The welcome document is back
+
+#### Fix
+
+- The **welcome document** appears again every time the app starts, with the updated shortcut table and the note on underline. Since v0.65.0 it appeared only on the very first launch, so people who had already used the app did not see the new shortcuts.
+- **Close document** still leaves a blank sheet, which stays blank if you refresh the page.
+
+#### Updating the installed app
+
+Close and reopen the app after the release is published; the label at the bottom should read **v0.66.1**.
 
 ### v0.66.0 — Word-processor shortcuts
 
