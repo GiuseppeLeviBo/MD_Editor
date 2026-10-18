@@ -8,6 +8,8 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ## Release notes - v0.65.0
 
+User-facing release notes in Italian and English are in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
+
 - Clearer file commands: `Save` (Ctrl/Cmd + S) writes to the open file, or asks once where to save and then keeps the document connected to that file; `Save as...` (Ctrl/Cmd + Shift + S) switches the document to the new file
 - Saving checks whether another program changed the file since it was opened and asks before overwriting it
 - Status messages say what happened ("Saved to disk: name.md", "Downloaded: name.md", permission or write errors) instead of always reporting a download
