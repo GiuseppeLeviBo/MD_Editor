@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.64.0">
+  <link rel="manifest" href="./manifest.json?v=0.65.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -165,6 +165,36 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+    }
+
+    .tool-button[hidden] {
+      display: none;
+    }
+
+    .recent-documents-list {
+      list-style: none;
+      margin: 0 0 16px;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+      max-height: 50vh;
+      overflow: auto;
+    }
+
+    .recent-documents-list li {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .recent-documents-list .recent-document-open {
+      flex: 1;
+      text-align: start;
+    }
+
+    .recent-documents-list small {
+      display: block;
+      color: var(--muted);
     }
 
     .shell.is-drop-target {
@@ -1387,14 +1417,16 @@
 
       <div class="tool-group file-actions">
         <button type="button" class="tool-button" id="openMarkdownButton" data-i18n-title="openMarkdown"><span class="tool-icon">📂</span><span data-i18n="openMarkdown">Apri .md</span></button>
+        <button type="button" class="tool-button" id="recentDocumentsButton" data-i18n-title="recentDocuments" hidden><span class="tool-icon">🕘</span><span data-i18n="recentDocuments">Recenti</span></button>
         <button type="button" class="tool-button" id="reloadDocumentButton" data-i18n-title="reloadDocument"><span class="tool-icon">↻</span><span data-i18n="reloadDocument">Ricarica file</span></button>
         <button type="button" class="tool-button" id="linkFolderButton" data-i18n-title="linkFolder"><span class="tool-icon">📁</span><span data-i18n="linkFolder">Collega cartella</span></button>
         <button type="button" class="tool-button" id="closeDocumentButton" data-i18n-title="closeDocument"><span class="tool-icon">✕</span><span data-i18n="closeDocument">Chiudi documento</span></button>
+        <button type="button" class="tool-button" id="rememberToggleButton" aria-pressed="false"><span class="tool-icon">🔒</span><span data-i18n="rememberToggle">Ricorda</span></button>
         <button type="button" class="tool-button" id="resetPrivacyButton" data-i18n-title="resetPrivacy"><span class="tool-icon">🧼</span><span data-i18n="resetPrivacy">Reset privacy</span></button>
         <button type="button" class="tool-button" id="copyMarkdownButton" data-i18n-title="copyMarkdown"><span class="tool-icon">📋</span><span data-i18n="copyMarkdown">Copia Markdown</span></button>
-        <button type="button" class="tool-button" id="saveCopyAsButton" data-i18n-title="saveCopyAs"><span class="tool-icon">📁</span><span data-i18n="saveCopyAs">Salva copia...</span></button>
+        <button type="button" class="tool-button" id="saveCopyAsButton" data-i18n-title="saveCopyAs"><span class="tool-icon">📁</span><span data-i18n="saveCopyAs">Salva con nome...</span></button>
         <button type="button" class="tool-button" id="exportRtfButton" data-i18n-title="exportRtf"><span class="tool-icon">📝</span><span data-i18n="exportRtf">Esporta .rtf</span></button>
-        <button type="button" class="tool-button primary" id="downloadButton" data-i18n-title="downloadMarkdown"><span class="tool-icon">💾</span><span data-i18n="downloadMarkdown">Scarica .md</span></button>
+        <button type="button" class="tool-button primary" id="downloadButton" data-i18n-title="downloadMarkdown"><span class="tool-icon">💾</span><span data-i18n="downloadMarkdown">Salva</span></button>
       </div>
 
       <div class="tool-group mode-group">
@@ -1435,6 +1467,14 @@
       </div>
     </section>
 
+    <section class="folder-suggestion" id="resumeSuggestion">
+      <div class="folder-suggestion-text" id="resumeSuggestionText"></div>
+      <div class="folder-suggestion-actions">
+        <button type="button" id="resumeSuggestionAction"></button>
+        <button type="button" id="resumeSuggestionDismiss" data-i18n="close">Chiudi</button>
+      </div>
+    </section>
+
     <section class="mobile-panel-switch" id="mobilePanelSwitch">
       <button type="button" class="tool-button is-active" data-mobile-panel="visual">Visual</button>
       <button type="button" class="tool-button" data-mobile-panel="markdown">Markdown</button>
@@ -1472,7 +1512,7 @@
         Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.64.0</div>
+      <div class="build-badge" id="buildBadge">v0.65.0</div>
     </footer>
   </main>
 
@@ -1500,6 +1540,19 @@
         <button type="button" id="imageInsertEmbedButton" data-i18n="imageInsertEmbed">Embed</button>
         <button type="button" id="imageInsertLinkButton" data-i18n="imageInsertLink">Link</button>
         <button type="button" id="imageInsertCancelButton" data-i18n="close">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-backdrop" id="recentDocumentsDialog" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="recentDocumentsDialogTitle">
+      <div class="dialog-header">
+        <h3 class="dialog-title" id="recentDocumentsDialogTitle" data-i18n="recentDialogTitle">File recenti su questo dispositivo</h3>
+        <button type="button" id="closeRecentDocumentsDialogButton" data-i18n="close">Chiudi</button>
+      </div>
+      <ul class="recent-documents-list" id="recentDocumentsList"></ul>
+      <div class="folder-suggestion-actions">
+        <button type="button" id="forgetAllRecentDocumentsButton" data-i18n="recentForgetAll">Dimentica tutto</button>
       </div>
     </div>
   </div>
@@ -1573,7 +1626,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.64.0";
+    const APP_VERSION = "v0.65.0";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -1724,6 +1777,8 @@
     // The editor works with "\n"; files opened with Windows line endings are
     // written back with "\r\n".
     let currentDocumentLineEnding = "\n";
+    // Id of the current document in the opt-in device memory (recent files).
+    let currentDocumentMemoryId = null;
     let currentFileHandle = null;
     let currentDocumentNeedsProjectFolder = false;
     let pendingFolderLinkHandle = null;
@@ -1939,9 +1994,11 @@
         closeDocument: "Chiudi documento",
         resetPrivacy: "Pulisci dati locali",
         copyMarkdown: "Copia Markdown",
-        saveCopyAs: "Salva copia...",
+        saveCopyAs: "Salva con nome...",
         exportRtf: "Esporta .rtf",
-        downloadMarkdown: "Scarica .md",
+        downloadMarkdown: "Salva",
+        rememberToggle: "Ricorda",
+        recentDocuments: "Recenti",
         syncVisualToMarkdown: "Vai al Markdown corrispondente",
         syncVisualToMarkdownTitle: "Vai al Markdown corrispondente",
         syncMarkdownToVisual: "Vai all'Editor corrispondente",
@@ -2009,13 +2066,27 @@
         statusLinkFolderRequired: "Collega prima la cartella progetto per aprire link locali",
         statusFolderSuggestion: "File aperto senza cartella progetto: usa il pulsante qui sotto per collegare la cartella del documento.",
         statusFolderLinked: "Cartella documento collegata: i path relativi ora usano questa base",
-        statusDocumentClosed: "Documento chiuso: schermata iniziale ripristinata",
-        statusBlankDocumentReady: "Documento chiuso: nuovo foglio vuoto pronto",
+        statusBlankDocumentReady: "Documento chiuso: foglio vuoto pronto",
         statusPrivacyReset: "Dati locali rimossi: editor riportato allo stato iniziale",
         statusCleared: "Contenuto svuotato",
         statusCopied: "Markdown copiato negli appunti",
         statusCopyFailed: "Copia non riuscita",
-        statusDownloaded: "File Markdown scaricato",
+        statusSavedToDisk: "Salvato su disco: {name}",
+        statusDownloadedCopy: "Scaricato: {name} (cartella Download del browser)",
+        statusSaveCancelled: "Salvataggio annullato",
+        statusSaveFailed: "Impossibile scrivere {name}: scegli dove salvarlo",
+        statusSaveFailedGeneric: "Salvataggio non riuscito",
+        statusSavePermissionDenied: "Permesso di scrittura negato per {name}: scegli dove salvarlo",
+        statusSaveSkippedExternal: "Salvataggio annullato: il file su disco e cambiato. Ricaricalo o usa Salva con nome",
+        statusOpenFailed: "Impossibile leggere il file selezionato",
+        statusMemoryEnabled: "Memoria attiva: file recenti e bozze verranno ricordati su questo dispositivo",
+        statusMemoryDisabled: "Memoria disattivata: file recenti e bozze cancellati da questo dispositivo",
+        statusMemoryUnavailable: "Questo browser non permette di ricordare i file",
+        statusDraftRestored: "Bozza di {name} ripristinata dalla sessione precedente",
+        statusReattached: "Ricollegato al file {name}",
+        statusResumeDenied: "Accesso a {name} non concesso",
+        statusResumeMissing: "Impossibile riaprire {name}: il file e stato spostato o eliminato",
+        statusRecentForgotten: "File recenti e bozze dimenticati",
         statusRtfExported: "Documento RTF esportato",
         statusPrintOpened: "Anteprima di stampa aperta in una nuova finestra",
         statusPrintBlocked: "Il browser ha bloccato la finestra di stampa",
@@ -2040,10 +2111,23 @@
         promptTableColumns: "Numero di colonne della tabella",
         promptTableRows: "Numero di righe dati della tabella",
         promptCodeLanguage: "Linguaggio del blocco codice (opzionale)",
-        promptUnsavedClose: "Non hai scaricato l'ultima versione del documento. Se non l'hai salvata sulla tua chiavetta, fallo adesso. Vuoi chiudere comunque il documento?",
-        promptUnsavedReset: "Non hai ancora scaricato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere bozza, preferenze e dati locali da questo browser? I file originali sul disco o sulla chiavetta non verranno cancellati.",
+        promptUnsavedClose: "Non hai salvato l'ultima versione del documento: se continui, le modifiche andranno perse. Vuoi continuare comunque?",
+        promptUnsavedReset: "Non hai ancora salvato l'ultima versione della tua relazione di laboratorio. Il professore magari e buono e lascia correre, ma e meglio salvarla adesso. Vuoi davvero rimuovere da questo browser bozze, preferenze, file recenti e cartelle ricordate? I file originali sul disco o sulla chiavetta non verranno cancellati.",
+        promptOverwriteExternal: "{name} e stato modificato da un altro programma dopo l'apertura. Vuoi sovrascriverlo con la versione dell'editor?\n\nAnnulla per non salvare: potrai ricaricarlo o usare Salva con nome.",
+        promptEnableMemory: "Ricordare file recenti, cartelle collegate e bozze non salvate su questo dispositivo?\n\nAttivalo solo se questo computer e tuo. Su un computer condiviso (scuola, biblioteca, sala studio) chi usa il browser dopo di te vedrebbe i nomi dei file e le bozze.\n\nPuoi cancellare tutto in qualsiasi momento con Pulisci dati locali.",
+        promptDisableMemory: "Disattivare la memoria e cancellare da questo dispositivo file recenti, cartelle ricordate e bozze salvate?",
         promptDiscardReload: "Vuoi ricaricare il documento dal file su disco e scartare le modifiche locali non salvate?",
-        promptExternalReload: "Il file su disco e stato modificato da un'altra applicazione. Vuoi ricaricarlo adesso? Le modifiche locali non scaricate verranno perse.",
+        promptExternalReload: "Il file su disco e stato modificato da un'altra applicazione. Vuoi ricaricarlo adesso? Le modifiche locali non salvate verranno perse.",
+        resumeOpenText: "Ultimo documento: {name}",
+        resumeOpenAction: "Riapri",
+        resumeReattachText: "Bozza di {name} ripristinata: ricollegala al file per salvare sul disco",
+        resumeReattachAction: "Ricollega al file",
+        resumeRestoreText: "C'e una bozza non salvata di {name} dalla sessione precedente",
+        resumeRestoreAction: "Ripristina bozza",
+        recentDialogTitle: "File recenti su questo dispositivo",
+        recentEmpty: "Nessun file recente.",
+        recentForget: "Dimentica",
+        recentForgetAll: "Dimentica tutto",
         promptAutoLinkFolder: "Hai aperto un file Markdown senza cartella progetto collegata.",
         actionLinkFolderNow: "Collega cartella ora",
         promptFolderHelp: "I browser non espongono automaticamente la cartella del file scelto. Usa 'Collega cartella' dopo l'apertura per risolvere immagini e file locali.",
@@ -2072,12 +2156,15 @@
         openMarkdownTitle: "Apri un file Markdown",
         reloadDocumentTitle: "Ricarica il documento dal file aperto su disco",
         linkFolderTitle: "Collega la cartella delle risorse locali",
-        closeDocumentTitle: "Chiudi il documento corrente e torna alla schermata iniziale",
-        resetPrivacyTitle: "Rimuovi bozza, preferenze e dati locali da questo browser. Non cancella i file originali.",
+        closeDocumentTitle: "Chiudi il documento e apri un foglio vuoto",
+        resetPrivacyTitle: "Cancella da questo browser bozze, preferenze, file recenti e cartelle ricordate. Non cancella i file sul disco.",
         copyMarkdownTitle: "Copia il Markdown negli appunti",
-        saveCopyAsTitle: "Salva una copia con un nuovo nome o in una nuova posizione",
+        saveCopyAsTitle: "Salva in un nuovo file: da quel momento lavori su quel file",
         exportRtfTitle: "Esporta il documento in formato RTF modificabile",
-        downloadMarkdownTitle: "Scarica il file Markdown"
+        downloadMarkdownTitle: "Salva sul file aperto; se il documento non ha ancora un file, chiede dove salvarlo",
+        recentDocumentsTitle: "Apri un file usato di recente su questo dispositivo",
+        rememberToggleOffTitle: "Memoria disattivata: bozze e file restano solo in questa scheda. Clic per ricordarli su questo dispositivo",
+        rememberToggleOnTitle: "Memoria attiva: file recenti e bozze sono ricordati su questo dispositivo. Clic per disattivarla e cancellarli"
       },
       en: {
         heroTitle: "Markdown WYSIWYG Editor",
@@ -2110,9 +2197,11 @@
         closeDocument: "Close document",
         resetPrivacy: "Clear local data",
         copyMarkdown: "Copy Markdown",
-        saveCopyAs: "Save copy...",
+        saveCopyAs: "Save as...",
         exportRtf: "Export .rtf",
-        downloadMarkdown: "Download .md",
+        downloadMarkdown: "Save",
+        rememberToggle: "Remember",
+        recentDocuments: "Recent",
         syncVisualToMarkdown: "Go to matching Markdown",
         syncVisualToMarkdownTitle: "Go to matching Markdown",
         syncMarkdownToVisual: "Go to matching editor position",
@@ -2180,13 +2269,27 @@
         statusLinkFolderRequired: "Link the project folder first to open local links",
         statusFolderSuggestion: "File opened without a linked project folder: use the button below to link the document folder.",
         statusFolderLinked: "Document folder linked: relative paths now use this base",
-        statusDocumentClosed: "Document closed: initial screen restored",
-        statusBlankDocumentReady: "Document closed: blank draft ready",
+        statusBlankDocumentReady: "Document closed: blank sheet ready",
         statusPrivacyReset: "Local data cleared: editor restored to its initial state",
         statusCleared: "Content cleared",
         statusCopied: "Markdown copied to clipboard",
         statusCopyFailed: "Copy failed",
-        statusDownloaded: "Markdown file downloaded",
+        statusSavedToDisk: "Saved to disk: {name}",
+        statusDownloadedCopy: "Downloaded: {name} (browser Downloads folder)",
+        statusSaveCancelled: "Save canceled",
+        statusSaveFailed: "Could not write {name}: choose where to save it",
+        statusSaveFailedGeneric: "Save failed",
+        statusSavePermissionDenied: "Write permission denied for {name}: choose where to save it",
+        statusSaveSkippedExternal: "Save canceled: the file on disk changed. Reload it or use Save as",
+        statusOpenFailed: "Could not read the selected file",
+        statusMemoryEnabled: "Memory on: recent files and drafts will be remembered on this device",
+        statusMemoryDisabled: "Memory off: recent files and drafts removed from this device",
+        statusMemoryUnavailable: "This browser cannot remember files",
+        statusDraftRestored: "Draft of {name} restored from the previous session",
+        statusReattached: "Reconnected to the file {name}",
+        statusResumeDenied: "Access to {name} was not granted",
+        statusResumeMissing: "Cannot reopen {name}: the file was moved or deleted",
+        statusRecentForgotten: "Recent files and drafts forgotten",
         statusRtfExported: "RTF document exported",
         statusPrintOpened: "Print preview opened in a new window",
         statusPrintBlocked: "The browser blocked the print window",
@@ -2211,10 +2314,23 @@
         promptTableColumns: "Number of table columns",
         promptTableRows: "Number of table data rows",
         promptCodeLanguage: "Code block language (optional)",
-        promptUnsavedClose: "You have not downloaded the latest version of this document. If you have not saved it to your USB drive yet, do it now. Do you want to close the document anyway?",
-        promptUnsavedReset: "You have not downloaded the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove the draft, preferences, and local browser data? Original files on disk or on your USB drive will not be deleted.",
+        promptUnsavedClose: "You have not saved the latest version of this document: if you continue, your changes will be lost. Continue anyway?",
+        promptUnsavedReset: "You have not saved the latest version of your lab report yet. The professor may be kind and let it slide, but it is better to save it now. Do you really want to remove drafts, preferences, recent files, and remembered folders from this browser? Original files on disk or on your USB drive will not be deleted.",
+        promptOverwriteExternal: "{name} was changed by another program after it was opened. Overwrite it with the editor version?\n\nCancel to keep it: you can reload it or use Save as.",
+        promptEnableMemory: "Remember recent files, linked folders, and unsaved drafts on this device?\n\nTurn this on only if this computer is yours. On a shared computer (school, library, study room) the next person using this browser would see your file names and drafts.\n\nYou can delete everything at any time with Clear local data.",
+        promptDisableMemory: "Turn memory off and delete recent files, remembered folders, and saved drafts from this device?",
         promptDiscardReload: "Do you want to reload this document from disk and discard local unsaved changes?",
-        promptExternalReload: "This file changed on disk from another app. Reload now? Local undownloaded changes will be lost.",
+        promptExternalReload: "This file changed on disk from another app. Reload now? Local unsaved changes will be lost.",
+        resumeOpenText: "Last document: {name}",
+        resumeOpenAction: "Reopen",
+        resumeReattachText: "Draft of {name} restored: reconnect it to the file to save to disk",
+        resumeReattachAction: "Reconnect to file",
+        resumeRestoreText: "There is an unsaved draft of {name} from the previous session",
+        resumeRestoreAction: "Restore draft",
+        recentDialogTitle: "Recent files on this device",
+        recentEmpty: "No recent files.",
+        recentForget: "Forget",
+        recentForgetAll: "Forget all",
         promptAutoLinkFolder: "You opened a Markdown file without a linked project folder.",
         actionLinkFolderNow: "Link folder now",
         promptFolderHelp: "Browsers do not automatically expose the folder of the selected file. Use 'Link folder' after opening the file to resolve local images and files.",
@@ -2243,12 +2359,15 @@
         openMarkdownTitle: "Open a Markdown file",
         reloadDocumentTitle: "Reload the document from the currently linked disk file",
         linkFolderTitle: "Link the local resources folder",
-        closeDocumentTitle: "Close the current document and return to the initial screen",
-        resetPrivacyTitle: "Remove the draft, preferences, and local browser data. Original files are not deleted.",
+        closeDocumentTitle: "Close the document and start a blank sheet",
+        resetPrivacyTitle: "Delete drafts, preferences, recent files, and remembered folders from this browser. Files on disk are not deleted.",
         copyMarkdownTitle: "Copy Markdown to clipboard",
-        saveCopyAsTitle: "Save a copy with a new name or to a new location",
+        saveCopyAsTitle: "Save to a new file; from then on you work on that file",
         exportRtfTitle: "Export the document as editable RTF",
-        downloadMarkdownTitle: "Download the Markdown file"
+        downloadMarkdownTitle: "Save to the open file; if the document has no file yet, ask where to save it",
+        recentDocumentsTitle: "Open a file recently used on this device",
+        rememberToggleOffTitle: "Memory off: drafts and files stay in this tab only. Click to remember them on this device",
+        rememberToggleOnTitle: "Memory on: recent files and drafts are remembered on this device. Click to turn it off and delete them"
       }
     };
 
@@ -2663,12 +2782,10 @@
       }
 
       const linkedPath = resourceResolver.getDocumentResourcePath(path);
-      const opened = await openMarkdownFile(entry.file, null, null, {
+      const opened = await openMarkdownFile(entry.file, null, entry.handle || null, {
         preserveDirectoryContext: true,
         documentBasePath: getResourceParentPath(linkedPath)
       });
-      currentFileHandle = opened ? (entry.handle || null) : null;
-      updateReloadButtonState();
       if (!opened) {
         return false;
       }
@@ -3283,6 +3400,10 @@
 
     function t(key) {
       return translations[currentLanguage][key] || translations.it[key] || key;
+    }
+
+    function tf(key, values = {}) {
+      return t(key).replace(/\{(\w+)\}/g, (match, name) => (values[name] == null ? match : String(values[name])));
     }
 
     function detectPreferredTheme() {
@@ -4978,22 +5099,102 @@
         : markdownInput.value.replace(/\n/g, currentDocumentLineEnding);
     }
 
-    async function saveMarkdownWithPicker() {
-      if (!window.showSaveFilePicker) {
-        const blob = new Blob([getMarkdownForSaving()], { type: "text/markdown;charset=utf-8" });
-        downloadBlobFile(blob, currentDocumentName);
-        hasPersistedDocumentVersion = true;
-        lastDownloadedMarkdown = markdownInput.value;
-        setStatus(t("statusDownloaded"));
+    // Browsers that support the File System Access API grant read access when a
+    // file is opened; writing (or reopening a remembered handle) needs an
+    // explicit permission. Handles from other sources (tests, older browsers)
+    // have no permission API and are used directly.
+    async function ensureHandlePermission(handle, mode = "read") {
+      if (!handle) {
+        return false;
+      }
+      if (typeof handle.queryPermission !== "function") {
         return true;
+      }
+      try {
+        if (await handle.queryPermission({ mode }) === "granted") {
+          return true;
+        }
+        return typeof handle.requestPermission === "function" && await handle.requestPermission({ mode }) === "granted";
+      } catch {
+        return false;
+      }
+    }
+
+    // True when the file on disk was changed by another program since it was
+    // opened or last saved, and differs from both versions known to the editor.
+    async function hasFileChangedSinceLoad(fileHandle) {
+      if (!lastKnownFileSignature || fileHandle !== currentFileHandle) {
+        return false;
+      }
+      try {
+        const diskFile = await fileHandle.getFile();
+        if (buildFileSignature(diskFile) === lastKnownFileSignature) {
+          return false;
+        }
+        const result = await readValidatedDocumentFile(diskFile);
+        const diskText = result.ok ? String(result.text || "").replace(/\r\n?/g, "\n") : null;
+        return diskText !== lastDownloadedMarkdown && diskText !== markdownInput.value;
+      } catch {
+        return false;
+      }
+    }
+
+    function markDocumentSaved(fileName) {
+      hasPersistedDocumentVersion = true;
+      lastDownloadedMarkdown = markdownInput.value;
+      if (fileName) {
+        currentDocumentName = fileName;
+      }
+      persistDocumentSession();
+      queueWindowTitleUpdate();
+    }
+
+    // Writes the editor content into an existing file. Returns "saved",
+    // "cancelled" (the user kept a newer version on disk) or "failed".
+    async function writeDocumentToHandle(fileHandle) {
+      const name = fileHandle.name || currentDocumentName;
+      if (!await ensureHandlePermission(fileHandle, "readwrite")) {
+        setStatus(tf("statusSavePermissionDenied", { name }));
+        return "failed";
+      }
+      if (await hasFileChangedSinceLoad(fileHandle) && !window.confirm(tf("promptOverwriteExternal", { name }))) {
+        setStatus(t("statusSaveSkippedExternal"));
+        return "cancelled";
       }
 
       try {
         fileSaveInFlight = true;
-        const startIn = getCurrentDirectoryHandle() || "documents";
-        const fileHandle = await window.showSaveFilePicker({
+        const writable = await fileHandle.createWritable();
+        await writable.write(getMarkdownForSaving());
+        await writable.close();
+        await refreshLinkedDocumentState(fileHandle);
+        markDocumentSaved();
+      } catch {
+        setStatus(tf("statusSaveFailed", { name }));
+        return "failed";
+      } finally {
+        fileSaveInFlight = false;
+      }
+
+      setStatus(tf("statusSavedToDisk", { name: currentDocumentName }));
+      return "saved";
+    }
+
+    // "Save as": the chosen file becomes the current document.
+    async function saveMarkdownWithPicker() {
+      if (!window.showSaveFilePicker) {
+        const blob = new Blob([getMarkdownForSaving()], { type: "text/markdown;charset=utf-8" });
+        downloadBlobFile(blob, currentDocumentName);
+        markDocumentSaved();
+        setStatus(tf("statusDownloadedCopy", { name: currentDocumentName }));
+        return true;
+      }
+
+      let fileHandle = null;
+      try {
+        fileHandle = await window.showSaveFilePicker({
           suggestedName: currentDocumentName,
-          startIn: startIn,
+          startIn: getCurrentDirectoryHandle() || "documents",
           types: [
               {
                 description: "Readable text",
@@ -5008,37 +5209,37 @@
               }
             ]
         });
+      } catch (error) {
+        setStatus(t(error && error.name === "AbortError" ? "statusSaveCancelled" : "statusSaveFailedGeneric"));
+        return false;
+      }
+
+      try {
+        fileSaveInFlight = true;
         const writable = await fileHandle.createWritable();
         await writable.write(getMarkdownForSaving());
         await writable.close();
-        hasPersistedDocumentVersion = true;
-        lastDownloadedMarkdown = markdownInput.value;
+        markDocumentSaved(fileHandle.name);
         await refreshLinkedDocumentState(fileHandle);
-        setStatus(t("statusDownloaded"));
-        return true;
       } catch {
+        setStatus(tf("statusSaveFailed", { name: fileHandle.name || currentDocumentName }));
         return false;
       } finally {
         fileSaveInFlight = false;
       }
+
+      persistDocumentSession();
+      void rememberCurrentDocument();
+      setStatus(tf("statusSavedToDisk", { name: currentDocumentName }));
+      return true;
     }
 
+    // "Save": overwrite the open file when there is one, otherwise "Save as".
     async function downloadMarkdown() {
       if (currentFileHandle) {
-        try {
-          fileSaveInFlight = true;
-          const writable = await currentFileHandle.createWritable();
-          await writable.write(getMarkdownForSaving());
-          await writable.close();
-          hasPersistedDocumentVersion = true;
-          lastDownloadedMarkdown = markdownInput.value;
-          await refreshLinkedDocumentState(currentFileHandle);
-          setStatus(t("statusDownloaded"));
+        const result = await writeDocumentToHandle(currentFileHandle);
+        if (result !== "failed") {
           return;
-        } catch {
-          // Fallback al download standard se la scrittura fallisce
-        } finally {
-          fileSaveInFlight = false;
         }
       }
 
@@ -5047,6 +5248,299 @@
 
     async function saveMarkdownCopyAs() {
       await saveMarkdownWithPicker();
+    }
+
+    // DocumentMemory keeps recent files, their linked folders and the unsaved
+    // draft in IndexedDB so work can resume after the app is closed. It is off
+    // by default because the PWA may run on shared computers (school, library):
+    // while it is off nothing is written, and "Clear local data" deletes the
+    // whole database.
+    const DOCUMENT_MEMORY_DB_NAME = "md-editor-memory";
+    const DOCUMENT_MEMORY_STORE = "entries";
+    const DOCUMENT_MEMORY_MAX_RECENT = 8;
+    const DOCUMENT_MEMORY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+    class DocumentMemory {
+      constructor() {
+        this.databasePromise = null;
+        this.sessionTimer = null;
+        this.pendingSession = null;
+      }
+
+      isAvailable() {
+        return typeof indexedDB !== "undefined";
+      }
+
+      isEnabled() {
+        return this.isAvailable() && loadPreference("remember_documents", "") === "1";
+      }
+
+      openDatabase() {
+        if (!this.databasePromise) {
+          this.databasePromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(DOCUMENT_MEMORY_DB_NAME, 1);
+            request.onupgradeneeded = () => {
+              request.result.createObjectStore(DOCUMENT_MEMORY_STORE, { keyPath: "id" });
+            };
+            request.onsuccess = () => {
+              const database = request.result;
+              // Let "Clear local data" in another window delete the database.
+              database.onversionchange = () => {
+                database.close();
+                this.databasePromise = null;
+              };
+              resolve(database);
+            };
+            request.onerror = () => reject(request.error);
+          }).catch(error => {
+            this.databasePromise = null;
+            throw error;
+          });
+        }
+        return this.databasePromise;
+      }
+
+      async runTransaction(mode, action) {
+        const database = await this.openDatabase();
+        return new Promise((resolve, reject) => {
+          const transaction = database.transaction(DOCUMENT_MEMORY_STORE, mode);
+          let result;
+          const request = action(transaction.objectStore(DOCUMENT_MEMORY_STORE));
+          if (request) {
+            request.onsuccess = () => {
+              result = request.result;
+            };
+          }
+          transaction.oncomplete = () => resolve(result);
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+      }
+
+      async getAll() {
+        if (!this.isEnabled()) {
+          return [];
+        }
+        try {
+          return await this.runTransaction("readonly", store => store.getAll()) || [];
+        } catch {
+          return [];
+        }
+      }
+
+      async put(entry) {
+        if (!this.isEnabled()) {
+          return false;
+        }
+        try {
+          await this.runTransaction("readwrite", store => store.put(entry));
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      async remove(id) {
+        if (!this.isAvailable()) {
+          return;
+        }
+        try {
+          await this.runTransaction("readwrite", store => store.delete(id));
+        } catch {}
+      }
+
+      async listRecent() {
+        return (await this.getAll())
+          .filter(entry => entry.type === "recent" && entry.handle)
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      }
+
+      async findRecent(id) {
+        return (await this.listRecent()).find(entry => entry.id === id) || null;
+      }
+
+      async isSameFile(entry, handle) {
+        try {
+          if (entry.handle && typeof entry.handle.isSameEntry === "function") {
+            return await entry.handle.isSameEntry(handle);
+          }
+        } catch {}
+        return entry.handle === handle;
+      }
+
+      async rememberDocument(handle, details = {}) {
+        if (!this.isEnabled() || !handle) {
+          return null;
+        }
+        const recent = await this.listRecent();
+        let existing = null;
+        for (const entry of recent) {
+          if (await this.isSameFile(entry, handle)) {
+            existing = entry;
+            break;
+          }
+        }
+
+        const entry = {
+          id: existing ? existing.id : "recent:" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+          type: "recent",
+          name: handle.name || details.name || "documento.md",
+          handle,
+          folderHandle: details.folderHandle || null,
+          basePath: details.basePath || "",
+          updatedAt: Date.now()
+        };
+        let saved = await this.put(entry);
+        if (!saved && entry.folderHandle) {
+          entry.folderHandle = null;
+          entry.basePath = "";
+          saved = await this.put(entry);
+        }
+        if (!saved) {
+          return null;
+        }
+
+        const others = recent.filter(item => item.id !== entry.id);
+        for (const stale of others.slice(DOCUMENT_MEMORY_MAX_RECENT - 1)) {
+          await this.remove(stale.id);
+        }
+        return entry.id;
+      }
+
+      scheduleSessionSave(snapshot) {
+        if (!this.isEnabled()) {
+          return;
+        }
+        this.pendingSession = snapshot;
+        if (this.sessionTimer) {
+          window.clearTimeout(this.sessionTimer);
+        }
+        this.sessionTimer = window.setTimeout(() => {
+          void this.flushSessionSave();
+        }, 800);
+      }
+
+      async flushSessionSave() {
+        if (this.sessionTimer) {
+          window.clearTimeout(this.sessionTimer);
+          this.sessionTimer = null;
+        }
+        const snapshot = this.pendingSession;
+        this.pendingSession = null;
+        if (!snapshot || !this.isEnabled()) {
+          return;
+        }
+        if (!String(snapshot.markdown || "").trim() && !(snapshot.state && snapshot.state.hasPersisted)) {
+          await this.remove("session");
+          return;
+        }
+        await this.put({ id: "session", type: "session", markdown: snapshot.markdown, state: snapshot.state, updatedAt: Date.now() });
+      }
+
+      async loadSession() {
+        return (await this.getAll()).find(entry => entry.id === "session") || null;
+      }
+
+      async clearSession() {
+        if (this.sessionTimer) {
+          window.clearTimeout(this.sessionTimer);
+          this.sessionTimer = null;
+        }
+        this.pendingSession = null;
+        await this.remove("session");
+      }
+
+      async purgeExpired() {
+        const now = Date.now();
+        for (const entry of await this.getAll()) {
+          if (now - (entry.updatedAt || 0) > DOCUMENT_MEMORY_MAX_AGE_MS) {
+            await this.remove(entry.id);
+          }
+        }
+      }
+
+      async deleteAll() {
+        if (this.sessionTimer) {
+          window.clearTimeout(this.sessionTimer);
+          this.sessionTimer = null;
+        }
+        this.pendingSession = null;
+        const database = this.databasePromise ? await this.databasePromise.catch(() => null) : null;
+        if (database) {
+          database.close();
+        }
+        this.databasePromise = null;
+        if (!this.isAvailable()) {
+          return;
+        }
+        await new Promise(resolve => {
+          const request = indexedDB.deleteDatabase(DOCUMENT_MEMORY_DB_NAME);
+          request.onsuccess = () => resolve();
+          request.onerror = () => resolve();
+          request.onblocked = () => resolve();
+        });
+      }
+    }
+
+    const documentMemory = new DocumentMemory();
+
+    function getDocumentSessionState() {
+      return {
+        name: currentDocumentName,
+        hasPersisted: hasPersistedDocumentVersion,
+        savedMarkdown: hasPersistedDocumentVersion ? lastDownloadedMarkdown : "",
+        lineEnding: currentDocumentLineEnding,
+        signature: lastKnownFileSignature,
+        memoryId: currentDocumentMemoryId
+      };
+    }
+
+    // The draft and the identity of the open document survive a page refresh
+    // in this tab (sessionStorage); with device memory on they also survive
+    // closing the app.
+    function persistDocumentSession(markdown = markdownInput.value) {
+      const state = getDocumentSessionState();
+      saveSessionValue("draft_markdown", markdown);
+      saveSessionValue("document_state", JSON.stringify(state));
+      documentMemory.scheduleSessionSave({ markdown, state });
+    }
+
+    function parseDocumentSessionState(value) {
+      try {
+        const state = JSON.parse(value || "");
+        return state && typeof state === "object" ? state : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function restoreDocumentSessionState(state) {
+      if (!state) {
+        return;
+      }
+      currentDocumentName = state.name || "documento.md";
+      hasPersistedDocumentVersion = Boolean(state.hasPersisted);
+      lastDownloadedMarkdown = hasPersistedDocumentVersion ? String(state.savedMarkdown || "") : "";
+      lastLoadedMarkdown = lastDownloadedMarkdown;
+      currentDocumentLineEnding = state.lineEnding === "\r\n" ? "\r\n" : "\n";
+      lastKnownFileSignature = state.signature || "";
+      lastPromptedExternalSignature = "";
+      currentDocumentMemoryId = state.memoryId || null;
+    }
+
+    async function rememberCurrentDocument() {
+      if (!documentMemory.isEnabled() || !currentFileHandle) {
+        return;
+      }
+      const id = await documentMemory.rememberDocument(currentFileHandle, {
+        name: currentDocumentName,
+        folderHandle: getCurrentDirectoryHandle(),
+        basePath: resourceResolver.documentBasePath
+      });
+      if (id) {
+        currentDocumentMemoryId = id;
+        persistDocumentSession();
+      }
     }
 
 </script>
@@ -5265,6 +5759,7 @@
         syncStatus.textContent = t("statusSynced");
       }
       renderSymbolCategoryOptions();
+      updateDocumentMemoryUi();
       if (findReplaceDialog.classList.contains("is-open")) {
         findReplaceController.updateSummary();
       }
@@ -5397,7 +5892,7 @@
     function isInitialDocumentState() {
       const currentValue = markdownInput.value || "";
       return !lastLoadedMarkdown
-        && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en || currentValue === "");
+        && (currentValue === initialMarkdownByLanguage.it || currentValue === initialMarkdownByLanguage.en);
     }
 
     function getDocumentTitleName() {
@@ -5772,6 +6267,10 @@
     }
 
     function isDocumentDirtyForWindowTitle(markdown) {
+      return isDocumentDirty(markdown);
+    }
+
+    function isDocumentDirty(markdown) {
       const currentValue = markdown || "";
       if (!currentValue.trim()) {
         return false;
@@ -5829,14 +6328,7 @@
 
     function hasUndownloadedChanges() {
       captureUnsyncedVisualDomChange();
-      const currentValue = markdownInput.value || "";
-      if (!currentValue.trim()) {
-        return false;
-      }
-      if (hasPersistedDocumentVersion) {
-        return currentValue !== lastDownloadedMarkdown;
-      }
-      return currentValue !== getInitialMarkdown();
+      return isDocumentDirty(markdownInput.value);
     }
 
     function confirmDiscardCurrentDocument() {
@@ -5943,7 +6435,7 @@
       shell.classList.toggle("is-drop-target", Boolean(isActive));
     }
 
-    async function handleDroppedDocumentFiles(files) {
+    async function handleDroppedDocumentFiles(files, handlePromises = []) {
       const droppedFiles = Array.from(files || []);
       if (!droppedFiles.length) {
         return;
@@ -5955,11 +6447,10 @@
       if (!confirmDiscardCurrentDocument()) {
         return;
       }
-      currentFileHandle = null;
-      lastKnownFileSignature = "";
-      lastPromptedExternalSignature = "";
-      updateReloadButtonState();
-      await openMarkdownFile(droppedFiles[0], null);
+      // Chromium exposes the dropped file's handle, so Save and Reload work as
+      // for a file opened from the picker.
+      const handles = (await Promise.all(handlePromises)).filter(handle => handle && handle.kind === "file");
+      await openMarkdownFile(droppedFiles[0], null, handles.length === 1 ? handles[0] : null);
     }
 
     function showFolderSuggestion(handle = null) {
@@ -5983,7 +6474,11 @@
             options.startIn = startInHandle;
           }
           return await window.showDirectoryPicker(options);
-        } catch {
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            setStatus(t("statusFolderCancelled"));
+            return null;
+          }
           setStatus(t("statusFolderFallback"));
         }
       }
@@ -6131,7 +6626,7 @@
       serializeVisualHtml: serializeVisualDocument,
       clearResolvedResources,
       syncCheckboxAttributes,
-      saveDraft: value => saveSessionValue("draft_markdown", value),
+      saveDraft: value => persistDocumentSession(value),
       queueHistorySnapshot,
       setStatusKey: key => setStatus(t(key))
     });
@@ -8736,11 +9231,9 @@
             ]
         });
         const file = await fileHandle.getFile();
-        const opened = await openMarkdownFile(file, null, fileHandle);
-        currentFileHandle = opened ? fileHandle : null;
-        updateReloadButtonState();
-      } catch {
-        setStatus(t("statusOpenCancelled"));
+        await openMarkdownFile(file, null, fileHandle);
+      } catch (error) {
+        setStatus(t(error && error.name === "AbortError" ? "statusOpenCancelled" : "statusOpenFailed"));
       }
     }
 
@@ -8755,6 +9248,8 @@
       currentDocumentName = file.name || "documento.md";
       hasPersistedDocumentVersion = true;
       currentFileHandle = fileHandle;
+      currentDocumentMemoryId = null;
+      hideResumeSuggestion();
       lastKnownFileSignature = buildFileSignature(file);
       lastPromptedExternalSignature = "";
       updateReloadButtonState();
@@ -8776,6 +9271,7 @@
       markdownInput.value = lastLoadedMarkdown;
       resetHistory(lastLoadedMarkdown);
       await syncFromMarkdown();
+      void rememberCurrentDocument();
       if (/blob:null\//i.test(lastLoadedMarkdown)) {
         setStatus(t("statusBlobImageWarning"));
         return true;
@@ -8875,6 +9371,7 @@
         setCurrentDirectoryHandle(directoryHandle);
       }
       hideFolderSuggestion();
+      void rememberCurrentDocument();
       if (markdownInput.value) {
         await syncFromMarkdown();
         setStatus(t("statusFolderLinked"));
@@ -8889,9 +9386,10 @@
         return;
       }
 
-      const shouldRestoreBlankDraft = !hasPersistedDocumentVersion;
       clearResolvedResources();
       currentFileHandle = null;
+      currentDocumentMemoryId = null;
+      hideResumeSuggestion();
       lastKnownFileSignature = "";
       lastPromptedExternalSignature = "";
       updateReloadButtonState();
@@ -8903,11 +9401,13 @@
       lastDownloadedMarkdown = "";
       currentDocumentNeedsProjectFolder = false;
       hasPersistedDocumentVersion = false;
-      markdownInput.value = shouldRestoreBlankDraft ? "" : getInitialMarkdown();
-      resetHistory(markdownInput.value);
+      markdownInput.value = "";
+      resetHistory("");
       clearSessionValue("draft_markdown");
+      clearSessionValue("document_state");
+      void documentMemory.clearSession();
       await syncFromMarkdown();
-      setStatus(t(shouldRestoreBlankDraft ? "statusBlankDocumentReady" : "statusDocumentClosed"));
+      setStatus(t("statusBlankDocumentReady"));
     }
 
     async function resetPrivacy() {
@@ -8917,6 +9417,11 @@
 
       clearResolvedResources();
       clearAllPreferences();
+      await documentMemory.deleteAll();
+      currentDocumentMemoryId = null;
+      hideResumeSuggestion();
+      closeRecentDocumentsDialog();
+      updateDocumentMemoryUi();
       currentFileHandle = null;
       lastKnownFileSignature = "";
       lastPromptedExternalSignature = "";
@@ -9659,13 +10164,11 @@
       event.target.value = "";
     });
 
+    // Only reachable from openMarkdownWithPicker, which already asked about
+    // unsaved changes before showing the file chooser.
     markdownFileInput.addEventListener("change", event => {
       const [file] = event.target.files || [];
-      if (file && confirmDiscardCurrentDocument()) {
-        currentFileHandle = null;
-        lastKnownFileSignature = "";
-        lastPromptedExternalSignature = "";
-        updateReloadButtonState();
+      if (file) {
         void openMarkdownFile(file);
       }
       event.target.value = "";
@@ -9781,7 +10284,17 @@
       event.preventDefault();
       activeFileDragDepth = 0;
       setDropTargetActive(false);
-      void handleDroppedDocumentFiles(event.dataTransfer ? event.dataTransfer.files : []);
+      // Handles must be requested while the drop event is being dispatched.
+      const handlePromises = Array.from(event.dataTransfer ? event.dataTransfer.items || [] : [])
+        .filter(item => item.kind === "file" && typeof item.getAsFileSystemHandle === "function")
+        .map(item => {
+          try {
+            return Promise.resolve(item.getAsFileSystemHandle()).catch(() => null);
+          } catch {
+            return Promise.resolve(null);
+          }
+        });
+      void handleDroppedDocumentFiles(event.dataTransfer ? event.dataTransfer.files : [], handlePromises);
     });
 
     preview.addEventListener("click", event => {
@@ -9997,18 +10510,321 @@
       });
     });
 
+    const resumeSuggestion = document.getElementById("resumeSuggestion");
+    const resumeSuggestionText = document.getElementById("resumeSuggestionText");
+    const resumeSuggestionAction = document.getElementById("resumeSuggestionAction");
+    const rememberToggleButton = document.getElementById("rememberToggleButton");
+    const recentDocumentsButton = document.getElementById("recentDocumentsButton");
+    const recentDocumentsDialog = document.getElementById("recentDocumentsDialog");
+    const recentDocumentsList = document.getElementById("recentDocumentsList");
+    let resumeSuggestionState = null;
+
+    function updateDocumentMemoryUi() {
+      if (!rememberToggleButton) {
+        return;
+      }
+      const enabled = documentMemory.isEnabled();
+      const title = t(enabled ? "rememberToggleOnTitle" : "rememberToggleOffTitle");
+      rememberToggleButton.setAttribute("aria-pressed", String(enabled));
+      rememberToggleButton.classList.toggle("is-active", enabled);
+      rememberToggleButton.title = title;
+      rememberToggleButton.setAttribute("aria-label", t("rememberToggle") + ": " + title);
+      rememberToggleButton.querySelector(".tool-icon").textContent = enabled ? "🔓" : "🔒";
+      recentDocumentsButton.hidden = !enabled;
+      if (resumeSuggestionState) {
+        renderResumeSuggestion();
+      }
+    }
+
+    function renderResumeSuggestion() {
+      const { mode, entry, session } = resumeSuggestionState;
+      const name = entry ? entry.name : (session && session.state && session.state.name) || "documento.md";
+      const keys = {
+        open: ["resumeOpenText", "resumeOpenAction"],
+        reattach: ["resumeReattachText", "resumeReattachAction"],
+        restore: ["resumeRestoreText", "resumeRestoreAction"]
+      }[mode];
+      resumeSuggestionText.textContent = tf(keys[0], { name });
+      resumeSuggestionAction.textContent = t(keys[1]);
+    }
+
+    function showResumeSuggestion(state) {
+      resumeSuggestionState = state;
+      renderResumeSuggestion();
+      resumeSuggestion.classList.add("is-visible");
+    }
+
+    function hideResumeSuggestion() {
+      resumeSuggestionState = null;
+      if (resumeSuggestion) {
+        resumeSuggestion.classList.remove("is-visible");
+      }
+    }
+
+    async function linkRememberedFolder(entry) {
+      if (!entry.folderHandle || !await ensureHandlePermission(entry.folderHandle, "read")) {
+        return false;
+      }
+      setCurrentDirectoryHandle(entry.folderHandle);
+      setCurrentDocumentBasePath(entry.basePath || "");
+      return true;
+    }
+
+    async function openRememberedDocument(entry) {
+      // Ask for access first: the browser accepts the request only right after
+      // the click, before any confirmation dialog.
+      if (!await ensureHandlePermission(entry.handle, "read")) {
+        setStatus(tf("statusResumeDenied", { name: entry.name }));
+        return false;
+      }
+      if (!confirmDiscardCurrentDocument()) {
+        return false;
+      }
+      let file = null;
+      try {
+        file = await entry.handle.getFile();
+      } catch {
+        setStatus(tf("statusResumeMissing", { name: entry.name }));
+        return false;
+      }
+      const folderLinked = await linkRememberedFolder(entry);
+      return openMarkdownFile(file, null, entry.handle, {
+        preserveDirectoryContext: folderLinked,
+        documentBasePath: folderLinked ? entry.basePath || "" : null
+      });
+    }
+
+    // Reconnects a restored draft to its file without reloading the content,
+    // so Save writes to the same file again.
+    async function reattachRememberedDocument(entry) {
+      if (!await ensureHandlePermission(entry.handle, "readwrite")) {
+        setStatus(tf("statusResumeDenied", { name: entry.name }));
+        return false;
+      }
+      let diskFile = null;
+      try {
+        diskFile = await entry.handle.getFile();
+      } catch {
+        setStatus(tf("statusResumeMissing", { name: entry.name }));
+        return false;
+      }
+      currentFileHandle = entry.handle;
+      if (!lastKnownFileSignature) {
+        lastKnownFileSignature = buildFileSignature(diskFile);
+      }
+      await linkRememberedFolder(entry);
+      updateReloadButtonState();
+      hideResumeSuggestion();
+      await syncFromMarkdown();
+      setStatus(tf("statusReattached", { name: entry.name }));
+      void checkExternalFileChanges();
+      return true;
+    }
+
+    async function applyRememberedSession(session) {
+      markdownInput.value = String(session.markdown || "");
+      hasPersistedDocumentVersion = false;
+      restoreDocumentSessionState(session.state || null);
+      resetHistory(markdownInput.value);
+      await syncFromMarkdown();
+      setStatus(tf("statusDraftRestored", { name: getDocumentTitleName() }));
+      const entry = currentDocumentMemoryId ? await documentMemory.findRecent(currentDocumentMemoryId) : null;
+      if (entry) {
+        showResumeSuggestion({ mode: "reattach", entry });
+      } else {
+        hideResumeSuggestion();
+      }
+    }
+
+    async function handleResumeSuggestionAction() {
+      const state = resumeSuggestionState;
+      if (!state) {
+        return;
+      }
+      if (state.mode === "open") {
+        await openRememberedDocument(state.entry);
+      } else if (state.mode === "reattach") {
+        await reattachRememberedDocument(state.entry);
+      } else if (state.mode === "restore" && confirmDiscardCurrentDocument()) {
+        await applyRememberedSession(state.session);
+      }
+    }
+
+    // Runs once after start-up: with device memory on, restores the draft of
+    // the previous session or offers to reopen the last document.
+    async function restoreRememberedSession({ hasTabDraft, startupMarkdown }) {
+      if (!documentMemory.isEnabled()) {
+        return;
+      }
+      await documentMemory.purgeExpired();
+      const untouched = () => markdownInput.value === startupMarkdown && !currentFileHandle;
+
+      if (hasTabDraft) {
+        const entry = currentDocumentMemoryId ? await documentMemory.findRecent(currentDocumentMemoryId) : null;
+        if (entry && untouched()) {
+          showResumeSuggestion({ mode: "reattach", entry });
+        }
+        return;
+      }
+
+      const session = await documentMemory.loadSession();
+      if (session && String(session.markdown || "").trim()) {
+        if (untouched() && !hasPersistedDocumentVersion) {
+          await applyRememberedSession(session);
+        } else {
+          showResumeSuggestion({ mode: "restore", session });
+        }
+        return;
+      }
+
+      const [lastDocument] = await documentMemory.listRecent();
+      if (lastDocument && untouched() && !hasPersistedDocumentVersion) {
+        showResumeSuggestion({ mode: "open", entry: lastDocument });
+      }
+    }
+
+    async function toggleDocumentMemory() {
+      if (documentMemory.isEnabled()) {
+        if (!window.confirm(t("promptDisableMemory"))) {
+          return;
+        }
+        savePreference("remember_documents", "");
+        await documentMemory.deleteAll();
+        currentDocumentMemoryId = null;
+        hideResumeSuggestion();
+        closeRecentDocumentsDialog();
+        updateDocumentMemoryUi();
+        persistDocumentSession();
+        setStatus(t("statusMemoryDisabled"));
+        return;
+      }
+      if (!documentMemory.isAvailable()) {
+        setStatus(t("statusMemoryUnavailable"));
+        return;
+      }
+      if (!window.confirm(t("promptEnableMemory"))) {
+        return;
+      }
+      savePreference("remember_documents", "1");
+      updateDocumentMemoryUi();
+      setStatus(t("statusMemoryEnabled"));
+      await rememberCurrentDocument();
+      persistDocumentSession();
+    }
+
+    async function renderRecentDocumentsList() {
+      const entries = await documentMemory.listRecent();
+      recentDocumentsList.textContent = "";
+      if (!entries.length) {
+        const empty = document.createElement("li");
+        empty.textContent = t("recentEmpty");
+        recentDocumentsList.appendChild(empty);
+        return;
+      }
+      entries.forEach(entry => {
+        const item = document.createElement("li");
+        const openButton = document.createElement("button");
+        openButton.type = "button";
+        openButton.className = "recent-document-open";
+        openButton.textContent = entry.name;
+        const details = document.createElement("small");
+        details.textContent = new Date(entry.updatedAt || Date.now()).toLocaleString(currentLanguage)
+          + (entry.folderHandle && entry.folderHandle.name ? " · " + entry.folderHandle.name : "");
+        openButton.appendChild(details);
+        openButton.addEventListener("click", async () => {
+          closeRecentDocumentsDialog();
+          await openRememberedDocument(entry);
+        });
+        const forgetButton = document.createElement("button");
+        forgetButton.type = "button";
+        forgetButton.textContent = t("recentForget");
+        forgetButton.addEventListener("click", async () => {
+          await documentMemory.remove(entry.id);
+          if (currentDocumentMemoryId === entry.id) {
+            currentDocumentMemoryId = null;
+            persistDocumentSession();
+          }
+          await renderRecentDocumentsList();
+        });
+        item.append(openButton, forgetButton);
+        recentDocumentsList.appendChild(item);
+      });
+    }
+
+    async function openRecentDocumentsDialog() {
+      await renderRecentDocumentsList();
+      recentDocumentsDialog.classList.add("is-open");
+      recentDocumentsDialog.setAttribute("aria-hidden", "false");
+    }
+
+    function closeRecentDocumentsDialog() {
+      if (!recentDocumentsDialog) {
+        return;
+      }
+      recentDocumentsDialog.classList.remove("is-open");
+      recentDocumentsDialog.setAttribute("aria-hidden", "true");
+    }
+
+    async function forgetAllRecentDocuments() {
+      await documentMemory.deleteAll();
+      currentDocumentMemoryId = null;
+      hideResumeSuggestion();
+      persistDocumentSession();
+      await renderRecentDocumentsList();
+      setStatus(t("statusRecentForgotten"));
+    }
+
+    rememberToggleButton.addEventListener("click", () => {
+      void toggleDocumentMemory();
+    });
+    recentDocumentsButton.addEventListener("click", () => {
+      void openRecentDocumentsDialog();
+    });
+    document.getElementById("closeRecentDocumentsDialogButton").addEventListener("click", closeRecentDocumentsDialog);
+    document.getElementById("forgetAllRecentDocumentsButton").addEventListener("click", () => {
+      void forgetAllRecentDocuments();
+    });
+    recentDocumentsDialog.addEventListener("click", event => {
+      if (event.target === recentDocumentsDialog) {
+        closeRecentDocumentsDialog();
+      }
+    });
+    resumeSuggestionAction.addEventListener("click", () => {
+      void handleResumeSuggestionAction();
+    });
+    document.getElementById("resumeSuggestionDismiss").addEventListener("click", hideResumeSuggestion);
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && recentDocumentsDialog.classList.contains("is-open")) {
+        closeRecentDocumentsDialog();
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        void documentMemory.flushSessionSave();
+      }
+    });
+
     const savedLanguage = loadPreference("language", detectPreferredLanguage());
     const savedTheme = loadPreference("theme", "");
     const savedDraft = loadSessionValue("draft_markdown", "");
+    const savedDocumentState = parseDocumentSessionState(loadSessionValue("document_state", ""));
+    // The welcome document is shown on the first launch only; later launches
+    // and "Close document" start from a blank sheet.
+    const welcomeAlreadySeen = loadPreference("welcome_seen", "") === "1";
+    savePreference("welcome_seen", "1");
     const savedViewMode = normalizeViewMode(loadPreference("view_mode", "all"));
     const savedMobilePanel = loadPreference("mobile_panel", "visual");
 
     currentMobilePanel = ["visual", "markdown", "preview"].includes(savedMobilePanel) ? savedMobilePanel : "visual";
     applyTheme(savedTheme || detectPreferredTheme(), { persist: Boolean(savedTheme) });
     setLanguage(savedLanguage);
-    markdownInput.value = savedDraft || getInitialMarkdown() || seedMarkdown;
+    markdownInput.value = savedDraft || (welcomeAlreadySeen ? "" : getInitialMarkdown());
     hasPersistedDocumentVersion = false;
+    if (savedDraft && savedDocumentState) {
+      restoreDocumentSessionState(savedDocumentState);
+    }
     resetHistory(markdownInput.value);
+    const startupMarkdown = markdownInput.value;
     const activeViewInput = document.querySelector('input[name="previewMode"][value="' + savedViewMode + '"]');
     if (activeViewInput) {
       activeViewInput.checked = true;
@@ -10023,11 +10839,12 @@
       window.scrollTo({ top: 0, left: 0 });
       visualEditor.scrollTop = 0;
       markdownInput.scrollTop = 0;
+      return restoreRememberedSession({ hasTabDraft: Boolean(savedDraft), startupMarkdown });
     });
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.64.0", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.65.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

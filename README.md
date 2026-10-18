@@ -6,6 +6,17 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
+## Release notes - v0.65.0
+
+- Clearer file commands: `Save` (Ctrl/Cmd + S) writes to the open file, or asks once where to save and then keeps the document connected to that file; `Save as...` (Ctrl/Cmd + Shift + S) switches the document to the new file
+- Saving checks whether another program changed the file since it was opened and asks before overwriting it
+- Status messages say what happened ("Saved to disk: name.md", "Downloaded: name.md", permission or write errors) instead of always reporting a download
+- `Close document` always leaves a blank sheet; the welcome document appears only on the first launch
+- A page refresh keeps the document name and its saved/modified state
+- Dropped files keep their file handle in Chromium, so `Save` and `Reload file` work as for files opened with the picker
+- Fixed: a double unsaved-changes prompt in browsers without the File System Access API, a second folder picker after cancelling `Link folder`, and a failed open disconnecting the current document from its file
+- Optional device memory (off by default): remember recent files, linked folders, and the unsaved draft across app restarts; see [Privacy and shared computers](#privacy-and-shared-computers)
+
 ## Release notes - v0.64.0
 
 - Markdown is now parsed with the vendored [markdown-it](https://github.com/markdown-it/markdown-it) engine (CommonMark + GitHub tables and strikethrough), so files render like they do on GitHub or in VS Code: multi-line paragraphs, `_emphasis_` / `__strong__`, backslash escapes, setext headings, `~~~` fences, indented code, code blocks inside list items, lists nested with 4 spaces or tabs, link titles, autolinks, URLs with `&` or parentheses
@@ -88,15 +99,27 @@ Some browsers treat special system folders such as `Documents` differently from 
 
 This behavior comes from browser security rules, not from the editor itself.
 
-## Privacy reset
+## Privacy and shared computers
+
+The editor is often used on shared computers (schools, libraries, study rooms), so it keeps as little as possible by default:
+
+- The unsaved draft and the name of the open document survive a page refresh in the same tab only (`sessionStorage`); closing the tab or the app discards them.
+- File and folder access granted to the editor is not remembered: after closing the app you open the file again.
+
+**Device memory** (the 🔒/🔓 `Remember` button) is off by default. Turn it on only on a computer that is yours: it asks for confirmation and warns about shared computers. While it is on, the editor stores in this browser (IndexedDB):
+
+- up to 8 recent files with their linked folders, available from the 🕘 `Recent` button;
+- the unsaved draft, restored when the app starts again, with a button to reconnect it to its file.
+
+Entries older than 30 days are deleted automatically. Turning the memory off deletes everything it stored.
 
 `Clear local data` removes:
 
-- the current draft stored in the browser
-- saved interface preferences such as language and view mode
-- local editor state for the current workstation/browser profile
+- drafts, recent files, remembered folders, and the device memory setting;
+- saved interface preferences such as language and view mode;
+- local editor state for the current workstation/browser profile.
 
-It does not delete the original Markdown files on disk, inside the project folder, or on a USB drive.
+It does not delete the original Markdown files on disk, inside the project folder, or on a USB drive. Files you downloaded and the browser history are managed by the browser, not by the editor; on a shared computer, a private/guest browser window avoids leaving them behind.
 
 ## PWA support
 
@@ -131,8 +154,8 @@ These shortcuts apply to the visual editor on desktop systems.
 - `Ctrl/Cmd + 2`: heading 2
 - `Ctrl/Cmd + 3`: heading 3
 - `Ctrl/Cmd + 9`: blockquote
-- `Ctrl/Cmd + S`: download or save the Markdown document
-- `Ctrl/Cmd + Shift + S`: save a copy with a new name or location
+- `Ctrl/Cmd + S`: save to the open file, or choose where to save a new document
+- `Ctrl/Cmd + Shift + S`: save as a new file, which becomes the current document
 - `Ctrl/Cmd + P`: open a printable rendered preview in a separate window
 
 ## Development
