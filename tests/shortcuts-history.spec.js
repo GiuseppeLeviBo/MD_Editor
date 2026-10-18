@@ -23,8 +23,11 @@ test.describe("shortcuts and history", () => {
     await expect(markdown).toHaveValue(/## Keyboard shortcuts/);
     await expect(markdown).toHaveValue(/\| Bold \| Ctrl\/Cmd \+ B \|/);
     await expect(markdown).toHaveValue(/\| Reload file \| Ctrl\/Cmd \+ Shift \+ R \|/);
-    await expect(markdown).toHaveValue(/\| Download \.md \| Ctrl\/Cmd \+ S \|/);
-    await expect(markdown).toHaveValue(/\| Save copy \| Ctrl\/Cmd \+ Shift \+ S \|/);
+    await expect(markdown).toHaveValue(/\| Save \| Ctrl\/Cmd \+ S \|/);
+    await expect(markdown).toHaveValue(/\| Save as\.\.\. \| Ctrl\/Cmd \+ Shift \+ S \|/);
+    await expect(markdown).toHaveValue(/\| Open file \| Ctrl\/Cmd \+ O \|/);
+    await expect(markdown).toHaveValue(/\| Underline \| Ctrl\/Cmd \+ U \|/);
+    await expect(markdown).toHaveValue(/saves it as `<u>text<\/u>`/);
 
     await expect(page.locator('[data-command="bold"]')).toHaveAttribute("title", /Ctrl\/Cmd \+ B/);
     await expect(page.locator("#reloadDocumentButton")).toHaveAttribute("title", /Ctrl\/Cmd \+ Shift \+ R/);

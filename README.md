@@ -6,6 +6,16 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
+## Release notes - v0.66.0
+
+- Keyboard shortcuts follow Word and Google Docs: `Ctrl/Cmd + O` opens a file, `Ctrl/Cmd + U` underlines (saved as `<u>`), `Ctrl/Cmd + K` inserts a link, `Ctrl/Cmd + Alt + 0-8` set paragraph styles, `Ctrl/Cmd + Shift + 7/8/9` create lists, `Alt + Shift + 5` strikes through
+- The same shortcuts work in the Markdown panel; `Ctrl/Cmd + /` shows them all
+- Shortcuts are matched by physical key, so they work with any keyboard layout
+- New Underline button; underline, superscript, and subscript are kept in RTF export
+- The welcome document lists the current shortcuts and explains how underline is stored
+
+User-facing release notes are in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
+
 ## Release notes - v0.65.0
 
 User-facing release notes in Italian and English are in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
@@ -144,21 +154,29 @@ For complex structural changes across multiple selected lines, especially when s
 
 ## Keyboard shortcuts
 
-These shortcuts apply to the visual editor on desktop systems.
+Shortcuts follow Word and Google Docs. They work in the visual editor and in the Markdown panel, and are matched by the physical key, so they also work with non-Latin keyboard layouts. On macOS use Cmd instead of Ctrl and Option instead of Alt. `Ctrl/Cmd + /` shows the full list inside the app.
 
-- `Ctrl/Cmd + B`: bold
-- `Ctrl/Cmd + I`: italic
-- `Ctrl/Cmd + Shift + E`: strikethrough
-- `Ctrl/Cmd + U`: unordered list
-- `Ctrl/Cmd + O`: ordered list
-- `Ctrl/Cmd + 0`: paragraph
-- `Ctrl/Cmd + 1`: heading 1
-- `Ctrl/Cmd + 2`: heading 2
-- `Ctrl/Cmd + 3`: heading 3
-- `Ctrl/Cmd + 9`: blockquote
-- `Ctrl/Cmd + S`: save to the open file, or choose where to save a new document
-- `Ctrl/Cmd + Shift + S`: save as a new file, which becomes the current document
-- `Ctrl/Cmd + P`: open a printable rendered preview in a separate window
+| Command | Shortcut |
+| --- | --- |
+| Open file | `Ctrl/Cmd + O` |
+| Save / Save as | `Ctrl/Cmd + S` / `Ctrl/Cmd + Shift + S` |
+| Print / PDF | `Ctrl/Cmd + P` |
+| Reload file from disk | `Ctrl/Cmd + Shift + R` |
+| Undo / Redo | `Ctrl/Cmd + Z` / `Ctrl/Cmd + Y` or `Ctrl/Cmd + Shift + Z` |
+| Find and replace | `Ctrl/Cmd + F` or `Ctrl/Cmd + H` |
+| Bold / Italic / Underline | `Ctrl/Cmd + B` / `Ctrl/Cmd + I` / `Ctrl/Cmd + U` |
+| Strikethrough | `Alt/Option + Shift + 5` or `Ctrl/Cmd + Shift + X` |
+| Link | `Ctrl/Cmd + K` |
+| Normal text | `Ctrl/Cmd + Alt/Option + 0` |
+| Heading 1-6 | `Ctrl/Cmd + Alt/Option + 1` ... `6` |
+| Quote / Code block | `Ctrl/Cmd + Alt/Option + 7` / `8` |
+| Bulleted / Numbered / Task list | `Ctrl/Cmd + Shift + 8` / `7` / `9` |
+| Indent / Outdent list item | `Tab` / `Shift + Tab` |
+| Keyboard shortcut list | `Ctrl/Cmd + /` |
+
+**Underline:** Markdown has no underline, so `Ctrl/Cmd + U` saves it as `<u>text</u>`. The editor shows it correctly; other programs or sites (for example GitHub) may show it as plain text.
+
+`Ctrl/Cmd + N` (new document) is reserved by browsers; use `Close document` to start a blank sheet. On keyboard layouts where `AltGr + digit` types a character (for example `{` on German keyboards), the character is typed instead of the Ctrl+Alt shortcut.
 
 ## Development
 
