@@ -72,7 +72,7 @@ test.describe("opening and closing", () => {
     expect(fileChoosers).toBe(0);
   });
 
-  test("closing any document leaves a blank sheet, and the welcome page appears only on first launch", async ({ page }) => {
+  test("closing any document leaves a blank sheet, and every new launch shows the welcome page", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("#markdownInput")).toHaveValue(/Markdown WYSIWYG Editor/);
 
@@ -83,9 +83,27 @@ test.describe("opening and closing", () => {
     await expect(page.locator("#markdownInput")).toHaveValue("");
     await expect(page.locator("#syncStatus")).toContainText(/blank sheet|foglio vuoto/i);
 
+    await page.reload();
+    await expect(page.locator("#markdownInput")).toHaveValue("");
+
     const secondLaunch = await page.context().newPage();
     await secondLaunch.goto("/");
-    await expect(secondLaunch.locator("#markdownInput")).toHaveValue("");
+    await expect(secondLaunch.locator("#markdownInput")).toHaveValue(/Markdown WYSIWYG Editor/);
+  });
+
+  test("the welcome page with the current shortcuts returns for users who already saw it", async ({ page }) => {
+    // v0.65.0 stored this flag and hid the welcome page on later launches.
+    await page.addInitScript(() => {
+      localStorage.setItem("wysiwyg_markdown_editor_welcome_seen", "1");
+    });
+    await page.goto("/");
+
+    const markdown = page.locator("#markdownInput");
+    await expect(markdown).toHaveValue(/Markdown WYSIWYG Editor/);
+    await expect(markdown).toHaveValue(/\| (Open file|Apri file) \| Ctrl\/Cmd \+ O \|/);
+    await expect(markdown).toHaveValue(/\| (Underline|Sottolineato) \| Ctrl\/Cmd \+ U \|/);
+    await expect(markdown).toHaveValue(/<u>(text|testo)<\/u>/);
+    await expect(page.locator("#preview table").first()).toBeVisible();
   });
 
   test("a failed open keeps the current document connected to its file", async ({ page }) => {
@@ -300,7 +318,7 @@ test.describe("device memory", () => {
     const restarted = await context.newPage();
     restarted.on("dialog", dialog => dialog.accept());
     await restarted.goto("/");
-    await expect(restarted.locator("#markdownInput")).toHaveValue("");
+    await expect(restarted.locator("#markdownInput")).toHaveValue(/Markdown WYSIWYG Editor/);
     await expect(restarted.locator("#resumeSuggestionText")).toContainText("recent.md");
 
     await restarted.locator("#recentDocumentsButton").click();

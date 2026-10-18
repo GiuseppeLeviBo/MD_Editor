@@ -23,6 +23,7 @@ The goal is to protect the most important promises of the product.
 - `Ctrl/Cmd + S` opens a single save flow, with no duplicate fallback
 - `Ctrl/Cmd + Shift + S` always opens the save-copy picker when supported
 - `Close document` warns if the latest version is not saved and always leaves a blank sheet
+- Every new launch shows the welcome document with the current shortcut table, also for users who already saw it; a refresh after `Close document` stays blank
 - Opening a file asks about unsaved changes once, also in browsers without the File System Access API
 - Saving asks before overwriting a file changed by another program since it was opened
 - Device memory is off by default and writes nothing to IndexedDB until the user confirms the shared-computer warning

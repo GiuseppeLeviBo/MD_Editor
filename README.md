@@ -6,6 +6,11 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
+## Release notes - v0.66.1
+
+- Fixed: the welcome document, with the updated shortcut table, appears again on every new launch; since v0.65.0 it appeared only on the very first launch
+- `Close document` still leaves a blank sheet, and a refresh keeps it blank
+
 ## Release notes - v0.66.0
 
 - Keyboard shortcuts follow Word and Google Docs: `Ctrl/Cmd + O` opens a file, `Ctrl/Cmd + U` underlines (saved as `<u>`), `Ctrl/Cmd + K` inserts a link, `Ctrl/Cmd + Alt + 0-8` set paragraph styles, `Ctrl/Cmd + Shift + 7/8/9` create lists, `Alt + Shift + 5` strikes through

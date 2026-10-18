@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.66.0">
+  <link rel="manifest" href="./manifest.json?v=0.66.1">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1548,7 +1548,7 @@
         Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.66.0</div>
+      <div class="build-badge" id="buildBadge">v0.66.1</div>
     </footer>
   </main>
 
@@ -1673,7 +1673,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.66.0";
+    const APP_VERSION = "v0.66.1";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -11181,17 +11181,16 @@
     const savedTheme = loadPreference("theme", "");
     const savedDraft = loadSessionValue("draft_markdown", "");
     const savedDocumentState = parseDocumentSessionState(loadSessionValue("document_state", ""));
-    // The welcome document is shown on the first launch only; later launches
-    // and "Close document" start from a blank sheet.
-    const welcomeAlreadySeen = loadPreference("welcome_seen", "") === "1";
-    savePreference("welcome_seen", "1");
     const savedViewMode = normalizeViewMode(loadPreference("view_mode", "all"));
     const savedMobilePanel = loadPreference("mobile_panel", "visual");
 
     currentMobilePanel = ["visual", "markdown", "preview"].includes(savedMobilePanel) ? savedMobilePanel : "visual";
     applyTheme(savedTheme || detectPreferredTheme(), { persist: Boolean(savedTheme) });
     setLanguage(savedLanguage);
-    markdownInput.value = savedDraft || (welcomeAlreadySeen ? "" : getInitialMarkdown());
+    // Every new launch opens the welcome document. A tab that already has a
+    // session (for example after "Close document" and a refresh) keeps its
+    // content, even when it is a blank sheet.
+    markdownInput.value = savedDraft || (savedDocumentState ? "" : getInitialMarkdown());
     hasPersistedDocumentVersion = false;
     if (savedDraft && savedDocumentState) {
       restoreDocumentSessionState(savedDocumentState);
@@ -11217,7 +11216,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.66.0", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.66.1", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
