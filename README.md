@@ -6,6 +6,15 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
+## Release notes - v0.70.0
+
+- Right-to-left text: Arabic and Hebrew paragraphs, headings, lists, quotes, and tables run right to left in the visual editor, the preview, print, and RTF export, while the rest of the document stays left to right; code and formulas always run left to right. See [Languages and text direction](#languages-and-text-direction)
+- Chinese, Japanese, and Korean: the document language is detected so the right glyphs are used, a line break between Chinese or Japanese characters adds no space, and bold/italic next to CJK punctuation works (markdown-it-cjk-friendly)
+- `lang` and `dir` in the front matter set the language and direction of the whole document
+- Input methods: confirming a candidate with Enter no longer splits list items or quotes, and undo skips half-composed text
+- Find/Replace matches text regardless of Unicode normalization, ignores Arabic and Hebrew vowel marks, and keeps exact offsets when ignoring case (Turkish `İ`)
+- Heading anchors keep Japanese, Korean, and Devanagari text; caret sync stays aligned in CJK paragraphs written on several lines
+
 ## Release notes - v0.66.2
 
 - Development preview: every push to a development branch (`claude/*`) is published at [/MD_Editor/dev/](https://giuseppelevibo.github.io/MD_Editor/dev/) by a GitHub Actions workflow, while `main` stays at the usual address; see [Development preview](#development-preview)
@@ -89,7 +98,29 @@ This is a stabilization beta focused on simplicity, portability, and common Mark
 - Insert uploaded images directly into Markdown
 - Special symbols and emoji picker
 - Italian and English interface
+- Right-to-left (Arabic, Hebrew) and Chinese, Japanese, and Korean documents
 - Installable PWA shell on supported browsers
+
+## Languages and text direction
+
+The Markdown file never stores layout hints: direction and language come from the text, or from the front matter.
+
+- Every top-level block (paragraph, heading, list, quote, table) gets `dir="auto"` in the rendered HTML, as on GitHub: it runs in the direction of its first letter. List items, table cells, and nested paragraphs follow their own text through `unicode-bidi: plaintext`, and so does every line of the Markdown panel. Code, inline code, formulas, and Mermaid diagrams always run left to right.
+- Chinese, Japanese, and Korean are detected when they make up at least a fifth of the letters (code blocks excluded), and the editors and the preview get `lang="zh"`, `"ja"`, or `"ko"`, which picks matching fonts. Korean keeps words whole when wrapping (`word-break: keep-all`).
+- A soft line break between two Chinese or Japanese characters renders without a space; Korean, which separates words with spaces, keeps it.
+- Emphasis next to CJK punctuation (`**「強調」**です`) uses the CJK-friendly flanking rules of [markdown-it-cjk-friendly](https://github.com/tats-u/markdown-cjk-friendly), vendored in `vendor/markdown-it/` (rebuild with `npm run vendor:cjk`).
+- The front matter keys used by Pandoc override detection for the whole document:
+
+  ```yaml
+  ---
+  lang: ar
+  dir: rtl
+  ---
+  ```
+
+- Print uses the document language and direction; RTF export marks right-to-left paragraphs with `\rtlpar` and right-to-left tables with `\rtlrow`.
+- Find/Replace compares text after Unicode normalization and ignores Arabic and Hebrew vowel marks and the Arabic tatweel, so `محمد` finds `مُحَمَّد`.
+- While an input method composes a word, keys belong to the input method; the document is synced once the word is committed.
 
 ## Recommended workflow for Markdown files with local images
 
@@ -154,7 +185,7 @@ The repository includes:
 - SVG icons for the installed app shell
 - vendored KaTeX CSS, JS, and fonts for offline LaTeX math rendering
 - vendored PrismJS CSS and language components for offline syntax highlighting
-- vendored markdown-it (with the footnote plugin) and DOMPurify for offline Markdown parsing and HTML sanitization
+- vendored markdown-it (with the footnote and CJK-friendly plugins) and DOMPurify for offline Markdown parsing and HTML sanitization
 
 File Handling API support depends on the browser and operating system. Chromium-based browsers generally offer the best support, especially after the app is installed.
 

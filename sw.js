@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "md-editor-shell-";
-const CACHE_VERSION = "v0.66.2";
+const CACHE_VERSION = "v0.70.0";
 // Several copies of the app can share one origin: GitHub Pages serves the
 // published app in /MD_Editor/ and a preview in /MD_Editor/dev/. Each service
 // worker reads and deletes only the caches of its own scope.
@@ -23,6 +23,7 @@ const APP_SHELL = [
   "./vendor/mermaid/mermaid.min.js",
   "./vendor/markdown-it/markdown-it.min.js",
   "./vendor/markdown-it/markdown-it-footnote.min.js",
+  "./vendor/markdown-it/markdown-it-cjk-friendly.min.js",
   "./vendor/dompurify/purify.min.js",
   "./vendor/katex/fonts/KaTeX_AMS-Regular.woff2",
   "./vendor/katex/fonts/KaTeX_Caligraphic-Bold.woff2",

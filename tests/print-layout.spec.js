@@ -39,7 +39,7 @@ test.describe("print layout", () => {
     expect(printHtml).toContain("thead {");
     expect(printHtml).toContain("display: table-header-group;");
     expect(printHtml).toContain("@page {");
-    expect(printHtml).toContain('<h2 id="section-heading">Section heading</h2>');
-    expect(printHtml).toContain("<table data-md-table=\"true\">");
+    expect(printHtml).toContain('<h2 dir="auto" id="section-heading">Section heading</h2>');
+    expect(printHtml).toContain("<table data-md-table=\"true\" dir=\"auto\">");
   });
 });

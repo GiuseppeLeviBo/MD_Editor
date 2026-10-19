@@ -21,6 +21,15 @@ async function readOpfsFile(page, name) {
   }, name);
 }
 
+// The draft is written to IndexedDB after a short pause in typing; wait for the
+// write itself instead of a fixed delay.
+async function rememberedDraft(page) {
+  return page.evaluate(async () => {
+    const session = await documentMemory.loadSession();
+    return session ? session.markdown : null;
+  });
+}
+
 async function memoryDatabaseExists(page) {
   return page.evaluate(async () => (await indexedDB.databases()).some(database => database.name === "md-editor-memory"));
 }
@@ -287,7 +296,7 @@ test.describe("device memory", () => {
     await page.locator("#openMarkdownButton").click();
     await expect(page.locator("#markdownInput")).toHaveValue("# Thesis");
     await page.locator("#markdownInput").fill("# Thesis\n\nUnsaved paragraph.");
-    await page.waitForTimeout(1200);
+    await expect.poll(() => rememberedDraft(page)).toBe("# Thesis\n\nUnsaved paragraph.");
     await page.close();
 
     const restarted = await context.newPage();
@@ -312,7 +321,8 @@ test.describe("device memory", () => {
     await page.locator("#openMarkdownButton").click();
     await expect(page.locator("#markdownInput")).toHaveValue("# Recent file");
     await page.locator("#closeDocumentButton").click();
-    await page.waitForTimeout(1200);
+    await expect.poll(async () => (await rememberedDraft(page)) === null
+      && page.evaluate(async () => (await documentMemory.listRecent()).some(entry => entry.name === "recent.md"))).toBe(true);
     await page.close();
 
     const restarted = await context.newPage();

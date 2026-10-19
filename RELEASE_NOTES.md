@@ -4,6 +4,48 @@
 
 ## Italiano
 
+### v0.70.0 — Arabo, ebraico, cinese, giapponese e coreano
+
+L'editor ora gestisce bene le lingue scritte da destra a sinistra e le lingue asiatiche, in tutti i pannelli, in stampa e nell'export RTF. Il file Markdown resta pulito: non vengono aggiunti codici di impaginazione.
+
+#### Arabo ed ebraico
+
+- Ogni paragrafo, titolo, elenco, citazione e tabella segue la direzione del proprio testo: l'arabo e l'ebraico vanno da destra a sinistra, con puntini, numeri, caselle di spunta e bordo delle citazioni sul lato destro. Il resto del documento resta da sinistra a destra.
+- Anche nel pannello Markdown ogni riga si allinea secondo la propria lingua.
+- Codice, formule e diagrammi restano sempre da sinistra a destra.
+- I titoli in arabo non hanno più lettere staccate.
+- **Trova/Sostituisci** trova le parole anche senza vocali: cercando `محمد` trova anche `مُحَمَّد`, e lo stesso vale per l'ebraico.
+- Stampa ed export RTF mantengono la direzione dei paragrafi.
+
+#### Cinese, giapponese e coreano
+
+- L'editor riconosce la lingua del documento e usa i caratteri adatti: lo stesso ideogramma si disegna in modo diverso in cinese e in giapponese.
+- Andare a capo nel testo tra due caratteri cinesi o giapponesi non aggiunge più uno spazio.
+- Il **grassetto** e il *corsivo* funzionano anche vicino alla punteggiatura asiatica, per esempio `**「強調」**です`.
+- In coreano le parole non vengono spezzate quando la riga va a capo.
+- **Metodi di inserimento (IME):** confermare una parola con Invio non crea più una nuova voce di elenco, e Annulla non torna al testo a metà composizione.
+
+#### Lingua e direzione di tutto il documento
+
+Per indicarle esplicitamente, aggiungi all'inizio del file:
+
+```yaml
+---
+lang: ar
+dir: rtl
+---
+```
+
+#### Correzioni
+
+- **Trova/Sostituisci** senza "Maiuscole/minuscole" poteva sostituire il punto sbagliato in testi con lettere come la `İ` turca; trova anche il testo con accenti scritti in forma scomposta (frequente nei file creati su macOS).
+- I link interni ai titoli in giapponese, coreano e hindi ora funzionano.
+- Il cursore resta al posto giusto passando tra pannello Markdown ed editor visuale nei paragrafi cinesi e giapponesi scritti su più righe.
+
+#### Aggiornare l'app installata
+
+Chiudi e riapri l'app dopo la pubblicazione; l'etichetta in basso deve indicare **v0.70.0**.
+
 ### v0.66.2 — Anteprima delle nuove versioni
 
 Da questa versione ogni novità si può provare prima che arrivi nell'app pubblicata.
@@ -109,6 +151,48 @@ Questa versione rende prevedibile il lavoro con i file: un solo modo di salvare,
 L'app installata (PWA) si aggiorna da sola: dopo la pubblicazione chiudila e riaprila; se serve, ripeti una seconda volta. L'etichetta in basso deve indicare **v0.65.0**.
 
 ## English
+
+### v0.70.0 — Arabic, Hebrew, Chinese, Japanese, and Korean
+
+The editor now handles right-to-left and East Asian languages in every panel, in print, and in RTF export. The Markdown file stays clean: no layout codes are added.
+
+#### Arabic and Hebrew
+
+- Every paragraph, heading, list, quote, and table follows the direction of its own text: Arabic and Hebrew run right to left, with bullets, numbers, checkboxes, and the quote border on the right. The rest of the document stays left to right.
+- In the Markdown panel, too, each line is aligned according to its own language.
+- Code, formulas, and diagrams always run left to right.
+- Arabic headings no longer show detached letters.
+- **Find/Replace** finds words even without vowel marks: searching for `محمد` also finds `مُحَمَّد`, and the same goes for Hebrew.
+- Print and RTF export keep the direction of each paragraph.
+
+#### Chinese, Japanese, and Korean
+
+- The editor recognizes the document language and uses suitable characters: the same ideograph is drawn differently in Chinese and in Japanese.
+- A line break in the text between two Chinese or Japanese characters no longer adds a space.
+- **Bold** and *italic* also work next to East Asian punctuation, for example `**「強調」**です`.
+- In Korean, words are not split when a line wraps.
+- **Input methods (IME):** confirming a word with Enter no longer creates a new list item, and undo does not go back to half-composed text.
+
+#### Language and direction of the whole document
+
+To set them explicitly, add at the top of the file:
+
+```yaml
+---
+lang: ar
+dir: rtl
+---
+```
+
+#### Fixes
+
+- **Find/Replace** without "Match case" could replace the wrong spot in text with letters such as the Turkish `İ`; it now also finds text with accents stored in decomposed form (common in files created on macOS).
+- Internal links to headings in Japanese, Korean, and Hindi now work.
+- The caret keeps its place when moving between the Markdown panel and the visual editor in Chinese and Japanese paragraphs written on several lines.
+
+#### Updating the installed app
+
+Close and reopen the app after the release is published; the label at the bottom should read **v0.70.0**.
 
 ### v0.66.2 — Preview of upcoming versions
 
