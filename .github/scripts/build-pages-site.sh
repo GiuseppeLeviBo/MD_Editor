@@ -56,6 +56,10 @@ index_path.write_text(page, encoding="utf-8")
 
 manifest_path = preview_dir / "manifest.json"
 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+# The app id is resolved against the origin, not the manifest folder: with the
+# published app's "./" both copies would be the same app for the browser, and
+# visiting one would rename and redirect the installed other one.
+manifest["id"] = "md-editor-preview"
 manifest["name"] = f'{manifest["name"]} (preview)'
 manifest["short_name"] = "MD Preview"
 manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

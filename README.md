@@ -209,7 +209,7 @@ The workflow runs on every push to `main` or `claude/*`, and can be started by h
 
 - shows `preview` and the commit next to the version, and `(preview)` in the window title;
 - stores preferences, drafts, and device memory under separate names (`wysiwyg_markdown_editor_preview_*`, IndexedDB `md-editor-memory-preview`);
-- installs as a separate app, "MD Preview";
+- installs as a separate app, "MD Preview", with its own manifest `id` (`md-editor-preview`): the published app's `id` is `./`, which browsers resolve against the origin, so without it both copies would be the same app and visiting one would rename and redirect the installed other one;
 - is excluded from search engines (`noindex`).
 
 Each service worker reads and deletes only the caches of its own scope, so the two copies keep working offline side by side. `Clear local data` in the published app also removes the preview's data; in the preview it removes only the preview's data. A branch older than v0.66.2 has no preview marker and is not published in `dev/`.
