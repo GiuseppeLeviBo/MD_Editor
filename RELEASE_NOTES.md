@@ -21,9 +21,13 @@ Da questa versione ogni novità si può provare prima che arrivi nell'app pubbli
 - Le due versioni funzionano anche offline, ognuna con la propria copia dei file.
 - **Pulisci dati locali** nell'app pubblicata cancella anche i dati dell'anteprima, utile sui computer condivisi; nell'anteprima cancella solo i dati dell'anteprima.
 
+#### Correzione
+
+- Con l'app aperta in più finestre, cambiare lingua in una finestra e ricaricare l'altra traduceva i menu ma non il documento di benvenuto, che risultava anche "modificato". Ora la lingua cambia subito in tutte le finestre dell'app, menu e documento di benvenuto compresi. Un documento di benvenuto modificato da te resta com'è.
+
 #### Aggiornare l'app installata
 
-Chiudi e riapri l'app dopo la pubblicazione; l'etichetta in basso deve indicare **v0.66.2**. Nulla cambia nell'uso dell'editor.
+Chiudi e riapri l'app dopo la pubblicazione; l'etichetta in basso deve indicare **v0.66.2**.
 
 ### v0.66.1 — Torna il documento di benvenuto
 
@@ -123,9 +127,13 @@ From this version on, every change can be tried before it reaches the published 
 - Both versions work offline, each with its own copy of the files.
 - **Clear local data** in the published app also deletes the preview's data, which helps on shared computers; in the preview it deletes only the preview's data.
 
+#### Fix
+
+- With the app open in several windows, changing the language in one window and reloading another translated the menus but not the welcome document, which was also marked as modified. The language now changes at once in every window of the app, menus and welcome document included. A welcome document you edited stays as it is.
+
 #### Updating the installed app
 
-Close and reopen the app after the release is published; the label at the bottom should read **v0.66.2**. Nothing changes in how the editor works.
+Close and reopen the app after the release is published; the label at the bottom should read **v0.66.2**.
 
 ### v0.66.1 — The welcome document is back
 

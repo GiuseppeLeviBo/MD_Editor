@@ -11215,6 +11215,13 @@
         void documentMemory.flushSessionSave();
       }
     });
+    // All windows of the app share the language preference: follow a change
+    // made in another window so menus and welcome document stay in step.
+    window.addEventListener("storage", event => {
+      if (event.key === getStorageKey("language") && event.newValue && event.newValue !== currentLanguage) {
+        setLanguage(event.newValue);
+      }
+    });
 
     const savedLanguage = loadPreference("language", detectPreferredLanguage());
     const savedTheme = loadPreference("theme", "");
@@ -11233,6 +11240,11 @@
     hasPersistedDocumentVersion = false;
     if (savedDraft && savedDocumentState) {
       restoreDocumentSessionState(savedDocumentState);
+    }
+    // The tab may hold the untouched welcome document in the language it had
+    // before another window of the app changed the language.
+    if (isInitialDocumentState()) {
+      markdownInput.value = getInitialMarkdown();
     }
     resetHistory(markdownInput.value);
     const startupMarkdown = markdownInput.value;

@@ -11,6 +11,7 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 - Development preview: every push to a development branch (`claude/*`) is published at [/MD_Editor/dev/](https://giuseppelevibo.github.io/MD_Editor/dev/) by a GitHub Actions workflow, while `main` stays at the usual address; see [Development preview](#development-preview)
 - The preview keeps its own preferences, drafts, device memory, and offline cache, so trying it does not change the published app
 - The service worker now reads and deletes only the caches of its own copy of the app
+- Fixed: with the app open in several windows, a language change reached the menus but not the welcome document after a reload; the language now follows in every window of the app
 
 ## Release notes - v0.66.1
 

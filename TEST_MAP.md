@@ -50,6 +50,7 @@ The goal is to protect the most important promises of the product.
 - Default language follows browser/system language
 - Default document text matches the active language
 - Changing language on the initial screen updates the initial document too
+- A language change in one window updates the other windows of the app, menus and untouched welcome document included, also after a reload
 - Refreshing the page restores the current per-tab draft from `sessionStorage`, with the document name and saved state
 - With device memory on, restarting the app restores the unsaved draft and offers to reconnect it to its file
 - Recent files reopen from the Recent dialog; dropped files keep their handle in Chromium
