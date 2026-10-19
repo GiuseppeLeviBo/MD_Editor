@@ -1,4 +1,10 @@
-const CACHE_NAME = "md-editor-shell-v0.66.1";
+const CACHE_PREFIX = "md-editor-shell-";
+const CACHE_VERSION = "v0.66.2";
+// Several copies of the app can share one origin: GitHub Pages serves the
+// published app in /MD_Editor/ and a preview in /MD_Editor/dev/. Each service
+// worker reads and deletes only the caches of its own scope.
+const CACHE_SCOPE = self.registration.scope;
+const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}@${new URL(CACHE_SCOPE).pathname}`;
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -47,14 +53,28 @@ self.addEventListener("install", event => {
   );
 });
 
+// Caches named before v0.66.2 have no scope in their name: they belong to this
+// worker when every entry lies inside its scope.
+async function isOwnCache(name) {
+  if (name === CACHE_NAME || !name.startsWith(CACHE_PREFIX)) {
+    return false;
+  }
+  const separator = name.indexOf("@");
+  if (separator >= 0) {
+    return name.slice(separator + 1) === new URL(CACHE_SCOPE).pathname;
+  }
+  const requests = await (await caches.open(name)).keys();
+  return requests.every(request => request.url.startsWith(CACHE_SCOPE));
+}
+
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const cacheNames = await caches.keys();
-    await Promise.all(
-      cacheNames
-        .filter(name => name !== CACHE_NAME)
-        .map(name => caches.delete(name))
-    );
+    await Promise.all(cacheNames.map(async name => {
+      if (await isOwnCache(name)) {
+        await caches.delete(name);
+      }
+    }));
     await self.clients.claim();
   })());
 });
@@ -66,9 +86,10 @@ self.addEventListener("fetch", event => {
 
   event.respondWith((async () => {
     const requestUrl = new URL(event.request.url);
+    const cache = await caches.open(CACHE_NAME);
     const isAppShellRequest =
       event.request.mode === "navigate" ||
-      requestUrl.pathname.endsWith("/MD_Editor/") ||
+      requestUrl.origin + requestUrl.pathname === CACHE_SCOPE ||
       requestUrl.pathname.endsWith("/index.html") ||
       requestUrl.pathname.endsWith("/manifest.json");
 
@@ -76,19 +97,18 @@ self.addEventListener("fetch", event => {
       try {
         const freshResponse = await fetch(event.request, { cache: "no-store" });
         if (freshResponse && freshResponse.ok && requestUrl.origin === self.location.origin) {
-          const cache = await caches.open(CACHE_NAME);
           cache.put(event.request, freshResponse.clone());
         }
         return freshResponse;
       } catch {
-        const fallback = await caches.match(event.request) || await caches.match("./index.html");
+        const fallback = await cache.match(event.request) || await cache.match("./index.html");
         if (fallback) {
           return fallback;
         }
       }
     }
 
-    const cached = await caches.match(event.request);
+    const cached = await cache.match(event.request);
     if (cached) {
       return cached;
     }
@@ -96,12 +116,11 @@ self.addEventListener("fetch", event => {
     try {
       const response = await fetch(event.request);
       if (response && response.ok && event.request.url.startsWith(self.location.origin)) {
-        const cache = await caches.open(CACHE_NAME);
         cache.put(event.request, response.clone());
       }
       return response;
     } catch {
-      const fallback = await caches.match("./index.html");
+      const fallback = await cache.match("./index.html");
       if (event.request.mode === "navigate" && fallback) {
         return fallback;
       }

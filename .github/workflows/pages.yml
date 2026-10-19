@@ -1,0 +1,60 @@
+name: Deploy GitHub Pages
+
+# Publishes main at https://giuseppelevibo.github.io/MD_Editor/ and the
+# development branch as a preview at https://giuseppelevibo.github.io/MD_Editor/dev/
+# so changes can be tried in the real app before they are merged.
+# Requires Settings > Pages > Source: "GitHub Actions", and the github-pages
+# environment must allow deployments from main and claude/*.
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  workflow_dispatch:
+    inputs:
+      preview_branch:
+        description: "Branch to publish in /dev/ (empty: the most recently updated claude/* branch)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out all branches
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Assemble the published app and the preview
+        env:
+          PREVIEW_BRANCH: ${{ github.event_name == 'push' && github.ref_name != 'main' && github.ref_name || inputs.preview_branch }}
+        run: bash .github/scripts/build-pages-site.sh
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

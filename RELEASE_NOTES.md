@@ -4,6 +4,27 @@
 
 ## Italiano
 
+### v0.66.2 — Anteprima delle nuove versioni
+
+Da questa versione ogni novità si può provare prima che arrivi nell'app pubblicata.
+
+#### Anteprima
+
+- L'app pubblicata resta all'indirizzo di sempre: **giuseppelevibo.github.io/MD_Editor/**.
+- La versione in sviluppo è su **giuseppelevibo.github.io/MD_Editor/dev/** e si aggiorna da sola a ogni modifica.
+- Nell'anteprima l'etichetta in basso indica **anteprima** e il codice della modifica, per esempio `v0.66.2 · anteprima · 1a2b3c4`; il titolo della finestra termina con "(preview)".
+- L'anteprima si può installare come app separata, **MD Preview**, accanto all'app normale.
+
+#### Le due versioni non si disturbano
+
+- L'anteprima ha impostazioni, bozze e memoria **Ricorda** separate: provarla non cambia nulla nell'app pubblicata.
+- Le due versioni funzionano anche offline, ognuna con la propria copia dei file.
+- **Pulisci dati locali** nell'app pubblicata cancella anche i dati dell'anteprima, utile sui computer condivisi; nell'anteprima cancella solo i dati dell'anteprima.
+
+#### Aggiornare l'app installata
+
+Chiudi e riapri l'app dopo la pubblicazione; l'etichetta in basso deve indicare **v0.66.2**. Nulla cambia nell'uso dell'editor.
+
 ### v0.66.1 — Torna il documento di benvenuto
 
 #### Correzione
@@ -84,6 +105,27 @@ Questa versione rende prevedibile il lavoro con i file: un solo modo di salvare,
 L'app installata (PWA) si aggiorna da sola: dopo la pubblicazione chiudila e riaprila; se serve, ripeti una seconda volta. L'etichetta in basso deve indicare **v0.65.0**.
 
 ## English
+
+### v0.66.2 — Preview of upcoming versions
+
+From this version on, every change can be tried before it reaches the published app.
+
+#### Preview
+
+- The published app stays at its usual address: **giuseppelevibo.github.io/MD_Editor/**.
+- The version in development is at **giuseppelevibo.github.io/MD_Editor/dev/** and updates by itself with every change.
+- In the preview, the label at the bottom reads **preview** and the change code, for example `v0.66.2 · preview · 1a2b3c4`; the window title ends with "(preview)".
+- The preview can be installed as a separate app, **MD Preview**, next to the regular one.
+
+#### The two versions do not interfere
+
+- The preview has its own settings, drafts, and **Remember** memory: trying it changes nothing in the published app.
+- Both versions work offline, each with its own copy of the files.
+- **Clear local data** in the published app also deletes the preview's data, which helps on shared computers; in the preview it deletes only the preview's data.
+
+#### Updating the installed app
+
+Close and reopen the app after the release is published; the label at the bottom should read **v0.66.2**. Nothing changes in how the editor works.
 
 ### v0.66.1 — The welcome document is back
 

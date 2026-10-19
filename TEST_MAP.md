@@ -29,6 +29,8 @@ The goal is to protect the most important promises of the product.
 - Device memory is off by default and writes nothing to IndexedDB until the user confirms the shared-computer warning
 - `Clear local data` deletes the device memory database and turns the memory off
 - `Clear local data` never deletes original files
+- The preview copy in `/dev/` keeps its own preferences, drafts, and device memory; `Clear local data` in the published app also clears the preview, not the other way round
+- Each service worker deletes only the old caches of its own copy and never answers with another copy's cache
 - PWA window title shows document name, clean/modified state, length, and caret position without modifying document content
 - Desktop view-mode controls show paired, visual-only, Markdown-only, preview-only, and full layouts
 - Caret sync transfers focus between Visual editor and Markdown in full, paired, and single-pane modes without changing document content or dirty state
