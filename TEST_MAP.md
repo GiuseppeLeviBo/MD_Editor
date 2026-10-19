@@ -29,6 +29,8 @@ The goal is to protect the most important promises of the product.
 - Device memory is off by default and writes nothing to IndexedDB until the user confirms the shared-computer warning
 - `Clear local data` deletes the device memory database and turns the memory off
 - `Clear local data` never deletes original files
+- The preview copy in `/dev/` keeps its own preferences, drafts, and device memory; `Clear local data` in the published app also clears the preview, not the other way round
+- Each service worker deletes only the old caches of its own copy and never answers with another copy's cache
 - PWA window title shows document name, clean/modified state, length, and caret position without modifying document content
 - Desktop view-mode controls show paired, visual-only, Markdown-only, preview-only, and full layouts
 - Caret sync transfers focus between Visual editor and Markdown in full, paired, and single-pane modes without changing document content or dirty state
@@ -48,6 +50,7 @@ The goal is to protect the most important promises of the product.
 - Default language follows browser/system language
 - Default document text matches the active language
 - Changing language on the initial screen updates the initial document too
+- A language change in one window updates the other windows of the app, menus and untouched welcome document included, also after a reload
 - Refreshing the page restores the current per-tab draft from `sessionStorage`, with the document name and saved state
 - With device memory on, restarting the app restores the unsaved draft and offers to reconnect it to its file
 - Recent files reopen from the Recent dialog; dropped files keep their handle in Chromium

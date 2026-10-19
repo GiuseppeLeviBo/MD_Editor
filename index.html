@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
-  <link rel="manifest" href="./manifest.json?v=0.66.1">
+  <meta name="md-editor-channel" content="production">
+  <link rel="manifest" href="./manifest.json?v=0.66.2">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -1293,6 +1294,19 @@
       text-transform: uppercase;
     }
 
+    .build-badge.is-preview {
+      border-color: #7a4fb3;
+      background: #efe6fb;
+      color: #4b2a78;
+      font-weight: 600;
+    }
+
+    body[data-theme="dark"] .build-badge.is-preview {
+      border-color: #9b7bd0;
+      background: #33264a;
+      color: #e6dafa;
+    }
+
     @media (max-width: 1080px) {
       .workspace {
         grid-template-columns: 1fr;
@@ -1548,7 +1562,7 @@
         Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.66.1</div>
+      <div class="build-badge" id="buildBadge">v0.66.2</div>
     </footer>
   </main>
 
@@ -1673,7 +1687,15 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.66.1";
+    const APP_VERSION = "v0.66.2";
+    // The GitHub Pages workflow also publishes the development branch in /dev/
+    // and marks that copy with <meta name="md-editor-channel" content="preview">.
+    // Both copies share the origin, so the preview keeps its preferences, drafts
+    // and device memory under separate names.
+    const appChannelMeta = document.querySelector('meta[name="md-editor-channel"]');
+    const IS_PREVIEW_CHANNEL = Boolean(appChannelMeta && appChannelMeta.content === "preview");
+    const PREVIEW_COMMIT = IS_PREVIEW_CHANNEL ? appChannelMeta.dataset.commit || "" : "";
+    const STORAGE_NAMESPACE = IS_PREVIEW_CHANNEL ? "preview_" : "";
     const THEME_COLORS = { light: "#b6572c", dark: "#241913" };
     const ACCEPTED_TEXT_DOCUMENT_EXTENSIONS = new Set([
       ".md", ".markdown", ".txt",
@@ -2259,6 +2281,7 @@
         statusFolderLinked: "Cartella documento collegata: i path relativi ora usano questa base",
         statusBlankDocumentReady: "Documento chiuso: foglio vuoto pronto",
         statusPrivacyReset: "Dati locali rimossi: editor riportato allo stato iniziale",
+        previewChannelBadge: "anteprima",
         statusCleared: "Contenuto svuotato",
         statusCopied: "Markdown copiato negli appunti",
         statusCopyFailed: "Copia non riuscita",
@@ -2487,6 +2510,7 @@
         statusFolderLinked: "Document folder linked: relative paths now use this base",
         statusBlankDocumentReady: "Document closed: blank sheet ready",
         statusPrivacyReset: "Local data cleared: editor restored to its initial state",
+        previewChannelBadge: "preview",
         statusCleared: "Content cleared",
         statusCopied: "Markdown copied to clipboard",
         statusCopyFailed: "Copy failed",
@@ -5451,7 +5475,9 @@
     // by default because the PWA may run on shared computers (school, library):
     // while it is off nothing is written, and "Clear local data" deletes the
     // whole database.
-    const DOCUMENT_MEMORY_DB_NAME = "md-editor-memory";
+    const DOCUMENT_MEMORY_DB_BASE_NAME = "md-editor-memory";
+    const DOCUMENT_MEMORY_PREVIEW_DB_NAME = DOCUMENT_MEMORY_DB_BASE_NAME + "-preview";
+    const DOCUMENT_MEMORY_DB_NAME = IS_PREVIEW_CHANNEL ? DOCUMENT_MEMORY_PREVIEW_DB_NAME : DOCUMENT_MEMORY_DB_BASE_NAME;
     const DOCUMENT_MEMORY_STORE = "entries";
     const DOCUMENT_MEMORY_MAX_RECENT = 8;
     const DOCUMENT_MEMORY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -5669,13 +5695,17 @@
         if (!this.isAvailable()) {
           return;
         }
-        await new Promise(resolve => {
-          const request = indexedDB.deleteDatabase(DOCUMENT_MEMORY_DB_NAME);
-          request.onsuccess = () => resolve();
-          request.onerror = () => resolve();
-          request.onblocked = () => resolve();
-        });
+        await deleteIndexedDatabase(DOCUMENT_MEMORY_DB_NAME);
       }
+    }
+
+    function deleteIndexedDatabase(name) {
+      return new Promise(resolve => {
+        const request = indexedDB.deleteDatabase(name);
+        request.onsuccess = () => resolve();
+        request.onerror = () => resolve();
+        request.onblocked = () => resolve();
+      });
     }
 
     const documentMemory = new DocumentMemory();
@@ -5744,11 +5774,11 @@
 <!-- === HistoryManager === -->
 <script id="Script-HistoryManager">
     function getStorageKey(key) {
-      return "wysiwyg_markdown_editor_" + key;
+      return "wysiwyg_markdown_editor_" + STORAGE_NAMESPACE + key;
     }
 
     function getSessionKey(key) {
-      return "wysiwyg_markdown_editor_session_" + key;
+      return "wysiwyg_markdown_editor_session_" + STORAGE_NAMESPACE + key;
     }
 
     function savePreference(key, value) {
@@ -5909,16 +5939,19 @@
       } catch {}
     }
 
+    // In the published app the prefixes also cover the preview's keys, so
+    // "Clear local data" on a shared computer removes both copies' data. The
+    // preview clears only its own.
     function clearAllPreferences() {
       try {
         Object.keys(localStorage)
-          .filter(key => key.startsWith("wysiwyg_markdown_editor_"))
+          .filter(key => key.startsWith(getStorageKey("")))
           .forEach(key => localStorage.removeItem(key));
       } catch {}
 
       try {
         Object.keys(sessionStorage)
-          .filter(key => key.startsWith("wysiwyg_markdown_editor_session_"))
+          .filter(key => key.startsWith(getSessionKey("")))
           .forEach(key => sessionStorage.removeItem(key));
       } catch {}
     }
@@ -5928,7 +5961,10 @@
       document.documentElement.lang = currentLanguage;
       languageSelect.value = currentLanguage;
       savePreference("language", currentLanguage);
-      buildBadge.textContent = APP_VERSION;
+      buildBadge.textContent = IS_PREVIEW_CHANNEL
+        ? [APP_VERSION, t("previewChannelBadge"), PREVIEW_COMMIT].filter(Boolean).join(" · ")
+        : APP_VERSION;
+      buildBadge.classList.toggle("is-preview", IS_PREVIEW_CHANNEL);
       updateThemeToggleUi();
       folderSuggestionText.textContent = t("promptAutoLinkFolder");
       folderSuggestionAction.textContent = t("actionLinkFolderNow");
@@ -6489,7 +6525,7 @@
         + " - " + (isDirty ? "modified" : "clean")
         + " - " + stats.lines + " lines, " + stats.chars + " chars"
         + " - L" + caret.line + ":C" + caret.column
-        + " - MD Editor";
+        + (IS_PREVIEW_CHANNEL ? " - MD Editor (preview)" : " - MD Editor");
     }
 
     function queueWindowTitleUpdate() {
@@ -9753,6 +9789,9 @@
       clearResolvedResources();
       clearAllPreferences();
       await documentMemory.deleteAll();
+      if (!IS_PREVIEW_CHANNEL && documentMemory.isAvailable()) {
+        await deleteIndexedDatabase(DOCUMENT_MEMORY_PREVIEW_DB_NAME);
+      }
       currentDocumentMemoryId = null;
       hideResumeSuggestion();
       closeRecentDocumentsDialog();
@@ -11176,6 +11215,13 @@
         void documentMemory.flushSessionSave();
       }
     });
+    // All windows of the app share the language preference: follow a change
+    // made in another window so menus and welcome document stay in step.
+    window.addEventListener("storage", event => {
+      if (event.key === getStorageKey("language") && event.newValue && event.newValue !== currentLanguage) {
+        setLanguage(event.newValue);
+      }
+    });
 
     const savedLanguage = loadPreference("language", detectPreferredLanguage());
     const savedTheme = loadPreference("theme", "");
@@ -11194,6 +11240,11 @@
     hasPersistedDocumentVersion = false;
     if (savedDraft && savedDocumentState) {
       restoreDocumentSessionState(savedDocumentState);
+    }
+    // The tab may hold the untouched welcome document in the language it had
+    // before another window of the app changed the language.
+    if (isInitialDocumentState()) {
+      markdownInput.value = getInitialMarkdown();
     }
     resetHistory(markdownInput.value);
     const startupMarkdown = markdownInput.value;
@@ -11216,7 +11267,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.66.1", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.66.2", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });

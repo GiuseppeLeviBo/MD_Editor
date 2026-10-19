@@ -6,6 +6,13 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 
 ![Markdown WYSIWYG Editor screenshot](./Screenshot.png)
 
+## Release notes - v0.66.2
+
+- Development preview: every push to a development branch (`claude/*`) is published at [/MD_Editor/dev/](https://giuseppelevibo.github.io/MD_Editor/dev/) by a GitHub Actions workflow, while `main` stays at the usual address; see [Development preview](#development-preview)
+- The preview keeps its own preferences, drafts, device memory, and offline cache, so trying it does not change the published app
+- The service worker now reads and deletes only the caches of its own copy of the app
+- Fixed: with the app open in several windows, a language change reached the menus but not the welcome document after a reload; the language now follows in every window of the app
+
 ## Release notes - v0.66.1
 
 - Fixed: the welcome document, with the updated shortcut table, appears again on every new launch; since v0.65.0 it appeared only on the very first launch
@@ -186,3 +193,23 @@ Shortcuts follow Word and Google Docs. They work in the visual editor and in the
 ## Development
 
 This project is intentionally simple and easy to inspect. Most of the application still lives in `index.html`, with a small set of extra files required by the PWA layer.
+
+### Development preview
+
+GitHub Pages is deployed by `.github/workflows/pages.yml` (Settings > Pages > Source: GitHub Actions). Every deployment publishes two copies of the app:
+
+| Address | Content |
+| --- | --- |
+| [giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.github.io/MD_Editor/) | the `main` branch |
+| [giuseppelevibo.github.io/MD_Editor/dev/](https://giuseppelevibo.github.io/MD_Editor/dev/) | the development branch: the branch just pushed, or the most recently updated `claude/*` branch |
+
+The workflow runs on every push to `main` or `claude/*`, and can be started by hand with a branch name. The `github-pages` environment must allow deployments from `main` and `claude/*`.
+
+`.github/scripts/build-pages-site.sh` marks the copy in `dev/` with `<meta name="md-editor-channel" content="preview">`. Both copies share the origin `giuseppelevibo.github.io`, so the preview:
+
+- shows `preview` and the commit next to the version, and `(preview)` in the window title;
+- stores preferences, drafts, and device memory under separate names (`wysiwyg_markdown_editor_preview_*`, IndexedDB `md-editor-memory-preview`);
+- installs as a separate app, "MD Preview", with its own manifest `id` (`md-editor-preview`): the published app's `id` is `./`, which browsers resolve against the origin, so without it both copies would be the same app and visiting one would rename and redirect the installed other one;
+- is excluded from search engines (`noindex`).
+
+Each service worker reads and deletes only the caches of its own scope, so the two copies keep working offline side by side. `Clear local data` in the published app also removes the preview's data; in the preview it removes only the preview's data. A branch older than v0.66.2 has no preview marker and is not published in `dev/`.
