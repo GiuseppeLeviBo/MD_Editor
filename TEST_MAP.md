@@ -47,6 +47,8 @@ The goal is to protect the most important promises of the product.
 - Arabic and Hebrew blocks run right to left and Latin blocks left to right in the visual editor and the preview; the saved Markdown gets no direction markup
 - Code, inline code, and formulas stay left to right inside right-to-left text
 - Chinese, Japanese, and Korean documents get the matching `lang`; front matter `lang` and `dir` override detection
+- A Chinese, Japanese, or Korean paragraph inside a document in another language gets its own `lang`; kanji-only text in a Japanese document keeps the document language
+- The welcome document (IT/EN) shows an example in every language with the right direction and language
 - A line break between Chinese or Japanese characters adds no space; bold and italic work next to CJK punctuation
 - Enter that confirms an input-method candidate does not split list items; undo skips half-composed text
 - Find/Replace matches Arabic and Hebrew without vowel marks, decomposed text, and keeps offsets after `İ` when ignoring case

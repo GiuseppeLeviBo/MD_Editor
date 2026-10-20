@@ -184,6 +184,37 @@ test.describe("Chinese, Japanese and Korean", () => {
     }
   });
 
+  test("a Chinese, Japanese or Korean paragraph inside another document gets its own language", async ({ page }) => {
+    await loadDocument(page, [
+      "Un documento italiano con alcuni esempi in altre lingue, scritto per controllare che ogni paragrafo usi i caratteri giusti senza cambiare la lingua del resto del documento, che resta italiano.",
+      "",
+      "これは日本語の段落です。",
+      "",
+      "这是一个中文段落。",
+      "",
+      "이것은 한국어 문단입니다."
+    ].join("\n"));
+
+    await expect(page.locator("#preview")).not.toHaveAttribute("lang", /.*/);
+    for (const root of ["#visualEditor", "#preview"]) {
+      expect(await page.locator(`${root} > p`).evaluateAll(paragraphs => paragraphs.map(paragraph => paragraph.getAttribute("lang"))))
+        .toEqual([null, "ja", "zh", "ko"]);
+    }
+    const fonts = await page.locator("#preview > p").evaluateAll(paragraphs => paragraphs.map(paragraph => getComputedStyle(paragraph).fontFamily));
+    expect(fonts[1]).toContain("Mincho");
+    expect(fonts[2]).toContain("Songti SC");
+    expect(fonts[3]).toContain("Batang");
+    await expect(page.locator("#markdownInput")).toHaveValue(/^Un documento italiano/);
+  });
+
+  test("kanji-only text in a Japanese document keeps the document language", async ({ page }) => {
+    await loadDocument(page, "# 東京都庁舎\n\nこれは日本語の文章です。東京都の建物について書きます。\n\n한국어 인용문입니다.");
+
+    await expect(page.locator("#preview")).toHaveAttribute("lang", "ja");
+    expect(await page.locator("#preview > h1, #preview > p").evaluateAll(blocks => blocks.map(block => block.getAttribute("lang"))))
+      .toEqual([null, null, "ko"]);
+  });
+
   test("front matter lang overrides the detected language", async ({ page }) => {
     await loadDocument(page, "---\nlang: zh-TW\n---\n\n這是繁體中文。");
 
@@ -226,6 +257,44 @@ test.describe("Chinese, Japanese and Korean", () => {
     await page.locator("#preview a", { hasText: "b" }).click();
     await expect(page.locator("#preview h2").first()).toBeInViewport();
   });
+});
+
+test.describe("welcome document", () => {
+  for (const [locale, heading] of [["it-IT", "Lingue: arabo, ebraico, cinese, giapponese e coreano"], ["en-US", "Languages: Arabic, Hebrew, Chinese, Japanese, and Korean"]]) {
+    test(`shows an example in every language (${locale})`, async ({ browser }) => {
+      const context = await browser.newContext({ locale });
+      const page = await context.newPage();
+      await page.goto("/");
+      await expect(page.locator("#preview h2", { hasText: heading })).toBeVisible();
+
+      const examples = await page.locator("#preview").evaluate(preview => {
+        const direction = selector => getComputedStyle(preview.querySelector(selector)).direction;
+        const languageOf = text => Array.from(preview.querySelectorAll(":scope > p")).find(paragraph => paragraph.textContent.includes(text));
+        return {
+          document: preview.getAttribute("lang"),
+          arabic: getComputedStyle(languageOf("مرحبا بالعالم")).direction,
+          arabicList: direction(":scope > ul:has(input[type=checkbox])"),
+          hebrewQuote: Array.from(preview.querySelectorAll(":scope > blockquote")).filter(quote => /[\u0590-\u05FF]/.test(quote.textContent)).map(quote => getComputedStyle(quote).direction),
+          table: direction(":scope > table"),
+          chinese: [languageOf("中文").getAttribute("lang"), languageOf("中文").textContent],
+          japanese: [languageOf("日本語").getAttribute("lang"), languageOf("日本語").textContent],
+          korean: languageOf("한국어").getAttribute("lang")
+        };
+      });
+
+      expect(examples).toEqual({
+        document: null,
+        arabic: "rtl",
+        arabicList: "rtl",
+        hebrewQuote: ["rtl"],
+        table: "rtl",
+        chinese: ["zh", "这是一个中文段落。源文件中的换行不会变成空格。"],
+        japanese: ["ja", "これは「日本語」の段落です。原稿の改行はスペースになりません。"],
+        korean: "ko"
+      });
+      await context.close();
+    });
+  }
 });
 
 test.describe("input methods for Chinese, Japanese and Korean", () => {

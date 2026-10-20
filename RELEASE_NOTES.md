@@ -19,11 +19,15 @@ L'editor ora gestisce bene le lingue scritte da destra a sinistra e le lingue as
 
 #### Cinese, giapponese e coreano
 
-- L'editor riconosce la lingua del documento e usa i caratteri adatti: lo stesso ideogramma si disegna in modo diverso in cinese e in giapponese.
+- L'editor riconosce la lingua del documento e usa i caratteri adatti: lo stesso ideogramma si disegna in modo diverso in cinese e in giapponese. Anche un singolo paragrafo cinese, giapponese o coreano dentro un documento in italiano usa i caratteri della propria lingua.
 - Andare a capo nel testo tra due caratteri cinesi o giapponesi non aggiunge più uno spazio.
 - Il **grassetto** e il *corsivo* funzionano anche vicino alla punteggiatura asiatica, per esempio `**「強調」**です`.
 - In coreano le parole non vengono spezzate quando la riga va a capo.
 - **Metodi di inserimento (IME):** confermare una parola con Invio non crea più una nuova voce di elenco, e Annulla non torna al testo a metà composizione.
+
+#### Documento di benvenuto
+
+Il documento di benvenuto ha una nuova sezione con un esempio in ogni lingua: un paragrafo, un elenco e una tabella in arabo, una citazione in ebraico, e un paragrafo in cinese, giapponese e coreano.
 
 #### Lingua e direzione di tutto il documento
 
@@ -167,11 +171,15 @@ The editor now handles right-to-left and East Asian languages in every panel, in
 
 #### Chinese, Japanese, and Korean
 
-- The editor recognizes the document language and uses suitable characters: the same ideograph is drawn differently in Chinese and in Japanese.
+- The editor recognizes the document language and uses suitable characters: the same ideograph is drawn differently in Chinese and in Japanese. Even a single Chinese, Japanese, or Korean paragraph inside an English document uses the characters of its own language.
 - A line break in the text between two Chinese or Japanese characters no longer adds a space.
 - **Bold** and *italic* also work next to East Asian punctuation, for example `**「強調」**です`.
 - In Korean, words are not split when a line wraps.
 - **Input methods (IME):** confirming a word with Enter no longer creates a new list item, and undo does not go back to half-composed text.
+
+#### Welcome document
+
+The welcome document has a new section with an example in every language: a paragraph, a list, and a table in Arabic, a quote in Hebrew, and a paragraph in Chinese, Japanese, and Korean.
 
 #### Language and direction of the whole document
 

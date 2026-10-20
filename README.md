@@ -9,7 +9,8 @@ Web app: [https://giuseppelevibo.github.io/MD_Editor/](https://giuseppelevibo.gi
 ## Release notes - v0.70.0
 
 - Right-to-left text: Arabic and Hebrew paragraphs, headings, lists, quotes, and tables run right to left in the visual editor, the preview, print, and RTF export, while the rest of the document stays left to right; code and formulas always run left to right. See [Languages and text direction](#languages-and-text-direction)
-- Chinese, Japanese, and Korean: the document language is detected so the right glyphs are used, a line break between Chinese or Japanese characters adds no space, and bold/italic next to CJK punctuation works (markdown-it-cjk-friendly)
+- Chinese, Japanese, and Korean: the language of the document, and of each paragraph written in another of these languages, is detected so the right glyphs are used; a line break between Chinese or Japanese characters adds no space, and bold/italic next to CJK punctuation works (markdown-it-cjk-friendly)
+- The welcome document shows an example in each of these languages
 - `lang` and `dir` in the front matter set the language and direction of the whole document
 - Input methods: confirming a candidate with Enter no longer splits list items or quotes, and undo skips half-composed text
 - Find/Replace matches text regardless of Unicode normalization, ignores Arabic and Hebrew vowel marks, and keeps exact offsets when ignoring case (Turkish `İ`)
@@ -106,7 +107,7 @@ This is a stabilization beta focused on simplicity, portability, and common Mark
 The Markdown file never stores layout hints: direction and language come from the text, or from the front matter.
 
 - Every top-level block (paragraph, heading, list, quote, table) gets `dir="auto"` in the rendered HTML, as on GitHub: it runs in the direction of its first letter. List items, table cells, and nested paragraphs follow their own text through `unicode-bidi: plaintext`, and so does every line of the Markdown panel. Code, inline code, formulas, and Mermaid diagrams always run left to right.
-- Chinese, Japanese, and Korean are detected when they make up at least a fifth of the letters (code blocks excluded), and the editors and the preview get `lang="zh"`, `"ja"`, or `"ko"`, which picks matching fonts. Korean keeps words whole when wrapping (`word-break: keep-all`).
+- Chinese, Japanese, and Korean are detected when they make up at least a fifth of the letters (code blocks excluded), and the editors and the preview get `lang="zh"`, `"ja"`, or `"ko"`, which picks matching fonts. A top-level block written in one of these languages inside a document in another language gets its own `lang` (text written only in Han characters keeps the language of a Japanese or Korean document). Korean keeps words whole when wrapping (`word-break: keep-all`).
 - A soft line break between two Chinese or Japanese characters renders without a space; Korean, which separates words with spaces, keeps it.
 - Emphasis next to CJK punctuation (`**「強調」**です`) uses the CJK-friendly flanking rules of [markdown-it-cjk-friendly](https://github.com/tats-u/markdown-cjk-friendly), vendored in `vendor/markdown-it/` (rebuild with `npm run vendor:cjk`).
 - The front matter keys used by Pandoc override detection for the whole document:
