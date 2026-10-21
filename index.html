@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#b6572c">
   <meta name="description" content="Single-file Markdown WYSIWYG editor with live sync, preview, local file support, and PWA installability.">
   <meta name="md-editor-channel" content="production">
-  <link rel="manifest" href="./manifest.json?v=0.66.2">
+  <link rel="manifest" href="./manifest.json?v=0.70.0">
   <link rel="icon" href="./icon-192.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./vendor/katex/katex.min.css">
   <link rel="stylesheet" href="./vendor/prism/prism.min.css">
@@ -21,6 +21,7 @@
   <script src="./vendor/mermaid/mermaid.min.js"></script>
   <script src="./vendor/markdown-it/markdown-it.min.js"></script>
   <script src="./vendor/markdown-it/markdown-it-footnote.min.js"></script>
+  <script src="./vendor/markdown-it/markdown-it-cjk-friendly.min.js"></script>
   <script src="./vendor/dompurify/purify.min.js"></script>
   <title>New File - 0 lines, 0 chars - L1:C1 - MD Editor</title>
   <style>
@@ -356,7 +357,7 @@
     .editor ol.task-list,
     .preview ol.task-list {
       list-style: none;
-      padding-left: 0;
+      padding-inline-start: 0;
     }
 
     .editor li.list-gap-after,
@@ -405,7 +406,7 @@
     .editor li > ol.task-list,
     .preview li > ul.task-list,
     .preview li > ol.task-list {
-      padding-left: 1.7rem;
+      padding-inline-start: 1.7rem;
     }
 
     .editor table,
@@ -646,10 +647,71 @@
 
     .editor blockquote,
     .preview blockquote {
-      border-left: 4px solid var(--accent);
-      margin-left: 0;
-      padding-left: 16px;
+      border-inline-start: 4px solid var(--accent);
+      margin-inline-start: 0;
+      padding-inline-start: 16px;
       color: var(--muted);
+    }
+
+    /* Text direction. Blocks rendered from Markdown carry dir="auto"; blocks
+       created while typing, list items, cells and nested paragraphs get the
+       same per-block behavior from unicode-bidi. A direction declared in the
+       front matter (dir on the editor and the preview) applies to every block
+       instead. Code, formulas and diagrams always run left to right. */
+    #visualEditor:not([dir]),
+    #markdownInput,
+    :where(.editor:not([dir]), .preview:not([dir])) :where(p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, figcaption, div):not([dir]) {
+      unicode-bidi: plaintext;
+    }
+
+    .editor pre,
+    .preview pre,
+    .editor code,
+    .preview code,
+    .math-inline,
+    .math-block,
+    .mermaid-block {
+      direction: ltr;
+      unicode-bidi: isolate;
+    }
+
+    /* Letter spacing would break the joined letters of Arabic script. */
+    .editor :is(h1, h2, h3, h4, h5, h6):dir(rtl),
+    .preview :is(h1, h2, h3, h4, h5, h6):dir(rtl) {
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    /* Chinese, Japanese and Korean share characters drawn differently in each
+       language: the document language (detected, or "lang" in the front
+       matter) picks matching fonts, while Latin text keeps Georgia. */
+    .editor:lang(ja),
+    .preview:lang(ja),
+    #markdownInput:lang(ja),
+    :where(.editor, .preview) [lang]:lang(ja) {
+      font-family: Georgia, "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", "Noto Serif CJK JP", serif;
+    }
+
+    .editor:lang(zh),
+    .preview:lang(zh),
+    #markdownInput:lang(zh),
+    :where(.editor, .preview) [lang]:lang(zh) {
+      font-family: Georgia, "Songti SC", SimSun, "Noto Serif SC", "Noto Serif CJK SC", serif;
+    }
+
+    .editor:is(:lang(zh-TW), :lang(zh-HK), :lang(zh-Hant)),
+    .preview:is(:lang(zh-TW), :lang(zh-HK), :lang(zh-Hant)),
+    #markdownInput:is(:lang(zh-TW), :lang(zh-HK), :lang(zh-Hant)),
+    :where(.editor, .preview) [lang]:is(:lang(zh-TW), :lang(zh-HK), :lang(zh-Hant)) {
+      font-family: Georgia, "Songti TC", PMingLiU, "Noto Serif TC", "Noto Serif CJK TC", serif;
+    }
+
+    .editor:lang(ko),
+    .preview:lang(ko),
+    #markdownInput:lang(ko),
+    :where(.editor, .preview) [lang]:lang(ko) {
+      font-family: Georgia, AppleMyungjo, Batang, "Noto Serif KR", "Noto Serif CJK KR", serif;
+      word-break: keep-all;
     }
 
     .editor pre,
@@ -950,7 +1012,7 @@
 
     .editor .markdown-alert,
     .preview .markdown-alert {
-      border-left-color: var(--alert-color);
+      border-inline-start-color: var(--alert-color);
     }
 
     .markdown-alert-tip {
@@ -989,9 +1051,12 @@
       --alert-color: #f85149;
     }
 
+    /* The title has dir="auto" so that its English word does not decide the
+       direction of the quote; it is then laid out in the quote's direction. */
     .markdown-alert-title {
       color: var(--alert-color);
       font-weight: 600;
+      direction: inherit;
     }
 
     .md-html-block:empty {
@@ -1562,7 +1627,7 @@
         Markdown standard (CommonMark e GitHub: tabelle, task list, note, avvisi, HTML sicuro), formule LaTeX e grafici Mermaid. Le modifiche visuali riscrivono solo i blocchi toccati.
         La conversione HTML/Markdown e il parser sono volutamente leggeri per mantenere il file semplice e portabile.
       </span>
-      <div class="build-badge" id="buildBadge">v0.66.2</div>
+      <div class="build-badge" id="buildBadge">v0.70.0</div>
     </footer>
   </main>
 
@@ -1627,11 +1692,11 @@
       <div class="dialog-form-grid">
         <label class="dialog-field" for="findReplaceSearchInput">
           <span class="dialog-label" data-i18n="findLabel">Trova</span>
-          <input type="search" class="dialog-input" id="findReplaceSearchInput" autocomplete="off" spellcheck="false">
+          <input type="search" class="dialog-input" id="findReplaceSearchInput" dir="auto" autocomplete="off" spellcheck="false">
         </label>
         <label class="dialog-field" for="findReplaceReplaceInput">
           <span class="dialog-label" data-i18n="replaceLabel">Sostituisci con</span>
-          <input type="text" class="dialog-input" id="findReplaceReplaceInput" autocomplete="off" spellcheck="false">
+          <input type="text" class="dialog-input" id="findReplaceReplaceInput" dir="auto" autocomplete="off" spellcheck="false">
         </label>
         <label class="dialog-checkbox-label" for="findReplaceMatchCase">
           <input type="checkbox" id="findReplaceMatchCase">
@@ -1687,7 +1752,7 @@
     const imageInput = document.createElement("input");
     const markdownFileInput = document.createElement("input");
     const directoryInput = document.createElement("input");
-    const APP_VERSION = "v0.66.2";
+    const APP_VERSION = "v0.70.0";
     // The GitHub Pages workflow also publishes the development branch in /dev/
     // and marks that copy with <meta name="md-editor-channel" content="preview">.
     // Both copies share the origin, so the preview keeps its preferences, drafts
@@ -1865,6 +1930,7 @@
       const CODE_CARET_MARKER = "\u200B";
       const HISTORY_LIMIT = 500;
     let visualEditorMutationBaseline = "";
+    let isVisualEditorComposing = false;
     let visualDomSyncTimer = null;
     let pendingWindowTitleTimer = null;
     let currentReferenceDefinitions = new Map();
@@ -2680,6 +2746,7 @@
         "- anteprima HTML live",
         "- immagini nel documento",
         "- simboli speciali",
+        "- testi in arabo, ebraico, cinese, giapponese e coreano",
         "- interfaccia IT/EN",
         "",
         "## Esempio di formula LaTeX",
@@ -2707,6 +2774,54 @@
         "    B --> D[Anteprima HTML]",
         "    C --> E[Esporta]",
         "    D --> E",
+        "```",
+        "",
+        "## Lingue: arabo, ebraico, cinese, giapponese e coreano",
+        "",
+        "L'editor segue la direzione e la lingua del testo senza aggiungere codici al file Markdown. Ecco un esempio per ogni lingua.",
+        "",
+        "### Arabo ed ebraico: da destra a sinistra",
+        "",
+        "- Paragrafi, titoli, elenchi, citazioni e tabelle seguono la direzione del proprio testo; codice e formule restano da sinistra a destra.",
+        "- **Trova/Sostituisci** trova **محمد** anche in **مُحَمَّد** e **שלום** anche in **שָׁלוֹם**: le vocali sono facoltative.",
+        "",
+        "مرحبا بالعالم! هذه فقرة **عربية** تُكتب من اليمين إلى اليسار، مع الرقم ٢٠٢٦ وكلمة Markdown.",
+        "",
+        "- العنصر الأول",
+        "- العنصر الثاني",
+        "- [ ] مهمة لم تُنجز بعد",
+        "",
+        "> שלום עולם! זהו ציטוט בעברית, הנכתב מימין לשמאל.",
+        "",
+        "| المدينة | البلد |",
+        "| --- | --- |",
+        "| القاهرة | مصر |",
+        "| بيروت | لبنان |",
+        "",
+        "### Cinese, giapponese e coreano",
+        "",
+        "- Ogni paragrafo usa i caratteri della propria lingua: lo stesso ideogramma si disegna in modo diverso in cinese e in giapponese.",
+        "- Andare a capo tra due caratteri cinesi o giapponesi non aggiunge spazi; in coreano le parole non vengono spezzate a fine riga.",
+        "- Grassetto e corsivo funzionano anche accanto alla punteggiatura asiatica.",
+        "- Con un metodo di inserimento (IME), Invio conferma la parola senza creare una nuova riga.",
+        "",
+        "这是一个**中文**段落。",
+        "源文件中的换行不会变成空格。",
+        "",
+        "これは**「日本語」**の段落です。",
+        "原稿の改行はスペースになりません。",
+        "",
+        "이것은 **한국어** 문단입니다. 줄이 바뀌어도 단어는 중간에서 나뉘지 않습니다.",
+        "",
+        "### Lingua e direzione di tutto il documento",
+        "",
+        "Se tutto il documento è in una lingua, puoi indicarla all'inizio del file (`lang`: `ar`, `he`, `zh`, `ja`, `ko`…; `dir`: `rtl` da destra a sinistra, `ltr` da sinistra a destra):",
+        "",
+        "```yaml",
+        "---",
+        "lang: ar",
+        "dir: rtl",
+        "---",
         "```",
         "",
         "## Privacy e dati locali",
@@ -2758,6 +2873,7 @@
         "- live HTML preview",
         "- images inside the document",
         "- special symbols",
+        "- Arabic, Hebrew, Chinese, Japanese, and Korean text",
         "- IT/EN interface",
         "",
         "## LaTeX formula example",
@@ -2785,6 +2901,54 @@
         "    B --> D[HTML Preview]",
         "    C --> E[Export]",
         "    D --> E",
+        "```",
+        "",
+        "## Languages: Arabic, Hebrew, Chinese, Japanese, and Korean",
+        "",
+        "The editor follows the direction and language of the text without adding any codes to the Markdown file. Here is an example for each language.",
+        "",
+        "### Arabic and Hebrew: right to left",
+        "",
+        "- Paragraphs, headings, lists, quotes, and tables follow the direction of their own text; code and formulas stay left to right.",
+        "- **Find/Replace** finds **محمد** in **مُحَمَّد** and **שלום** in **שָׁלוֹם** too: vowel marks are optional.",
+        "",
+        "مرحبا بالعالم! هذه فقرة **عربية** تُكتب من اليمين إلى اليسار، مع الرقم ٢٠٢٦ وكلمة Markdown.",
+        "",
+        "- العنصر الأول",
+        "- العنصر الثاني",
+        "- [ ] مهمة لم تُنجز بعد",
+        "",
+        "> שלום עולם! זהו ציטוט בעברית, הנכתב מימין לשמאל.",
+        "",
+        "| المدينة | البلد |",
+        "| --- | --- |",
+        "| القاهرة | مصر |",
+        "| بيروت | لبنان |",
+        "",
+        "### Chinese, Japanese, and Korean",
+        "",
+        "- Each paragraph uses the characters of its own language: the same ideograph is drawn differently in Chinese and in Japanese.",
+        "- A line break between two Chinese or Japanese characters adds no space; in Korean, words are not split at the end of a line.",
+        "- Bold and italic also work next to East Asian punctuation.",
+        "- With an input method (IME), Enter confirms the word without starting a new line.",
+        "",
+        "这是一个**中文**段落。",
+        "源文件中的换行不会变成空格。",
+        "",
+        "これは**「日本語」**の段落です。",
+        "原稿の改行はスペースになりません。",
+        "",
+        "이것은 **한국어** 문단입니다. 줄이 바뀌어도 단어는 중간에서 나뉘지 않습니다.",
+        "",
+        "### Language and direction of the whole document",
+        "",
+        "If the whole document is in one language, you can set it at the top of the file (`lang`: `ar`, `he`, `zh`, `ja`, `ko`…; `dir`: `rtl` for right to left, `ltr` for left to right):",
+        "",
+        "```yaml",
+        "---",
+        "lang: ar",
+        "dir: rtl",
+        "---",
         "```",
         "",
         "## Privacy and local data",
@@ -3301,6 +3465,10 @@
       return key ? definitions.get(key) || null : null;
     }
 
+    // Latin accents are dropped ("Perché" -> "perche"), as before. Marks of
+    // other scripts are part of the letters (Japanese voiced kana, Devanagari
+    // vowel signs) and Korean syllables are recomposed, so anchors written in
+    // those languages keep matching their headings.
     function createMarkdownHeadingId(source, headingIdCounts) {
       const plainText = String(source || "")
         .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
@@ -3309,9 +3477,10 @@
         .replace(/<[^>]+>/g, "")
         .replace(/[`*~]/g, "")
         .normalize("NFD")
-        .replace(/\p{M}/gu, "")
+        .replace(/[\u0300-\u036f]/g, "")
+        .normalize("NFC")
         .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+        .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
         .trim()
         .replace(/\s+/g, "-")
         .replace(/-+/g, "-")
@@ -4269,6 +4438,77 @@
       }
     }
 
+    // Every top-level block gets dir="auto": Arabic or Hebrew paragraphs,
+    // lists, quotes and tables run right to left while the rest of the
+    // document stays left to right. Only top-level blocks get the attribute,
+    // because dir="auto" ignores children that have their own dir; list items,
+    // cells and nested paragraphs follow their own text through CSS
+    // (unicode-bidi: plaintext). A direction set in the front matter applies
+    // to every block: top-level blocks get it here, nested ones inherit it
+    // because the plaintext rule is off when the editor has a dir. The attribute exists only in the rendered HTML; the
+    // Markdown source carries no layout hints.
+    const MARKDOWN_DIRECTION_TOKENS = new Set(["paragraph_open", "heading_open", "bullet_list_open", "ordered_list_open", "blockquote_open", "table_open"]);
+
+    function markdownTextDirectionRule(state) {
+      const direction = state.env.documentDirection || "auto";
+      state.tokens.forEach(token => {
+        if (token.level === 0 && MARKDOWN_DIRECTION_TOKENS.has(token.type)) {
+          token.attrSet("dir", direction);
+        }
+      });
+    }
+
+    // A top-level block written in Chinese, Japanese or Korean inside a
+    // document in another language gets its own lang, so it uses the right
+    // glyphs and line breaking (a Japanese example in an Italian document,
+    // Korean next to Japanese). Text written only in Han characters is
+    // ambiguous: in a Japanese or Korean document it keeps the document's
+    // language.
+    function markdownBlockLanguageRule(state) {
+      const documentLanguage = String(state.env.documentLanguage || "").toLowerCase();
+      const tokens = state.tokens;
+      for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token.level !== 0 || !MARKDOWN_DIRECTION_TOKENS.has(token.type)) {
+          continue;
+        }
+        const end = findTokenBlockEnd(tokens, index);
+        const text = tokens.slice(index, end + 1)
+          .filter(entry => entry.type === "inline")
+          .map(entry => entry.content)
+          .join("\n");
+        const language = detectDocumentScriptLanguage(text);
+        if (!language || documentLanguage.startsWith(language) || (language === "zh" && /^(ja|ko)/.test(documentLanguage))) {
+          continue;
+        }
+        token.attrSet("lang", language);
+      }
+    }
+
+    // Chinese and Japanese are written without spaces, so a line break inside
+    // a paragraph between two of their characters must not become a space.
+    // Korean separates words with spaces and keeps the usual behavior.
+    const CJK_NO_SPACE_CHARACTER = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Bopomofo}\u3000-\u303F\u30FC\uFF00-\uFFEF]/u;
+
+    function getSoftbreakNeighbourCharacter(tokens, index, step) {
+      for (let cursor = index + step; cursor >= 0 && cursor < tokens.length; cursor += step) {
+        const token = tokens[cursor];
+        if (token.type === "text" || token.type === "code_inline") {
+          const characters = Array.from(token.content);
+          return step < 0 ? characters[characters.length - 1] || "" : characters[0] || "";
+        }
+        if (token.nesting === 0) {
+          return "";
+        }
+      }
+      return "";
+    }
+
+    function isCjkSoftbreak(tokens, index) {
+      return CJK_NO_SPACE_CHARACTER.test(getSoftbreakNeighbourCharacter(tokens, index, -1))
+        && CJK_NO_SPACE_CHARACTER.test(getSoftbreakNeighbourCharacter(tokens, index, 1));
+    }
+
     function getMarkdownRendererAlignment(token) {
       const style = token.attrGet("style") || "";
       const match = style.match(/text-align:\s*(left|center|right)/i);
@@ -4279,7 +4519,7 @@
       return (tokens, index) => {
         const token = tokens[index];
         const alignment = getMarkdownRendererAlignment(token);
-        const textAlign = alignment === "center" || alignment === "right" ? alignment : "left";
+        const textAlign = alignment === "default" ? "start" : alignment;
         return "<" + tag + ' data-align="' + alignment + '" style="text-align:' + textAlign + '">';
       };
     }
@@ -4304,11 +4544,18 @@
       if (typeof window.markdownitFootnote === "function") {
         md.use(window.markdownitFootnote);
       }
+      // CommonMark does not close **bold** after CJK punctuation such as
+      // "**「強調」**です"; this plugin applies the CJK-friendly flanking rules.
+      if (typeof window.markdownitCjkFriendly === "function") {
+        md.use(window.markdownitCjkFriendly);
+      }
 
       md.block.ruler.before("table", "front_matter", markdownFrontMatterRule);
       md.block.ruler.before("code", "math_block", markdownMathBlockRule, { alt: ["paragraph", "reference", "blockquote", "list"] });
       md.inline.ruler.before("escape", "math_inline", markdownMathInlineRule);
       md.core.ruler.push("md_editor_list_layout", markdownListLayoutRule);
+      md.core.ruler.push("md_editor_text_direction", markdownTextDirectionRule);
+      md.core.ruler.push("md_editor_block_language", markdownBlockLanguageRule);
 
       const linkRule = md.inline.ruler.__rules__.find(rule => rule.name === "link");
       if (linkRule) {
@@ -4410,14 +4657,14 @@
         const alert = token.attrGet("data-md-alert");
         const title = alert ? alert.charAt(0) + alert.slice(1).toLowerCase() : "";
         return "<blockquote" + self.renderAttrs(token) + ">"
-          + (alert ? '<p class="markdown-alert-title" data-md-generated="alert-title" contenteditable="false">' + escapeHtml(title) + "</p>" : "");
+          + (alert ? '<p class="markdown-alert-title" dir="auto" data-md-generated="alert-title" contenteditable="false">' + escapeHtml(title) + "</p>" : "");
       };
       rules.th_open = renderMarkdownTableCell("th");
       rules.td_open = renderMarkdownTableCell("td");
       rules.s_open = () => "<del>";
       rules.s_close = () => "</del>";
       rules.hardbreak = () => "<br>";
-      rules.softbreak = () => "\n";
+      rules.softbreak = (tokens, index) => (isCjkSoftbreak(tokens, index) ? "" : "\n");
 
       rules.code_block = (tokens, index, options, env) => {
         const token = tokens[index];
@@ -4702,6 +4949,52 @@
       return Array.from(warnings);
     }
 
+    // Language and base direction of the whole document. The "lang" and "dir"
+    // front matter keys (the ones Pandoc uses) win. Otherwise Chinese,
+    // Japanese and Korean are recognised from the text, because the browser
+    // needs the language to pick the right glyphs and line breaking.
+    // Right-to-left text needs nothing here: each block follows its own text.
+    const DOCUMENT_LANGUAGE_TAG = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$/;
+
+    function readFrontMatterValue(frontMatter, key) {
+      const line = frontMatter.split("\n").find(entry => new RegExp("^" + key + "\\s*:", "i").test(entry));
+      return line ? line.replace(/^[^:]*:/, "").replace(/\s+#.*$/, "").trim().replace(/^(["'])(.*)\1$/, "$2").trim() : "";
+    }
+
+    function detectDocumentScriptLanguage(markdown) {
+      const text = markdown
+        .slice(0, 50000)
+        .replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "")
+        .replace(/`[^`\n]*`/g, "")
+        .replace(/\bhttps?:\/\/\S+/g, "");
+      const count = pattern => (text.match(pattern) || []).length;
+      const letters = count(/\p{L}/gu);
+      const hangul = count(/\p{Script=Hangul}/gu);
+      const kana = count(/[\p{Script=Hiragana}\p{Script=Katakana}]/gu);
+      const han = count(/\p{Script=Han}/gu);
+      if (!letters) {
+        return "";
+      }
+      if (hangul >= han + kana) {
+        return hangul * 5 >= letters ? "ko" : "";
+      }
+      if ((han + kana) * 5 < letters) {
+        return "";
+      }
+      return kana ? "ja" : "zh";
+    }
+
+    function getDocumentLanguageInfo(markdown) {
+      const source = String(markdown || "").replace(/\r\n?/g, "\n");
+      const frontMatter = source.match(/^---\n([\s\S]*?)\n(?:---|\.\.\.)[ \t]*(?:\n|$)/);
+      const declaredLanguage = frontMatter ? readFrontMatterValue(frontMatter[1], "lang") : "";
+      const declaredDirection = frontMatter ? readFrontMatterValue(frontMatter[1], "dir").toLowerCase() : "";
+      return {
+        lang: DOCUMENT_LANGUAGE_TAG.test(declaredLanguage) ? declaredLanguage : detectDocumentScriptLanguage(source),
+        dir: declaredDirection === "rtl" || declaredDirection === "ltr" ? declaredDirection : ""
+      };
+    }
+
     async function markdownToHtml(markdown) {
       const source = String(markdown || "").replace(/\r\n?/g, "\n");
       const referenceData = extractReferenceDefinitionData(source);
@@ -4718,7 +5011,10 @@
       }
 
       const lines = source.split("\n");
+      const languageInfo = getDocumentLanguageInfo(source);
       const env = {
+        documentDirection: languageInfo.dir,
+        documentLanguage: languageInfo.lang,
         mdSourceLines: lines,
         headingIdCounts: new Map(),
         linkStack: [],
@@ -6245,6 +6541,12 @@
         .replace(/\\\(|\\\)/g, "")
         .replace(/\$\$|\$/g, "")
         .replace(/[`*_~|]/g, "")
+        .replace(/\n/g, (newline, index, text) => (
+          CJK_NO_SPACE_CHARACTER.test(Array.from(text.slice(Math.max(0, index - 2), index)).pop() || "")
+            && CJK_NO_SPACE_CHARACTER.test(String.fromCodePoint(text.codePointAt(index + 1) || 32))
+            ? ""
+            : newline
+        ))
         .replace(/\s+/g, " ");
     }
 
@@ -6781,6 +7083,26 @@
     // DocumentSyncController owns the two synchronization directions and the
     // "latest render wins" guard. Callers keep using the small wrapper functions
     // below, but the render side effects are now contained in one collaborator.
+    // The editors and the preview carry the document's language (for fonts
+    // and line breaking) and, when the front matter sets it, its direction.
+    function applyDocumentLanguage(markdown) {
+      const { lang, dir } = getDocumentLanguageInfo(markdown);
+      [visualEditor, preview, markdownInput].forEach(element => {
+        if (lang) {
+          element.setAttribute("lang", lang);
+        } else {
+          element.removeAttribute("lang");
+        }
+      });
+      [visualEditor, preview].forEach(element => {
+        if (dir) {
+          element.setAttribute("dir", dir);
+        } else {
+          element.removeAttribute("dir");
+        }
+      });
+    }
+
     class DocumentSyncController {
       constructor(options) {
         this.markdownInput = options.markdownInput;
@@ -6793,6 +7115,7 @@
         this.saveDraft = options.saveDraft;
         this.queueHistorySnapshot = options.queueHistorySnapshot;
         this.setStatusKey = options.setStatusKey;
+        this.applyDocumentLanguage = options.applyDocumentLanguage;
         this.version = 0;
         // Source map of the blocks currently shown in the visual editor. It is
         // only replaced when the visual DOM is rebuilt from a render.
@@ -6822,6 +7145,7 @@
         this.showInVisualEditor(renderResult, markdown);
         this.preview.innerHTML = renderResult.html;
         preparePreviewDom(this.preview);
+        this.applyDocumentLanguage(markdown);
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
         this.setStatusKey(renderResult.warnings.length ? renderResult.warnings[0] : "statusFromMarkdown");
@@ -6844,6 +7168,7 @@
         }
         this.preview.innerHTML = renderResult.html;
         preparePreviewDom(this.preview);
+        this.applyDocumentLanguage(markdown);
         this.saveDraft(markdown);
         this.queueHistorySnapshot(markdown);
         this.setStatusKey(renderResult.warnings.length ? renderResult.warnings[0] : "statusFromVisual");
@@ -6860,7 +7185,8 @@
       syncCheckboxAttributes,
       saveDraft: value => persistDocumentSession(value),
       queueHistorySnapshot,
-      setStatusKey: key => setStatus(t(key))
+      setStatusKey: key => setStatus(t(key)),
+      applyDocumentLanguage
     });
 
     async function syncFromMarkdown() {
@@ -6977,6 +7303,14 @@
       mirror.style.paddingBottom = computedStyle.paddingBottom;
       mirror.style.paddingLeft = computedStyle.paddingLeft;
       mirror.style.tabSize = computedStyle.tabSize;
+      mirror.style.direction = computedStyle.direction;
+      mirror.style.unicodeBidi = computedStyle.unicodeBidi;
+      if (computedStyle.wordBreak === "keep-all") {
+        mirror.style.wordBreak = "keep-all";
+      }
+      if (textarea.lang) {
+        mirror.lang = textarea.lang;
+      }
       mirror.textContent = source.slice(0, safeOffset);
       marker.textContent = " ";
       mirror.appendChild(marker);
@@ -7090,6 +7424,90 @@
       const alignRatio = typeof options.alignRatio === "number" ? options.alignRatio : 0.42;
       const targetTop = normalizedLineIndex < 3 ? 0 : lineTop - (textarea.clientHeight * alignRatio);
       textarea.scrollTop = Math.min(Math.max(0, targetTop), maxScrollTop);
+    }
+
+    // Find matches text the way a reader sees it. Each cluster (a character
+    // with its combining marks) is compared after Unicode normalization, so
+    // "é" typed as one or two code points and Korean syllables stored as
+    // separate jamo match; Arabic and Hebrew vowel marks and the Arabic
+    // tatweel are ignored, as in word processors. Case is folded per cluster
+    // (the Turkish İ folds to i), so offsets of later matches never shift.
+    // A cluster that folding leaves unchanged maps back character by
+    // character (a consonant is found inside a Devanagari syllable); one that
+    // folding changes maps back as a whole. Offsets refer to the original
+    // text.
+    const SEARCH_IGNORED_MARKS = /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u0610-\u061A\u0640\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g;
+    const SEARCH_CLUSTER = /[^\p{M}\u1160-\u11FF\uD7B0-\uD7FF][\p{M}\u1160-\u11FF\uD7B0-\uD7FF]*|[\p{M}\u1160-\u11FF\uD7B0-\uD7FF]+/gu;
+
+    function foldSearchCluster(cluster, matchCase) {
+      const folded = cluster.normalize("NFC").replace(SEARCH_IGNORED_MARKS, "");
+      return matchCase ? folded : folded.toLocaleLowerCase().replace(/([ij])\u0307/g, "$1");
+    }
+
+    function foldSearchText(text, matchCase) {
+      return (String(text || "").match(SEARCH_CLUSTER) || []).map(cluster => foldSearchCluster(cluster, matchCase)).join("");
+    }
+
+    // Typing in the search field searches the same text again and again.
+    let cachedSearchIndex = null;
+
+    function buildSearchIndex(source, matchCase) {
+      if (cachedSearchIndex && cachedSearchIndex.source === source && cachedSearchIndex.matchCase === matchCase) {
+        return cachedSearchIndex.index;
+      }
+      const pieces = [];
+      const clusterStart = [];
+      const originalStart = [];
+      const originalEnd = [];
+      for (const match of source.matchAll(SEARCH_CLUSTER)) {
+        const folded = foldSearchCluster(match[0], matchCase);
+        const unchanged = folded === match[0];
+        const end = match.index + match[0].length;
+        for (let index = 0; index < folded.length; index += 1) {
+          clusterStart.push(unchanged || index === 0);
+          originalStart.push(unchanged ? match.index + index : match.index);
+          originalEnd.push(unchanged ? match.index + index + 1 : end);
+        }
+        pieces.push(folded);
+      }
+      const index = { text: pieces.join(""), clusterStart, originalStart, originalEnd };
+      cachedSearchIndex = { source, matchCase, index };
+      return index;
+    }
+
+    function findTextMatches(source, searchTerm, matchCase) {
+      const matches = [];
+      if (!searchTerm) {
+        return matches;
+      }
+      // Plain ASCII needs none of the above and keeps its offsets when lowercased.
+      if (/^[\x00-\x7F]*$/.test(source) && /^[\x00-\x7F]*$/.test(searchTerm)) {
+        const haystack = matchCase ? source : source.toLowerCase();
+        const needle = matchCase ? searchTerm : searchTerm.toLowerCase();
+        for (let index = haystack.indexOf(needle); index !== -1; index = haystack.indexOf(needle, index + needle.length)) {
+          matches.push({ start: index, end: index + needle.length });
+        }
+        return matches;
+      }
+
+      const needle = foldSearchText(searchTerm, matchCase);
+      if (!needle) {
+        return matches;
+      }
+      const index = buildSearchIndex(source, matchCase);
+      for (let found = index.text.indexOf(needle); found !== -1; found = index.text.indexOf(needle, found + 1)) {
+        const end = found + needle.length;
+        if (!index.clusterStart[found]) {
+          continue;
+        }
+        // A match that ends inside a changed cluster takes the whole cluster.
+        const start = index.originalStart[found];
+        if (matches.length && start < matches[matches.length - 1].end) {
+          continue;
+        }
+        matches.push({ start, end: index.originalEnd[end - 1] });
+      }
+      return matches;
     }
 
     class FindReplaceController {
@@ -7286,27 +7704,7 @@
       }
 
       getMatches() {
-        const searchTerm = this.getSearchTerm();
-        if (!searchTerm) {
-          return [];
-        }
-
-        const source = this.markdownInput.value || "";
-        const haystack = this.matchCaseInput.checked ? source : source.toLocaleLowerCase();
-        const needle = this.matchCaseInput.checked ? searchTerm : searchTerm.toLocaleLowerCase();
-        const matches = [];
-        let offset = 0;
-
-        while (offset <= haystack.length - needle.length) {
-          const index = haystack.indexOf(needle, offset);
-          if (index === -1) {
-            break;
-          }
-          matches.push({ start: index, end: index + needle.length });
-          offset = index + Math.max(needle.length, 1);
-        }
-
-        return matches;
+        return findTextMatches(this.markdownInput.value || "", this.getSearchTerm(), this.matchCaseInput.checked);
       }
 
       updateSummary() {
@@ -10094,13 +10492,35 @@
       }).join("");
     }
 
+    // A block follows its first letter, like dir="auto" in the editor; an
+    // explicit dir on the block or an ancestor (the front matter direction)
+    // wins.
+    function getFirstStrongDirection(text) {
+      const letter = String(text || "").match(/\p{L}/u);
+      if (!letter) {
+        return "";
+      }
+      return /[\p{Script=Arabic}\p{Script=Hebrew}\p{Script=Syriac}\p{Script=Thaana}\p{Script=Nko}\p{Script=Samaritan}\p{Script=Mandaic}\p{Script=Adlam}]/u.test(letter[0]) ? "rtl" : "ltr";
+    }
+
+    function getRtfTextDirection(node) {
+      const declared = node.closest('[dir="rtl"], [dir="ltr"]');
+      if (declared) {
+        return declared.getAttribute("dir");
+      }
+      return getFirstStrongDirection(node.textContent) || "ltr";
+    }
+
     function makeRtfParagraph(content, options = {}) {
       const commands = ["\\pard"];
+      if (options.rtl) {
+        commands.push("\\rtlpar\\qr");
+      }
       if (options.keepWithNext) {
         commands.push("\\keepn");
       }
       if (options.leftIndent) {
-        commands.push(`\\li${options.leftIndent}`);
+        commands.push(options.rtl ? `\\ri${options.leftIndent}` : `\\li${options.leftIndent}`);
       }
       if (options.firstLineIndent) {
         commands.push(`\\fi${options.firstLineIndent}`);
@@ -10168,7 +10588,8 @@
         rtf += makeRtfParagraph(`${marker}${inlineContent}`, {
           leftIndent: 720 * (depth + 1),
           firstLineIndent: -360,
-          spaceAfter: 80
+          spaceAfter: 80,
+          rtl: getRtfTextDirection(item) === "rtl"
         });
 
         nestedLists.forEach(nestedList => {
@@ -10194,8 +10615,9 @@
       const cellWidth = Math.floor(pageWidth / Math.max(1, columnCount));
       let rtf = "";
 
+      const rowDirection = getRtfTextDirection(table) === "rtl" ? "\\rtlrow" : "";
       rows.forEach(row => {
-        rtf += "\\trowd\\trgaph108";
+        rtf += "\\trowd" + rowDirection + "\\trgaph108";
         for (let columnIndex = 1; columnIndex <= columnCount; columnIndex += 1) {
           rtf += `\\cellx${cellWidth * columnIndex}`;
         }
@@ -10223,27 +10645,28 @@
 
       const tag = node.tagName.toLowerCase();
       const indent = context.blockquoteDepth ? context.blockquoteDepth * 720 : 0;
+      const rtl = getRtfTextDirection(node) === "rtl";
 
       if (tag === "h1") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h1, bold: true, keepWithNext: true, spaceBefore: 140, spaceAfter: 80, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h1, bold: true, keepWithNext: true, spaceBefore: 140, spaceAfter: 80, leftIndent: indent, rtl });
       }
       if (tag === "h2") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h2, bold: true, keepWithNext: true, spaceBefore: 120, spaceAfter: 80, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h2, bold: true, keepWithNext: true, spaceBefore: 120, spaceAfter: 80, leftIndent: indent, rtl });
       }
       if (tag === "h3") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h3, bold: true, keepWithNext: true, spaceBefore: 100, spaceAfter: 70, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h3, bold: true, keepWithNext: true, spaceBefore: 100, spaceAfter: 70, leftIndent: indent, rtl });
       }
       if (tag === "h4") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h4, bold: true, keepWithNext: true, spaceBefore: 90, spaceAfter: 60, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h4, bold: true, keepWithNext: true, spaceBefore: 90, spaceAfter: 60, leftIndent: indent, rtl });
       }
       if (tag === "h5") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h5, bold: true, keepWithNext: true, spaceBefore: 80, spaceAfter: 50, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h5, bold: true, keepWithNext: true, spaceBefore: 80, spaceAfter: 50, leftIndent: indent, rtl });
       }
       if (tag === "h6") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h6, bold: true, keepWithNext: true, spaceBefore: 70, spaceAfter: 50, leftIndent: indent });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { fontSize: RTF_HEADING_FONT_SIZES.h6, bold: true, keepWithNext: true, spaceBefore: 70, spaceAfter: 50, leftIndent: indent, rtl });
       }
       if (tag === "p") {
-        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120 });
+        return makeRtfParagraph(serializeInlineNodesToRtf(node.childNodes), { leftIndent: indent, spaceAfter: 120, rtl });
       }
       if (node.hasAttribute("data-md-mermaid")) {
         const source = node.getAttribute("data-md-mermaid") || "";
@@ -10302,7 +10725,7 @@
           }
         }
         if (captionNode) {
-          rtf += makeRtfParagraph(serializeInlineNodesToRtf(captionNode.childNodes), { leftIndent: indent, italic: true, spaceAfter: 120 });
+          rtf += makeRtfParagraph(serializeInlineNodesToRtf(captionNode.childNodes), { leftIndent: indent, italic: true, spaceAfter: 120, rtl: getRtfTextDirection(captionNode) === "rtl" });
         }
         return rtf;
       }
@@ -10558,7 +10981,7 @@
     });
 
     function scheduleVisualDomMutationSync() {
-      if (visualEditor.innerHTML === visualEditorMutationBaseline) {
+      if (isVisualEditorComposing || visualEditor.innerHTML === visualEditorMutationBaseline) {
         return;
       }
       if (visualDomSyncTimer) {
@@ -10583,12 +11006,43 @@
       subtree: true
     });
 
+    // Blocks typed in the visual editor (new paragraphs, lists, quotes) get the
+    // same dir as rendered ones, so list markers and quote borders follow the
+    // direction of their text too.
+    function ensureVisualBlockDirection() {
+      const direction = visualEditor.getAttribute("dir") || "auto";
+      Array.from(visualEditor.children).forEach(block => {
+        if (!block.hasAttribute("dir")
+          && block.getAttribute("contenteditable") !== "false"
+          && /^(P|DIV|H[1-6]|UL|OL|BLOCKQUOTE|TABLE)$/.test(block.tagName)) {
+          block.setAttribute("dir", direction);
+        }
+      });
+    }
+
+    // Input methods for Chinese, Japanese and Korean compose a word over several
+    // key presses. The document is synced once the word is committed, so undo
+    // never returns to half-composed text and the editor is not rebuilt while
+    // the input method still owns the text.
+    visualEditor.addEventListener("compositionstart", () => {
+      isVisualEditorComposing = true;
+    });
+    visualEditor.addEventListener("compositionend", () => {
+      isVisualEditorComposing = false;
+      ensureVisualBlockDirection();
+      void syncFromVisual();
+    });
+
     visualEditor.addEventListener("input", event => {
       if (event.target && event.target.matches && event.target.matches('input[type="checkbox"]')) {
         handleTaskCheckboxToggle(event.target);
         updateToolbarState();
         return;
       }
+      if (event.isComposing || isVisualEditorComposing) {
+        return;
+      }
+      ensureVisualBlockDirection();
       void syncFromVisual();
       updateToolbarState();
     });
@@ -10614,7 +11068,13 @@
       }, 0);
     });
 
-    markdownInput.addEventListener("input", () => {
+    markdownInput.addEventListener("input", event => {
+      if (event.isComposing) {
+        return;
+      }
+      void syncFromMarkdown();
+    });
+    markdownInput.addEventListener("compositionend", () => {
       void syncFromMarkdown();
     });
     markdownInput.addEventListener("keyup", queueWindowTitleUpdate);
@@ -10880,13 +11340,21 @@
       }
     });
 
+    // While an input method composes a word, Enter confirms a candidate and
+    // letters belong to the word: list, quote and table keys must not react.
     visualEditor.addEventListener("keydown", event => {
+      if (event.isComposing || event.keyCode === 229) {
+        return;
+      }
       if (handleTaskPrintableKey(event)) {
         return;
       }
       handleEditorShortcut(event);
     });
     visualEditor.addEventListener("beforeinput", event => {
+      if (event.isComposing) {
+        return;
+      }
       if (handleListGapDeleteKey(event)) {
         return;
       }
@@ -11267,7 +11735,7 @@
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        void navigator.serviceWorker.register("./sw.js?v=0.66.2", { updateViaCache: "none" }).then(registration => {
+        void navigator.serviceWorker.register("./sw.js?v=0.70.0", { updateViaCache: "none" }).then(registration => {
           void registration.update();
         });
       });
@@ -11311,8 +11779,10 @@
 
       const title = escapeHtml((currentDocumentName || "Markdown document").replace(/\.md$/i, ""));
       const renderedHtml = preview.innerHTML || "<p></p>";
+      const documentLanguage = getDocumentLanguageInfo(markdownInput.value);
+      const htmlAttributes = ` lang="${escapeHtml(documentLanguage.lang || currentLanguage)}"` + (documentLanguage.dir ? ` dir="${documentLanguage.dir}"` : "");
       const printHtml = `<!DOCTYPE html>
-<html lang="${currentLanguage}">
+<html${htmlAttributes}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11337,6 +11807,28 @@
     }
     pre, code {
       font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      direction: ltr;
+      unicode-bidi: isolate;
+    }
+    html:not([dir]) main :where(p, h1, h2, h3, h4, h5, h6, li, td, th, figcaption):not([dir]) {
+      unicode-bidi: plaintext;
+    }
+    html:lang(ja) body,
+    main [lang]:lang(ja) {
+      font-family: Georgia, "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP", "Noto Serif CJK JP", serif;
+    }
+    html:lang(zh) body,
+    main [lang]:lang(zh) {
+      font-family: Georgia, "Songti SC", SimSun, "Noto Serif SC", "Noto Serif CJK SC", serif;
+    }
+    html:is(:lang(zh-TW), :lang(zh-HK), :lang(zh-Hant)) body,
+    main [lang]:is(:lang(zh-TW), :lang(zh-HK), :lang(zh-Hant)) {
+      font-family: Georgia, "Songti TC", PMingLiU, "Noto Serif TC", "Noto Serif CJK TC", serif;
+    }
+    html:lang(ko) body,
+    main [lang]:lang(ko) {
+      font-family: Georgia, AppleMyungjo, Batang, "Noto Serif KR", "Noto Serif CJK KR", serif;
+      word-break: keep-all;
     }
     pre {
       background: #f4efe7;
@@ -11346,8 +11838,8 @@
     }
     blockquote {
       margin: 1.2em 0;
-      padding-left: 1em;
-      border-left: 4px solid #b6572c;
+      padding-inline-start: 1em;
+      border-inline-start: 4px solid #b6572c;
       color: #5f4b3f;
     }
     h1, h2, h3, h4, h5, h6 {

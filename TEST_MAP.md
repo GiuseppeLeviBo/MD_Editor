@@ -44,6 +44,18 @@ The goal is to protect the most important promises of the product.
 - Visual edits re-serialize only the edited blocks; untouched Markdown stays byte-identical
 - Toggling a task checkbox changes only its `[ ]` / `[x]` marker
 - Dangerous link schemes such as `javascript:` are neutralized or treated as plain text
+- Arabic and Hebrew blocks run right to left and Latin blocks left to right in the visual editor and the preview; the saved Markdown gets no direction markup
+- Code, inline code, and formulas stay left to right inside right-to-left text
+- Chinese, Japanese, and Korean documents get the matching `lang`; front matter `lang` and `dir` override detection
+- A Chinese, Japanese, or Korean paragraph inside a document in another language gets its own `lang`; kanji-only text in a Japanese document keeps the document language
+- The welcome document (IT/EN) shows an example in every language with the right direction and language
+- A line break between Chinese or Japanese characters adds no space; bold and italic work next to CJK punctuation
+- Enter that confirms an input-method candidate does not split list items; undo skips half-composed text
+- Find/Replace matches Arabic and Hebrew without vowel marks, decomposed text, and keeps offsets after `İ` when ignoring case
+- Caret sync keeps its place in multi-line Chinese paragraphs and in Arabic text after emoji
+- RTF export marks right-to-left paragraphs; print keeps the document language and direction
+- A direction declared in the front matter applies to list items, nested paragraphs, cells, and RTF paragraphs too
+- Ignoring case, `i` and `istanbul` find `İ`; `क` is found inside the Devanagari syllable `कि`
 
 ## Important
 
