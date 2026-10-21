@@ -654,11 +654,13 @@
     }
 
     /* Text direction. Blocks rendered from Markdown carry dir="auto"; blocks
-       created while typing get the same per-block behavior from
-       unicode-bidi. Code, formulas and diagrams always run left to right. */
-    #visualEditor,
+       created while typing, list items, cells and nested paragraphs get the
+       same per-block behavior from unicode-bidi. A direction declared in the
+       front matter (dir on the editor and the preview) applies to every block
+       instead. Code, formulas and diagrams always run left to right. */
+    #visualEditor:not([dir]),
     #markdownInput,
-    :where(.editor, .preview) :where(p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, figcaption, div):not([dir]) {
+    :where(.editor:not([dir]), .preview:not([dir])) :where(p, h1, h2, h3, h4, h5, h6, li, td, th, dt, dd, figcaption, div):not([dir]) {
       unicode-bidi: plaintext;
     }
 
@@ -4442,7 +4444,8 @@
     // because dir="auto" ignores children that have their own dir; list items,
     // cells and nested paragraphs follow their own text through CSS
     // (unicode-bidi: plaintext). A direction set in the front matter applies
-    // to every block. The attribute exists only in the rendered HTML; the
+    // to every block: top-level blocks get it here, nested ones inherit it
+    // because the plaintext rule is off when the editor has a dir. The attribute exists only in the rendered HTML; the
     // Markdown source carries no layout hints.
     const MARKDOWN_DIRECTION_TOKENS = new Set(["paragraph_open", "heading_open", "bullet_list_open", "ordered_list_open", "blockquote_open", "table_open"]);
 
@@ -7427,15 +7430,18 @@
     // with its combining marks) is compared after Unicode normalization, so
     // "é" typed as one or two code points and Korean syllables stored as
     // separate jamo match; Arabic and Hebrew vowel marks and the Arabic
-    // tatweel are ignored, as in word processors. Case is folded per cluster,
-    // so letters whose lowercase form is longer (Turkish İ) do not shift the
-    // offsets of later matches. Offsets always refer to the original text.
+    // tatweel are ignored, as in word processors. Case is folded per cluster
+    // (the Turkish İ folds to i), so offsets of later matches never shift.
+    // A cluster that folding leaves unchanged maps back character by
+    // character (a consonant is found inside a Devanagari syllable); one that
+    // folding changes maps back as a whole. Offsets refer to the original
+    // text.
     const SEARCH_IGNORED_MARKS = /[\u0591-\u05BD\u05BF\u05C1\u05C2\u05C4\u05C5\u05C7\u0610-\u061A\u0640\u064B-\u065F\u0670\u06D6-\u06DC\u06DF-\u06E4\u06E7\u06E8\u06EA-\u06ED]/g;
     const SEARCH_CLUSTER = /[^\p{M}\u1160-\u11FF\uD7B0-\uD7FF][\p{M}\u1160-\u11FF\uD7B0-\uD7FF]*|[\p{M}\u1160-\u11FF\uD7B0-\uD7FF]+/gu;
 
     function foldSearchCluster(cluster, matchCase) {
       const folded = cluster.normalize("NFC").replace(SEARCH_IGNORED_MARKS, "");
-      return matchCase ? folded : folded.toLocaleLowerCase();
+      return matchCase ? folded : folded.toLocaleLowerCase().replace(/([ij])\u0307/g, "$1");
     }
 
     function foldSearchText(text, matchCase) {
@@ -7455,11 +7461,12 @@
       const originalEnd = [];
       for (const match of source.matchAll(SEARCH_CLUSTER)) {
         const folded = foldSearchCluster(match[0], matchCase);
+        const unchanged = folded === match[0];
         const end = match.index + match[0].length;
         for (let index = 0; index < folded.length; index += 1) {
-          clusterStart.push(index === 0);
-          originalStart.push(match.index);
-          originalEnd.push(end);
+          clusterStart.push(unchanged || index === 0);
+          originalStart.push(unchanged ? match.index + index : match.index);
+          originalEnd.push(unchanged ? match.index + index + 1 : end);
         }
         pieces.push(folded);
       }
@@ -7490,9 +7497,10 @@
       const index = buildSearchIndex(source, matchCase);
       for (let found = index.text.indexOf(needle); found !== -1; found = index.text.indexOf(needle, found + 1)) {
         const end = found + needle.length;
-        if (!index.clusterStart[found] || (end < index.text.length && !index.clusterStart[end])) {
+        if (!index.clusterStart[found]) {
           continue;
         }
+        // A match that ends inside a changed cluster takes the whole cluster.
         const start = index.originalStart[found];
         if (matches.length && start < matches[matches.length - 1].end) {
           continue;
@@ -10484,8 +10492,9 @@
       }).join("");
     }
 
-    // A block follows its first letter, like dir="auto" in the editor; a
-    // direction set in the front matter (an explicit dir) wins.
+    // A block follows its first letter, like dir="auto" in the editor; an
+    // explicit dir on the block or an ancestor (the front matter direction)
+    // wins.
     function getFirstStrongDirection(text) {
       const letter = String(text || "").match(/\p{L}/u);
       if (!letter) {
@@ -10496,10 +10505,10 @@
 
     function getRtfTextDirection(node) {
       const declared = node.closest('[dir="rtl"], [dir="ltr"]');
-      if (declared === node) {
-        return node.getAttribute("dir");
+      if (declared) {
+        return declared.getAttribute("dir");
       }
-      return getFirstStrongDirection(node.textContent) || (declared ? declared.getAttribute("dir") : "ltr");
+      return getFirstStrongDirection(node.textContent) || "ltr";
     }
 
     function makeRtfParagraph(content, options = {}) {
@@ -11801,7 +11810,7 @@
       direction: ltr;
       unicode-bidi: isolate;
     }
-    main :where(p, h1, h2, h3, h4, h5, h6, li, td, th, figcaption):not([dir]) {
+    html:not([dir]) main :where(p, h1, h2, h3, h4, h5, h6, li, td, th, figcaption):not([dir]) {
       unicode-bidi: plaintext;
     }
     html:lang(ja) body,

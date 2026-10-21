@@ -106,7 +106,7 @@ This is a stabilization beta focused on simplicity, portability, and common Mark
 
 The Markdown file never stores layout hints: direction and language come from the text, or from the front matter.
 
-- Every top-level block (paragraph, heading, list, quote, table) gets `dir="auto"` in the rendered HTML, as on GitHub: it runs in the direction of its first letter. List items, table cells, and nested paragraphs follow their own text through `unicode-bidi: plaintext`, and so does every line of the Markdown panel. Code, inline code, formulas, and Mermaid diagrams always run left to right.
+- Every top-level block (paragraph, heading, list, quote, table) gets `dir="auto"` in the rendered HTML, as on GitHub: it runs in the direction of its first letter. List items, table cells, and nested paragraphs follow their own text through `unicode-bidi: plaintext`, and so does every line of the Markdown panel. A direction declared in the front matter applies to every block instead, nested ones included. Code, inline code, formulas, and Mermaid diagrams always run left to right.
 - Chinese, Japanese, and Korean are detected when they make up at least a fifth of the letters (code blocks excluded), and the editors and the preview get `lang="zh"`, `"ja"`, or `"ko"`, which picks matching fonts. A top-level block written in one of these languages inside a document in another language gets its own `lang` (text written only in Han characters keeps the language of a Japanese or Korean document). Korean keeps words whole when wrapping (`word-break: keep-all`).
 - A soft line break between two Chinese or Japanese characters renders without a space; Korean, which separates words with spaces, keeps it.
 - Emphasis next to CJK punctuation (`**「強調」**です`) uses the CJK-friendly flanking rules of [markdown-it-cjk-friendly](https://github.com/tats-u/markdown-cjk-friendly), vendored in `vendor/markdown-it/` (rebuild with `npm run vendor:cjk`).
@@ -120,7 +120,7 @@ The Markdown file never stores layout hints: direction and language come from th
   ```
 
 - Print uses the document language and direction; RTF export marks right-to-left paragraphs with `\rtlpar` and right-to-left tables with `\rtlrow`.
-- Find/Replace compares text after Unicode normalization and ignores Arabic and Hebrew vowel marks and the Arabic tatweel, so `محمد` finds `مُحَمَّد`.
+- Find/Replace compares text after Unicode normalization and ignores Arabic and Hebrew vowel marks and the Arabic tatweel, so `محمد` finds `مُحَمَّد`. Ignoring case, `istanbul` finds `İstanbul`; a letter is still found inside a syllable of scripts with vowel signs (`क` in `कि`).
 - While an input method composes a word, keys belong to the input method; the document is synced once the word is committed.
 
 ## Recommended workflow for Markdown files with local images

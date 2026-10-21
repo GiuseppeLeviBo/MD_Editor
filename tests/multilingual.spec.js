@@ -134,6 +134,21 @@ test.describe("right-to-left text", () => {
     ]);
   });
 
+  test("a direction declared in the front matter also applies to list items and nested paragraphs", async ({ page }) => {
+    await loadDocument(page, "---\ndir: rtl\n---\n\n- English item\n\n> English quote\n\n| Name |\n| --- |\n| Cell |");
+
+    for (const root of ["#visualEditor", "#preview"]) {
+      const sides = await page.locator(`${root} li, ${root} blockquote p, ${root} td`).evaluateAll(blocks => blocks.map(block => {
+        const range = document.createRange();
+        range.selectNodeContents(block);
+        const text = range.getBoundingClientRect();
+        const box = block.getBoundingClientRect();
+        return box.right - text.right < 20 ? "right" : "left";
+      }));
+      expect(sides).toEqual(["right", "right", "right"]);
+    }
+  });
+
   test("an alert's title sits on the side where its Arabic text starts", async ({ page }) => {
     await loadDocument(page, "> [!NOTE]\n> ملاحظة مهمة\n\n> [!TIP]\n> An English tip");
 
@@ -384,6 +399,20 @@ test.describe("find and replace in any script", () => {
     await expect(page.locator("#markdownInput")).toHaveValue("İstanbul ve İzmir, X");
   });
 
+  test("ignoring case, i and istanbul find the Turkish capital İ", async ({ page }) => {
+    await loadDocument(page, "İstanbul ve İzmir");
+    await replaceAll(page, "istanbul", "X");
+    await expect(page.locator("#markdownInput")).toHaveValue("X ve İzmir");
+    await replaceAll(page, "i", "Y");
+    await expect(page.locator("#markdownInput")).toHaveValue("X ve YzmYr");
+  });
+
+  test("finds a letter inside a syllable of scripts with vowel signs", async ({ page }) => {
+    await loadDocument(page, "किताब और कमल");
+    await replaceAll(page, "क", "ख");
+    await expect(page.locator("#markdownInput")).toHaveValue("खिताब और खमल");
+  });
+
   test("finds Japanese text and text after emoji", async ({ page }) => {
     await loadDocument(page, "😀 東京と京都 😀 京都");
     await replaceAll(page, "京都", "大阪");
@@ -447,6 +476,17 @@ test.describe("export and print", () => {
     expect(paragraphs.filter(part => part.includes("\\rtlpar"))).toHaveLength(3);
     expect(paragraphs.find(part => part.includes("Hello world"))).not.toContain("\\rtlpar");
     expect(rtf).toContain("\\u20013\\u25991\\u-10179\\u-8704");
+  });
+
+  test("RTF export follows the direction declared in the front matter", async ({ page }) => {
+    await loadDocument(page, "---\ndir: rtl\n---\n\n- English item");
+    const rtl = await page.evaluate(() => buildRtfDocumentFromPreview(document.getElementById("preview")));
+    expect(rtl.split("\\par\n").find(part => part.includes("English item"))).toContain("\\rtlpar");
+
+    await page.locator("#markdownInput").fill("---\ndir: ltr\n---\n\n- عنصر عربي");
+    await expect(page.locator("#preview li")).toHaveText("عنصر عربي");
+    const ltr = await page.evaluate(() => buildRtfDocumentFromPreview(document.getElementById("preview")));
+    expect(ltr).not.toContain("\\rtlpar");
   });
 
   test("print keeps the document language and direction", async ({ page }) => {

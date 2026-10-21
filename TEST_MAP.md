@@ -54,6 +54,8 @@ The goal is to protect the most important promises of the product.
 - Find/Replace matches Arabic and Hebrew without vowel marks, decomposed text, and keeps offsets after `İ` when ignoring case
 - Caret sync keeps its place in multi-line Chinese paragraphs and in Arabic text after emoji
 - RTF export marks right-to-left paragraphs; print keeps the document language and direction
+- A direction declared in the front matter applies to list items, nested paragraphs, cells, and RTF paragraphs too
+- Ignoring case, `i` and `istanbul` find `İ`; `क` is found inside the Devanagari syllable `कि`
 
 ## Important
 
